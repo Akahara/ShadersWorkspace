@@ -6,6 +6,9 @@ You can browse the shader collections and/or use the renderer to make your own.
 ## Shader examples
 
 ![could not load image](https://github.com/Akahara/ShadersWorkspace/blob/master/screens/summer_butterfly.png?raw=true)
+![](https://github.com/Akahara/ShadersWorkspace/blob/master/screens/flows.png?raw=true)
+
+These are animated when run, see more at `/screens`.
 
 ## dsd
 
@@ -35,3 +38,8 @@ dsd has been tested on both Mac OS X Lion and Windows 10, it should also work on
 
 Most build dependencies are located in `dsd/lib`, `fr.wonder.commons.systems` is also required but I have not made this repository public yet (comming soon), you should easily be able to remove the code relying on it.
 This project was successfully built using the Eclipse IDE, it was stripped of its project files.
+
+## TODOs
+
+- [ ] Handle more than just fragment shaders
+- [ ] Handle more uniforms (textures...)
