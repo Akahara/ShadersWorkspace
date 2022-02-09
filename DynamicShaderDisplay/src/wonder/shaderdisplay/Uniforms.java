@@ -1,8 +1,15 @@
 package wonder.shaderdisplay;
 
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL11.glBindTexture;
+import static org.lwjgl.opengl.GL20.glGetUniformLocation;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL20.glUniform2f;
+
 import java.util.ArrayList;
 import java.util.List;
-import static org.lwjgl.opengl.GL20.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 class Uniforms {
 	
@@ -10,9 +17,11 @@ class Uniforms {
 	
 	private static class Uniform {
 		
-		protected final int loc;
+		final int loc;
+		final String name;
 		
 		Uniform(int program, String name) {
+			this.name = name;
 			this.loc = glGetUniformLocation(program, name);
 		}
 		
@@ -24,27 +33,27 @@ class Uniforms {
 	static void scan(int program, String code) {
 		uniforms.clear();
 		
-		String bound = "";
-		
 		if(code.contains("uniform float iTime;")) {
 			uniforms.add(new TimeUniform(program));
-			bound += "iTime ";
 		}
 		
 		if(code.contains("uniform vec2 iResolution;")) {
 			uniforms.add(new ResolutionUniform(program));
-			bound += "iResolution ";
 		}
 		
-		for(int i = 0; i < 4; i++) {
-			if(code.contains("uniform sampler2D tex"+i+";")) {
-				uniforms.add(new TextureUniform(program, i));
-				bound += "tex"+i + " ";
-			}
+		Pattern texturePattern = Pattern.compile("\nuniform sampler2D (\\w+);\\s+//\\s+(.+)");
+		Matcher matcher = texturePattern.matcher(code);
+		
+		for(int i = 0; matcher.find(); i++) {
+			String name = matcher.group(1);
+			String path = matcher.group(2);
+			uniforms.add(new TextureUniform(program, i, name, path));
 		}
 		
-		if(!bound.isEmpty())
-			System.out.println("Bound uniforms: " + bound);
+		if(!uniforms.isEmpty()) {
+			Iterable<String> iter = () -> uniforms.stream().map(u -> u.name).iterator();
+			Main.logger.debug("Bound uniforms: " + String.join(" ", iter));
+		}
 	}
 	
 	static void apply() {
@@ -98,14 +107,18 @@ class Uniforms {
 	private static class TextureUniform extends Uniform {
 		
 		private final Texture texture;
+		private final int textureIndex;
 		
-		TextureUniform(int program, int sample) {
-			super(program, "tex"+sample);
-			this.texture = new Texture("sample-"+sample+".png");
+		TextureUniform(int program, int textureIndex, String name, String path) {
+			super(program, name);
+			this.texture = Texture.loadTexture(path);
+			this.textureIndex = textureIndex;
 		}
 		
 		@Override
-		public void reapply() {
+		public void apply() {
+			glUniform1i(loc, textureIndex);
+			glActiveTexture(GL_TEXTURE0 + textureIndex);
 			glBindTexture(GL_TEXTURE_2D, texture.id);
 		}
 		

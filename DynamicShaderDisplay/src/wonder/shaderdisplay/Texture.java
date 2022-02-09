@@ -1,28 +1,50 @@
 package wonder.shaderdisplay;
 
-import static org.lwjgl.opengl.GL12.*;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.imageio.ImageIO;
 
 class Texture {
 	
+	private static final Map<String, Texture> cachedTextures = new HashMap<>();
+	
 	final int id;
+	
+	static Texture loadTexture(String path) {
+		if(Main.options.noTextureCache) {
+			Main.logger.debug("Loading texture: " + path);
+			return new Texture(path);
+		}
+		if(cachedTextures.containsKey(path)) {
+			Main.logger.debug("Loading texture: " + path + " (cached)");
+			return cachedTextures.get(path);
+		}
+		Main.logger.debug("Loading texture: " + path);
+		Texture tex = new Texture(path);
+		cachedTextures.put(path, tex);
+		return tex;
+	}
+	
+	static void unloadTextures() {
+		for(Texture texture : cachedTextures.values())
+			texture.dispose();
+		cachedTextures.clear();
+		Main.logger.debug("Unloaded textures");
+	}
 
-	Texture(String name) {
+	private Texture(String path) {
 		int id;
 		
-		if(name == null) {
-			this.id = 0;
-			return;
-		}
-		
 		try {
-			BufferedImage image = ImageIO.read(Paths.get("res/textures/" + name).toFile());
+			BufferedImage image = ImageIO.read(Paths.get(path).toFile());
 			
 			int width = image.getWidth(), height = image.getHeight();
 			
@@ -63,7 +85,6 @@ class Texture {
 		
 		this.id = id;
 	}
-	
 
 	Texture(int width, int height, ByteBuffer buffer) {
 		this.id = glGenTextures();
@@ -74,6 +95,10 @@ class Texture {
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+	
+	public void dispose() {
+		glDeleteTextures(id);
 	}
 	
 }

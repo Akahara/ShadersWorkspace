@@ -6,28 +6,24 @@ import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.nio.ByteBuffer;
-
-import javax.imageio.ImageIO;
+import java.util.Arrays;
 
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
-
-import fr.wonder.commons.systems.reflection.ReflectUtils;
+import org.lwjgl.opengl.GLUtil;
 
 class GLWindow {
 
 	private static long window;
 	private static int shaderProgram;
-	private static int vertex;
-	private static int fragment;
+	private static int vertexShader, geometryShader, fragmentShader;
+	private static int bindableVAO;
 	static int winWidth, winHeight;
 
-	static void createWindow(int width, int height, String shaderSource, String vertexShader) {
+	static void createWindow(int width, int height) {
 		winWidth = width;
 		winHeight = height;
 
@@ -36,14 +32,14 @@ class GLWindow {
 		if (!glfwInit())
 			throw new IllegalStateException("Unable to initialize GLFW !");
 
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-
+		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+		
 		glfwSetErrorCallback((error, desc) -> {
-			System.err.println(
-					"GLFW error [" + Integer.toHexString(error) + "]: " + GLFWErrorCallback.getDescription(desc));
+			Main.logger.err("GLFW error [" + Integer.toHexString(error) + "]: " + GLFWErrorCallback.getDescription(desc));
 		});
 
 		window = glfwCreateWindow(width, height, "Shader Display", NULL, NULL);
@@ -56,30 +52,13 @@ class GLWindow {
 		glfwFocusWindow(window);
 
 		GL.createCapabilities();
+		
+		GLUtil.setupDebugMessageCallback(System.err);
+		
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 1);
 
-		pollGLError();
-
-		glBindVertexArray(glGenVertexArrays());
-
-		shaderProgram = glCreateProgram();
-
-		vertex = glCreateShader(GL_VERTEX_SHADER);
-		fragment = glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(vertex, vertexShader);
-		glShaderSource(fragment, shaderSource);
-		glCompileShader(vertex);
-		glCompileShader(fragment);
-		glAttachShader(shaderProgram, vertex);
-		glAttachShader(shaderProgram, fragment);
-		glLinkProgram(shaderProgram);
-		glValidateProgram(shaderProgram);
-		glUseProgram(shaderProgram);
-		Uniforms.scan(shaderProgram, shaderSource);
-		Uniforms.apply();
-
-		pollGLError();
+		glBindVertexArray(bindableVAO = glGenVertexArrays());
 
 		int vbo = glGenBuffers();
 		int ibo = glGenBuffers();
@@ -92,8 +71,6 @@ class GLWindow {
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, NULL);
 
-		pollGLError();
-
 		glfwSetWindowSizeCallback(window, (win, w, h) -> {
 			glViewport(0, 0, w, h);
 			winWidth = w;
@@ -101,8 +78,9 @@ class GLWindow {
 		});
 		
 		glfwSetKeyCallback(window, (win, key, scanCode, action, mods) -> {
-			if(action == GLFW_PRESS && key == GLFW_KEY_ESCAPE)
+			if(action == GLFW_PRESS && key == GLFW_KEY_ESCAPE) {
 				glfwSetWindowShouldClose(window, true);
+			}
 		});
 	}
 
@@ -111,6 +89,7 @@ class GLWindow {
 	}
 	
 	public static void dispose() {
+		GL.destroy();
 		glfwTerminate();
 		window = 0;
 	}
@@ -120,85 +99,76 @@ class GLWindow {
 	}
 	
 	public static void render() {
-		pollGLError();
 		glClear(GL_COLOR_BUFFER_BIT);
 		Uniforms.reapply();
+		glBindVertexArray(bindableVAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		pollGLError();
 	}
 
-	public static void compileNewShader(String source) {
-		pollGLError();
-		int newFragment = glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(newFragment, source);
-		glCompileShader(newFragment);
-		if (glGetShaderi(newFragment, GL_COMPILE_STATUS) != GL_FALSE) {
-			int newShader = glCreateProgram();
-			glAttachShader(newShader, newFragment);
-			glAttachShader(newShader, vertex);
-			glLinkProgram(newShader);
-			glValidateProgram(newShader);
-			if (glGetProgrami(newShader, GL_VALIDATE_STATUS) != GL_FALSE) {
-				System.out.println("Compiled successfully.");
-				glUseProgram(newShader);
-				Uniforms.scan(newShader, source);
-				Uniforms.apply();
-				// delete previous shaders
-				glDeleteShader(fragment);
-				glDeleteProgram(shaderProgram);
-				fragment = newFragment;
-				shaderProgram = newShader;
-			} else {
-				System.err.println("Unable to validate program:" + glGetProgramInfoLog(newShader));
-			}
-		} else {
-			System.err.println("Unable to validate shader:" + glGetShaderInfoLog(newFragment));
+	public static boolean compileShaders(String[] shaders) {
+		int newFragment = buildShader(shaders[Resources.TYPE_FRAGMENT], GL_FRAGMENT_SHADER);
+		int newVertex   = buildShader(shaders[Resources.TYPE_VERTEX], GL_VERTEX_SHADER);
+		int newGeometry = shaders[Resources.TYPE_GEOMETRY] == null ? 0 :
+							buildShader(shaders[Resources.TYPE_GEOMETRY], GL_GEOMETRY_SHADER);
+		
+		if(newFragment == -1 || newVertex == -1 || newGeometry == -1) {
+			deleteShaders(newVertex, newGeometry, newFragment);
+			return false;
 		}
-		System.out.println("Compiled new shader");
-		pollGLError();
-	}
-
-	private static void pollGLError() {
-		int err = glGetError();
-		if (err != 0)
-			System.out.println("GL error : " + err + " " + ReflectUtils.getCallerTrace());
+		
+		int newProgram = glCreateProgram();
+		glAttachShader(newProgram, newFragment);
+		glAttachShader(newProgram, newVertex);
+		if(newGeometry != 0)
+			glAttachShader(newProgram, newGeometry);
+		glLinkProgram(newProgram);
+		glValidateProgram(newProgram);
+		if(glGetProgrami(newProgram, GL_VALIDATE_STATUS) == GL_FALSE) {
+			Main.logger.warn("Linking error: " + glGetProgramInfoLog(newProgram).strip());
+			deleteShaders(newVertex, newGeometry, newFragment);
+			return false;
+		}
+		
+		Main.logger.info("Compiled successfully");
+		
+		deleteShaders(vertexShader, geometryShader, fragmentShader);
+		glDeleteProgram(shaderProgram);
+		glUseProgram(newProgram);
+		shaderProgram = newProgram;
+		vertexShader = newVertex;
+		geometryShader = newGeometry;
+		fragmentShader = newFragment;
+		
+		if(Main.options.noTextureCache)
+			Texture.unloadTextures();
+		
+		String pseudoTotalSource = Arrays.toString(shaders);
+		Uniforms.scan(newProgram, pseudoTotalSource);
+		Uniforms.apply();
+		
+		return true;
 	}
 	
-	public static void makeScreenshot(File outFile) {
-		int[] pixels = new int[winWidth * winHeight];
-		ByteBuffer fb = ByteBuffer.allocateDirect(winWidth * winHeight * 3);
-		glReadBuffer(GL_FRONT);
-		glReadPixels(0, 0, winWidth, winHeight, GL_RGB, GL_UNSIGNED_BYTE, fb);
-		pollGLError();
-		BufferedImage img = new BufferedImage(winWidth, winHeight, BufferedImage.TYPE_INT_RGB);
-//        for(int i = 0; i < pixels.length; i++) {
-//            pixels[i] =
-//                ((fb.get(i*3  ) << 16)) +
-//                ((fb.get(i*3+1) << 8 )) +
-//                ((fb.get(i*3+2) << 0 ));
-//        }
-//        img.setRGB(0, 0, winWidth, winHeight, pixels, 0, winWidth);
-//        AffineTransform at = AffineTransform.getScaleInstance(1, -1);
-//        at.translate(0, -img.getHeight(null));
-//        img = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR).filter(img, null);
-		for(int r = 0; r < winHeight; r++) {
-			for(int c = 0; c < winWidth; c++) {
-				int l = (c+winWidth*(winHeight-1-r))*3;
-				pixels[c+winWidth*r] =
-						((fb.get(l  ) << 16)) +
-						((fb.get(l+1) << 8 )) +
-						((fb.get(l+2) << 0 ));
-			}
+	private static int buildShader(String source, int glType) {
+		int id = glCreateShader(glType);
+		glShaderSource(id, source);
+		glCompileShader(id);
+		if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE) {
+			Main.logger.warn("Compilation error: ");
+			for(String line : glGetShaderInfoLog(id).strip().split("\n"))
+				Main.logger.warn("  " + line);
+			glDeleteShader(id);
+			return -1;
 		}
-		img.setRGB(0, 0, winWidth, winHeight, pixels, 0, winWidth);
-		try {
-			outFile.createNewFile();
-			ImageIO.write(img, "png", outFile);
-			System.out.println("Screenshot saved to file " + outFile.getAbsolutePath());
-		} catch (Exception e) {
-			System.err.println("Unable to save screenshot: " + e);
+		return id;
+	}
+	
+	private static void deleteShaders(int... shaders) {
+		for(int s : shaders) {
+			if(s > 0)
+				glDeleteShader(s);
 		}
 	}
 
