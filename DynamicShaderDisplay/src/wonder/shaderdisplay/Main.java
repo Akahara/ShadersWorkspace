@@ -1,5 +1,6 @@
 package wonder.shaderdisplay;
 
+import java.io.File;
 import java.io.IOException;
 
 import fr.wonder.commons.loggers.AnsiLogger;
@@ -17,6 +18,8 @@ public class Main {
 	public static Options options;
 	
 	public static void main(String[] args) {
+		args = new String[] { "run", "-c", "compute.cs", "-v", "vertex.vs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
+//		args = new String[] { "systeminfo" };
 		ArgParser.runHere(args);
 	}
 	
@@ -44,24 +47,35 @@ public class Main {
 		}
 	}
 	
+	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
+	public static void systemInformation() {
+		GLWindow.createWindow(1, 1);
+		GLWindow.printSystemInformation();
+		GLWindow.dispose();
+	}
+	
 	public static class Options {
 
 		@Option(name = "--geometry", shortand = "-g", desc = "The geometry shader file")
-		public String geometryShaderFile;
+		public File geometryShaderFile;
 		@Option(name = "--vertex", shortand = "-v", desc = "The vertex shader file")
-		public String vertexShaderFile;
+		public File vertexShaderFile;
+		@Option(name = "--compute", shortand = "-c", desc = "The compute shader file")
+		public File computeShaderFile;
 		@Option(name = "--fps", desc = "Target maximum fps (frames per second)")
 		public int targetFPS = 60;
 		@Option(name = "--no-texture-cache", desc = "Disable texture caching")
 		public boolean noTextureCache;
 		@Option(name = "--verbose", desc = "Verbose output")
 		public boolean verbose;
+		@Option(name = "--hard-reload", desc = "Reload every shader file every time a change is detected\n in one of their folders (may be required with some configurations)")
+		public boolean hardReload;
 		
 	}
 
 	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
 	@EntryPoint(path = "run", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
-	public static void runDisplay(Options options, String fragment) {
+	public static void runDisplay(Options options, File fragment) {
 		logger.info("-- Running display --");
 		
 		Main.options = options;
@@ -74,6 +88,8 @@ public class Main {
 				shaderFiles.addShaderFile(options.geometryShaderFile, Resources.TYPE_GEOMETRY);
 			if(options.vertexShaderFile != null)
 				shaderFiles.addShaderFile(options.vertexShaderFile, Resources.TYPE_VERTEX);
+			if(options.computeShaderFile != null)
+				shaderFiles.addShaderFile(options.computeShaderFile, Resources.TYPE_COMPUTE);
 			shaderFiles.completeWithDefaultSources();
 			shaderFiles.startWatching();
 		} catch (IOException e) {
@@ -90,22 +106,22 @@ public class Main {
 		logger.info("Creating window");
 		
 		try {
-			GLWindow.createWindow(500, 500);
-		} catch (Error e) {
-			logger.merr(e, "Unable to create the window");
-			exit();
-		}
-		
-		synchronized (shaderFiles) {
-			if(!GLWindow.compileShaders(shaderFiles.pollShadersSources())) {
-				logger.merr("Could not compile stored shader");
+			try {
+				GLWindow.createWindow(500, 500);
+			} catch (Error e) {
+				logger.merr(e, "Unable to create the window");
 				exit();
 			}
-		}
+			
+			synchronized (shaderFiles) {
+				if(!GLWindow.compileShaders(shaderFiles.pollShadersSources())) {
+					logger.merr("Could not compile stored shader");
+//					exit();
+				}
+			}
+			
+			logger.info("Running shader");
 		
-		logger.info("Running shader");
-		
-		try {
 			while (!GLWindow.shouldDispose()) {
 				long current = System.nanoTime();
 	

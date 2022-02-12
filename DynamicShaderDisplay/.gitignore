@@ -1,0 +1,5 @@
+target/
+/*.fs
+/*.gs
+/*.vs
+/*.cs

@@ -16,13 +16,15 @@ public class Resources {
 	public static final int TYPE_VERTEX = 0;
 	public static final int TYPE_GEOMETRY = 1;
 	public static final int TYPE_FRAGMENT = 2;
+	public static final int TYPE_COMPUTE = 3;
 	
-	public static final int SHADERS_COUNT = 3;
+	public static final int SHADERS_COUNT = 4;
 	
 	private static final String[] DEFAULT_SOURCES = {
 			"/defaultVertex.vs",
 			"/defaultGeometry.gs",
 			"/defaultFragment.fs",
+			"/defaultCompute.cs",
 	};
 	
 	public static final boolean[] REQUIRED_SHADERS = { true, false, true };

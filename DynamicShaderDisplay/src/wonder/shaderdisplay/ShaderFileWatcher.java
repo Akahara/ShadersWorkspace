@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import fr.wonder.commons.files.FilesUtils;
 import io.methvin.watcher.DirectoryWatcher;
 
 class ShaderFileWatcher {
@@ -15,8 +16,7 @@ class ShaderFileWatcher {
 	private final String[] shaderSources = new String[Resources.SHADERS_COUNT];
 	private boolean needShaderRecompilation;
 	
-	public void addShaderFile(String path, int type) throws IOException {
-		File file = new File(path).getAbsoluteFile();
+	public void addShaderFile(File file, int type) throws IOException {
 		shaderFiles[type] = file.toPath();
 		if(!file.isFile()) {
 			String source = Resources.readDefaultSource(type);
@@ -34,7 +34,7 @@ class ShaderFileWatcher {
 		}
 	}
 	
-	public void startWatching() throws IOException, IllegalArgumentException {
+	public void startWatching() throws IOException {
 		List<Path> paths = new ArrayList<>();
 		for(Path f : shaderFiles) {
 			if(f == null) continue;
@@ -42,27 +42,29 @@ class ShaderFileWatcher {
 			if(!paths.contains(parent)) {
 				paths.add(parent);
 				Main.logger.debug("Watching directory " + parent + " for file " + f);
+			} else {
+				Main.logger.debug("Already watching directory " + parent + " for file " + f);
 			}
 		}
 		DirectoryWatcher watcher = DirectoryWatcher
 				.builder()
 				.paths(paths)
 				.listener((ev) -> {
-					Path p = ev.path();
-					for(int i = 0; i < shaderFiles.length; i++) {
-						if(ev.path().equals(shaderFiles[i])) {
-							File f = p.toFile();
+					synchronized (ShaderFileWatcher.this) {
+						for(int i = 0; i < shaderFiles.length; i++) {
+							if(shaderFiles[i] == null || (!Main.options.hardReload && !ev.path().equals(shaderFiles[i])))
+								continue;
+							File f = shaderFiles[i].toFile();
 							if(!f.exists() || !f.isFile()) {
 								Main.logger.err("Shader file does not exist anymore '" + f + "'");
 								Main.exit();
 							}
 							try {
-								synchronized (this) {
-									shaderSources[i] = Files.readString(p);
-									needShaderRecompilation = true;
-								}
+								Main.logger.debug("Reloading " + f);
+								shaderSources[i] = FilesUtils.read(f);
+								needShaderRecompilation = true;
 							} catch (IOException e) {
-								Main.logger.err("Unable to read shader file '" + f + "'");
+								Main.logger.err("Unable to read shader file '" + f + "' " + e.getMessage());
 								Main.exit();
 							}
 						}
