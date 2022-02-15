@@ -4,12 +4,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import fr.wonder.commons.types.Tuple;
+import fr.wonder.commons.utils.ArrayOperator;
 
 public class Resources {
 	
@@ -87,6 +89,20 @@ public class Resources {
 	
 	public static String listSnippets(String name) throws IOException {
 		return collectSnippets(name, "\n", tuple -> tuple.a);
+	}
+
+	public static String concatStandardShaderSource(String[] shaders) {
+		return String.join("\n", ArrayOperator.filter(new String[] {
+				shaders[TYPE_VERTEX  ],
+				shaders[TYPE_FRAGMENT],
+				shaders[TYPE_GEOMETRY], },
+				Objects::nonNull));
+	}
+
+	public static String concatComputeShaderSource(String[] shaders) {
+		return String.join("\n", ArrayOperator.filter(new String[] {
+				shaders[TYPE_COMPUTE ], },
+				Objects::nonNull));
 	}
 	
 }

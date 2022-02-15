@@ -11,9 +11,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class Uniforms {
+class UniformsContext {
 	
-	private static List<Uniform> uniforms = new ArrayList<>();
+	private List<Uniform> uniforms = new ArrayList<>();
+	
+	private UniformsContext() {}
 	
 	private static class Uniform {
 		
@@ -30,16 +32,14 @@ class Uniforms {
 		
 	}
 	
-	static void scan(int program, String code) {
-		uniforms.clear();
+	public static UniformsContext scan(int program, String code) {
+		UniformsContext context = new UniformsContext();
 		
-		if(code.contains("uniform float iTime;")) {
-			uniforms.add(new TimeUniform(program));
-		}
+		if(code.contains("uniform float iTime;"))
+			context.uniforms.add(new TimeUniform(program));
 		
-		if(code.contains("uniform vec2 iResolution;")) {
-			uniforms.add(new ResolutionUniform(program));
-		}
+		if(code.contains("uniform vec2 iResolution;"))
+			context.uniforms.add(new ResolutionUniform(program));
 		
 		Pattern texturePattern = Pattern.compile("\nuniform sampler2D (\\w+);\\s+//\\s+(.+)");
 		Matcher matcher = texturePattern.matcher(code);
@@ -47,21 +47,23 @@ class Uniforms {
 		for(int i = 0; matcher.find(); i++) {
 			String name = matcher.group(1);
 			String path = matcher.group(2);
-			uniforms.add(new TextureUniform(program, i, name, path));
+			context.uniforms.add(new TextureUniform(program, i, name, path));
 		}
 		
-		if(!uniforms.isEmpty()) {
-			Iterable<String> iter = () -> uniforms.stream().map(u -> u.name).iterator();
+		if(!context.uniforms.isEmpty()) {
+			Iterable<String> iter = () -> context.uniforms.stream().map(u -> u.name).iterator();
 			Main.logger.debug("Bound uniforms: " + String.join(" ", iter));
 		}
+		
+		return context;
 	}
 	
-	static void apply() {
+	void apply() {
 		for(Uniform u : uniforms)
 			u.apply();
 	}
 	
-	static void reapply() {
+	void reapply() {
 		for(Uniform u : uniforms)
 			u.reapply();
 	}

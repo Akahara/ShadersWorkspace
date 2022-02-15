@@ -14,7 +14,6 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.lwjgl.glfw.Callbacks;
@@ -30,7 +29,7 @@ class GLWindow {
 	private static final int SHADER_STORAGE_DATA_SIZE = 128;
 	
 	private static long window;
-	private static int shaderStorageVertices, shaderStorageIndices;
+	private static UniformsContext standardShaderUniforms, computeShaderUniforms;
 	private static int standardShaderProgram, computeShaderProgram;
 	private static int vertexShader, geometryShader, fragmentShader, computeShader;
 	private static int bindableVAO;
@@ -82,12 +81,12 @@ class GLWindow {
 		ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(SHADER_STORAGE_DATA_SIZE, vertices);
 		ByteBuffer shaderStorageIndicesData  = BufferUtils.fromInts(1+SHADER_STORAGE_DATA_SIZE, indices );
 		
-		shaderStorageVertices = glGenBuffers();
+		int shaderStorageVertices = glGenBuffers();
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageVertices);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageVerticesData, GL_DYNAMIC_DRAW);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shaderStorageVertices);
 
-		shaderStorageIndices = glGenBuffers();
+		int shaderStorageIndices = glGenBuffers();
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageIndices);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageIndicesData, GL_DYNAMIC_DRAW);
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, shaderStorageIndices);
@@ -136,6 +135,7 @@ class GLWindow {
 	public static void render() {
 		if(computeShaderProgram > 0) {
 			glUseProgram(computeShaderProgram);
+			computeShaderUniforms.reapply();
 			glDispatchCompute(1, 1, 1);
 		}
 		
@@ -144,7 +144,7 @@ class GLWindow {
 		if(standardShaderProgram > 0) {
 			glFinish();
 			glUseProgram(standardShaderProgram);
-			Uniforms.reapply();
+			standardShaderUniforms.reapply();
 			glBindVertexArray(bindableVAO);
 			int triangleCount = BufferUtils.readBufferInt(GL_SHADER_STORAGE_BUFFER, 0);
 			glDrawElements(GL_TRIANGLES, 3*triangleCount, GL_UNSIGNED_INT, 4);
@@ -212,9 +212,13 @@ class GLWindow {
 		if(Main.options.noTextureCache)
 			Texture.unloadTextures();
 		
-		String pseudoTotalSource = Arrays.toString(shaders);
-		Uniforms.scan(newStandardProgram, pseudoTotalSource);
-		Uniforms.apply();
+		String pseudoTotalSource = Resources.concatStandardShaderSource(shaders);
+		standardShaderUniforms = UniformsContext.scan(newStandardProgram, pseudoTotalSource);
+		standardShaderUniforms.apply();
+		
+		String pseudoComputeSource = Resources.concatComputeShaderSource(shaders);
+		computeShaderUniforms = UniformsContext.scan(newComputeProgram, pseudoComputeSource);
+		computeShaderUniforms.apply();
 		
 		return true;
 	}
