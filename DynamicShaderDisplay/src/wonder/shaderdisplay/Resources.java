@@ -27,7 +27,7 @@ public class Resources {
 			"/defaultCompute.cs",
 	};
 	
-	public static final boolean[] REQUIRED_SHADERS = { true, false, true };
+	public static final boolean[] REQUIRED_SHADERS = { true, false, true, false };
 	
 	private static final String SNIPPETS_FILE = "/snippets.fs";
 	

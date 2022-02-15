@@ -20,6 +20,8 @@ public class Main {
 	public static void main(String[] args) {
 		args = new String[] { "run", "-c", "compute.cs", "-v", "vertex.vs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
 //		args = new String[] { "systeminfo" };
+//		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
+//		args = new String[] { "run" };
 		ArgParser.runHere(args);
 	}
 	

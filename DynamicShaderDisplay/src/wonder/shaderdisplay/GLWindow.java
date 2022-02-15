@@ -4,12 +4,15 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindBufferBase;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+import static org.lwjgl.opengl.GL30.glGetIntegeri;
 import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
 import static org.lwjgl.opengl.GL43.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,13 +23,14 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
+import fr.wonder.commons.exceptions.GenerationException;
+
 class GLWindow {
 
-	private static final int SHADER_STORAGE_DATA_SIZE = 16384;
+	private static final int SHADER_STORAGE_DATA_SIZE = 128;
 	
 	private static long window;
-	private static int shaderStorageBlock;
-	private static int[] shaderStorageData = new int[SHADER_STORAGE_DATA_SIZE];
+	private static int shaderStorageVertices, shaderStorageIndices;
 	private static int standardShaderProgram, computeShaderProgram;
 	private static int vertexShader, geometryShader, fragmentShader, computeShader;
 	private static int bindableVAO;
@@ -64,24 +68,37 @@ class GLWindow {
 		
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 1);
-
-		glBindVertexArray(bindableVAO = glGenVertexArrays());
-
-		int vbo = glGenBuffers();
-		int ibo = glGenBuffers();
-		float[] vertices = { -1, -1, 1, -1, 1, 1, -1, 1 };
-		int[] indices = { 0, 1, 2, 2, 3, 0 };
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, NULL);
 		
-		shaderStorageBlock = glGenBuffers();
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageBlock);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageData, GL_DYNAMIC_DRAW);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shaderStorageBlock);
+		glBindVertexArray(bindableVAO = glGenVertexArrays());
+		
+		float[] vertices = {
+				-1, -1, 0, 1,
+				 1, -1, 0, 1,
+				 1,  1, 0, 1,
+				-1,  1, 0, 1,
+				};
+		int[] indices = { 6, 0, 1, 2, 2, 3, 0 };
+		
+		ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(SHADER_STORAGE_DATA_SIZE, vertices);
+		ByteBuffer shaderStorageIndicesData  = BufferUtils.fromInts(1+SHADER_STORAGE_DATA_SIZE, indices );
+		
+		shaderStorageVertices = glGenBuffers();
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageVertices);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageVerticesData, GL_DYNAMIC_DRAW);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shaderStorageVertices);
+
+		shaderStorageIndices = glGenBuffers();
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageIndices);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageIndicesData, GL_DYNAMIC_DRAW);
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, shaderStorageIndices);
+		
+		glBindBuffer(GL_ARRAY_BUFFER, shaderStorageVertices);
+		glBufferData(GL_ARRAY_BUFFER, shaderStorageVerticesData, GL_STATIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shaderStorageIndices);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, shaderStorageIndicesData, GL_STATIC_DRAW);
+		
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, NULL);
 		
 		glfwSetWindowSizeCallback(window, (win, w, h) -> {
 			glViewport(0, 0, w, h);
@@ -120,20 +137,17 @@ class GLWindow {
 		if(computeShaderProgram > 0) {
 			glUseProgram(computeShaderProgram);
 			glDispatchCompute(1, 1, 1);
-			glMemoryBarrier(GL_ALL_BARRIER_BITS);
-//			glClientWaitSync(shaderStorageBlock, GL_BUFFER_ACCESS_FLAGS, 1000000);
-//			glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, shaderStorageData);
-//			System.out.println(shaderStorageData[0]);
 		}
 		
 		glClear(GL_COLOR_BUFFER_BIT);
 		
-		if(standardShaderProgram != 0) {
-			
+		if(standardShaderProgram > 0) {
+			glFinish();
 			glUseProgram(standardShaderProgram);
 			Uniforms.reapply();
 			glBindVertexArray(bindableVAO);
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
+			int triangleCount = BufferUtils.readBufferInt(GL_SHADER_STORAGE_BUFFER, 0);
+			glDrawElements(GL_TRIANGLES, 3*triangleCount, GL_UNSIGNED_INT, 4);
 		}
 		
 		glfwSwapBuffers(window);
@@ -141,58 +155,46 @@ class GLWindow {
 	}
 
 	public static boolean compileShaders(String[] shaders) {
-		int newFragment = buildShader(shaders[Resources.TYPE_FRAGMENT], GL_FRAGMENT_SHADER);
-		int newVertex   = buildShader(shaders[Resources.TYPE_VERTEX], GL_VERTEX_SHADER);
-		int newGeometry = shaders[Resources.TYPE_GEOMETRY] == null ? 0 :
-							buildShader(shaders[Resources.TYPE_GEOMETRY], GL_GEOMETRY_SHADER);
-		int newCompute = shaders[Resources.TYPE_COMPUTE] == null ? 0 :
-							buildShader(shaders[Resources.TYPE_COMPUTE], GL_COMPUTE_SHADER);
+		int newFragment = 0, newVertex = 0, newGeometry = 0, newCompute = 0;
+		int newStandardProgram = 0, newComputeProgram = 0;
+		try {
+			newVertex = buildShader(shaders[Resources.TYPE_VERTEX], GL_VERTEX_SHADER);
+			newFragment = buildShader(shaders[Resources.TYPE_FRAGMENT], GL_FRAGMENT_SHADER);
+			if(shaders[Resources.TYPE_GEOMETRY] != null)
+				newGeometry = buildShader(shaders[Resources.TYPE_GEOMETRY], GL_GEOMETRY_SHADER);
+			if(shaders[Resources.TYPE_COMPUTE] != null)
+				newCompute = buildShader(shaders[Resources.TYPE_COMPUTE], GL_COMPUTE_SHADER);
+			
+			if(newFragment == -1 || newVertex == -1 || newGeometry == -1 || newCompute == -1)
+				throw new GenerationException("Could not compile a shader");
+			
+			newStandardProgram = glCreateProgram();
+			glAttachShader(newStandardProgram, newFragment);
+			glAttachShader(newStandardProgram, newVertex);
+			if(newGeometry != 0) glAttachShader(newStandardProgram, newGeometry);
+			glLinkProgram(newStandardProgram);
+			
+			if(glGetProgrami(newStandardProgram, GL_LINK_STATUS) == GL_FALSE)
+				throw new GenerationException("Linking error: " + glGetProgramInfoLog(newStandardProgram).strip());
+			glValidateProgram(newStandardProgram);
+			if(glGetProgrami(newStandardProgram, GL_VALIDATE_STATUS) == GL_FALSE)
+				throw new GenerationException("Unexpected error: " + glGetProgramInfoLog(newStandardProgram).strip());
 		
-		if(newFragment == -1 || newVertex == -1 || newGeometry == -1 || newCompute == -1) {
-			Main.logger.warn("Could not compile a shader");
-			deleteShaders(newVertex, newGeometry, newFragment, newCompute);
-			return false;
-		}
-		
-		int newStandardProgram = glCreateProgram();
-		glAttachShader(newStandardProgram, newFragment);
-		glAttachShader(newStandardProgram, newVertex);
-		if(newGeometry != 0)
-			glAttachShader(newStandardProgram, newGeometry);
-		glLinkProgram(newStandardProgram);
-		if(glGetProgrami(newStandardProgram, GL_LINK_STATUS) == GL_FALSE) {
-			Main.logger.warn("Linking error: " + glGetProgramInfoLog(newStandardProgram).strip());
-			deleteShaders(newVertex, newGeometry, newFragment, newCompute);
-			deletePrograms(newStandardProgram);
-			return false;
-		}
-		glValidateProgram(newStandardProgram);
-		if(glGetProgrami(newStandardProgram, GL_VALIDATE_STATUS) == GL_FALSE) {
-			Main.logger.warn("Unexpected error: " + glGetProgramInfoLog(newStandardProgram).strip());
-			deleteShaders(newVertex, newGeometry, newFragment, newCompute);
-			deletePrograms(newStandardProgram);
-			return false;
-		}
-		
-		int newComputeProgram = 0;
-		
-		if(newCompute != 0) {
-			newComputeProgram = glCreateProgram();
-			glAttachShader(newComputeProgram, newCompute);
-			glLinkProgram(newComputeProgram);
-			if(glGetProgrami(newComputeProgram, GL_LINK_STATUS) == GL_FALSE) {
-				Main.logger.warn("Linking error (compute): " + glGetProgramInfoLog(newComputeProgram).strip());
-				deleteShaders(newVertex, newGeometry, newFragment, newCompute);
-				deletePrograms(newStandardProgram, newComputeProgram);
-				return false;
+			if(newCompute != 0) {
+				newComputeProgram = glCreateProgram();
+				glAttachShader(newComputeProgram, newCompute);
+				glLinkProgram(newComputeProgram);
+				if(glGetProgrami(newComputeProgram, GL_LINK_STATUS) == GL_FALSE)
+					throw new GenerationException("Linking error (compute): " + glGetProgramInfoLog(newComputeProgram).strip());
+				glValidateProgram(newComputeProgram);
+				if(glGetProgrami(newComputeProgram, GL_VALIDATE_STATUS) == GL_FALSE)
+					throw new GenerationException("Unexpected error (compute): " + glGetProgramInfoLog(newComputeProgram).strip());
 			}
-			glValidateProgram(newComputeProgram);
-			if(glGetProgrami(newComputeProgram, GL_VALIDATE_STATUS) == GL_FALSE) {
-				Main.logger.warn("Unexpected error (compute): " + glGetProgramInfoLog(newComputeProgram).strip());
-				deleteShaders(newVertex, newGeometry, newFragment, newCompute);
-				deletePrograms(newStandardProgram, newComputeProgram);
-				return false;
-			}
+		} catch (GenerationException e) {
+			Main.logger.warn(e.getMessage());
+			deleteShaders(newVertex, newGeometry, newFragment, newCompute);
+			deletePrograms(newStandardProgram, newComputeProgram);
+			return false;
 		}
 		
 		Main.logger.info("Compiled successfully");
