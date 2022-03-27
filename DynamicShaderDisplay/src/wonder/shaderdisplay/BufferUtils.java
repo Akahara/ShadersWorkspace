@@ -12,7 +12,7 @@ public class BufferUtils {
 	public static ByteBuffer fromInts(int intCapacity, int[] data) {
 		ByteBuffer buf = ByteBuffer.allocateDirect(4*intCapacity);
 		buf.order(GPU_BYTE_ORDER);
-		buf.asIntBuffer().put(data);
+		buf.asIntBuffer().put(data, 0, Math.min(data.length, intCapacity));
 		buf.position(0);
 		return buf;
 	}
@@ -20,7 +20,7 @@ public class BufferUtils {
 	public static ByteBuffer fromFloats(int floatCapacity, float[] data) {
 		ByteBuffer buf = ByteBuffer.allocateDirect(4*floatCapacity);
 		buf.order(GPU_BYTE_ORDER);
-		buf.asFloatBuffer().put(data);
+		buf.asFloatBuffer().put(data, 0, Math.min(data.length, floatCapacity));
 		buf.position(0);
 		return buf;
 	}

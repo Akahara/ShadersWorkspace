@@ -1,18 +1,20 @@
 package wonder.shaderdisplay;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL30.glBindBufferBase;
+import static org.lwjgl.opengl.GL11.GL_VERSION;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glGetInteger;
+import static org.lwjgl.opengl.GL11.glGetString;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL30.glGetIntegeri;
-import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
+import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_COUNT;
+import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
 import static org.lwjgl.opengl.GL43.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,17 +24,10 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
-import fr.wonder.commons.exceptions.GenerationException;
-
 class GLWindow {
-
-	private static final int SHADER_STORAGE_DATA_SIZE = 128;
 	
 	private static long window;
-	private static UniformsContext standardShaderUniforms, computeShaderUniforms;
-	private static int standardShaderProgram, computeShaderProgram;
-	private static int vertexShader, geometryShader, fragmentShader, computeShader;
-	private static int bindableVAO;
+//	private static int bindableVAO;
 	static int winWidth, winHeight;
 	
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
@@ -60,6 +55,7 @@ class GLWindow {
 		glfwMakeContextCurrent(window);
 		glfwShowWindow(window);
 		glfwFocusWindow(window);
+		glfwSwapInterval(Main.options.vsync ? 1 : 0);
 
 		GL.createCapabilities();
 		
@@ -67,37 +63,9 @@ class GLWindow {
 		
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 1);
+		glPointSize(3);
 		
-		glBindVertexArray(bindableVAO = glGenVertexArrays());
-		
-		float[] vertices = {
-				-1, -1, 0, 1,
-				 1, -1, 0, 1,
-				 1,  1, 0, 1,
-				-1,  1, 0, 1,
-				};
-		int[] indices = { 6, 0, 1, 2, 2, 3, 0 };
-		
-		ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(SHADER_STORAGE_DATA_SIZE, vertices);
-		ByteBuffer shaderStorageIndicesData  = BufferUtils.fromInts(1+SHADER_STORAGE_DATA_SIZE, indices );
-		
-		int shaderStorageVertices = glGenBuffers();
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageVertices);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageVerticesData, GL_DYNAMIC_DRAW);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, shaderStorageVertices);
-
-		int shaderStorageIndices = glGenBuffers();
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, shaderStorageIndices);
-		glBufferData(GL_SHADER_STORAGE_BUFFER, shaderStorageIndicesData, GL_DYNAMIC_DRAW);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, shaderStorageIndices);
-		
-		glBindBuffer(GL_ARRAY_BUFFER, shaderStorageVertices);
-		glBufferData(GL_ARRAY_BUFFER, shaderStorageVerticesData, GL_STATIC_DRAW);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shaderStorageIndices);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, shaderStorageIndicesData, GL_STATIC_DRAW);
-		
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, NULL);
+		glBindVertexArray(glGenVertexArrays());
 		
 		glfwSetWindowSizeCallback(window, (win, w, h) -> {
 			glViewport(0, 0, w, h);
@@ -110,6 +78,10 @@ class GLWindow {
 				glfwSetWindowShouldClose(window, true);
 			}
 		});
+	}
+	
+	public static long getWindow() {
+		return window;
 	}
 
 	public static boolean shouldDispose() {
@@ -132,125 +104,6 @@ class GLWindow {
 		glfwSetWindowTitle(window, title);
 	}
 	
-	public static void render() {
-		if(computeShaderProgram > 0) {
-			glUseProgram(computeShaderProgram);
-			computeShaderUniforms.reapply();
-			glDispatchCompute(1, 1, 1);
-		}
-		
-		glClear(GL_COLOR_BUFFER_BIT);
-		
-		if(standardShaderProgram > 0) {
-			glFinish();
-			glUseProgram(standardShaderProgram);
-			standardShaderUniforms.reapply();
-			glBindVertexArray(bindableVAO);
-			int triangleCount = BufferUtils.readBufferInt(GL_SHADER_STORAGE_BUFFER, 0);
-			glDrawElements(GL_TRIANGLES, 3*triangleCount, GL_UNSIGNED_INT, 4);
-		}
-		
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
-
-	public static boolean compileShaders(String[] shaders) {
-		int newFragment = 0, newVertex = 0, newGeometry = 0, newCompute = 0;
-		int newStandardProgram = 0, newComputeProgram = 0;
-		try {
-			newVertex = buildShader(shaders[Resources.TYPE_VERTEX], GL_VERTEX_SHADER);
-			newFragment = buildShader(shaders[Resources.TYPE_FRAGMENT], GL_FRAGMENT_SHADER);
-			if(shaders[Resources.TYPE_GEOMETRY] != null)
-				newGeometry = buildShader(shaders[Resources.TYPE_GEOMETRY], GL_GEOMETRY_SHADER);
-			if(shaders[Resources.TYPE_COMPUTE] != null)
-				newCompute = buildShader(shaders[Resources.TYPE_COMPUTE], GL_COMPUTE_SHADER);
-			
-			if(newFragment == -1 || newVertex == -1 || newGeometry == -1 || newCompute == -1)
-				throw new GenerationException("Could not compile a shader");
-			
-			newStandardProgram = glCreateProgram();
-			glAttachShader(newStandardProgram, newFragment);
-			glAttachShader(newStandardProgram, newVertex);
-			if(newGeometry != 0) glAttachShader(newStandardProgram, newGeometry);
-			glLinkProgram(newStandardProgram);
-			
-			if(glGetProgrami(newStandardProgram, GL_LINK_STATUS) == GL_FALSE)
-				throw new GenerationException("Linking error: " + glGetProgramInfoLog(newStandardProgram).strip());
-			glValidateProgram(newStandardProgram);
-			if(glGetProgrami(newStandardProgram, GL_VALIDATE_STATUS) == GL_FALSE)
-				throw new GenerationException("Unexpected error: " + glGetProgramInfoLog(newStandardProgram).strip());
-		
-			if(newCompute != 0) {
-				newComputeProgram = glCreateProgram();
-				glAttachShader(newComputeProgram, newCompute);
-				glLinkProgram(newComputeProgram);
-				if(glGetProgrami(newComputeProgram, GL_LINK_STATUS) == GL_FALSE)
-					throw new GenerationException("Linking error (compute): " + glGetProgramInfoLog(newComputeProgram).strip());
-				glValidateProgram(newComputeProgram);
-				if(glGetProgrami(newComputeProgram, GL_VALIDATE_STATUS) == GL_FALSE)
-					throw new GenerationException("Unexpected error (compute): " + glGetProgramInfoLog(newComputeProgram).strip());
-			}
-		} catch (GenerationException e) {
-			Main.logger.warn(e.getMessage());
-			deleteShaders(newVertex, newGeometry, newFragment, newCompute);
-			deletePrograms(newStandardProgram, newComputeProgram);
-			return false;
-		}
-		
-		Main.logger.info("Compiled successfully");
-		
-		deleteShaders(vertexShader, geometryShader, fragmentShader, computeShader);
-		deletePrograms(standardShaderProgram, computeShaderProgram);
-		glUseProgram(newStandardProgram);
-		standardShaderProgram = newStandardProgram;
-		computeShaderProgram = newComputeProgram;
-		vertexShader = newVertex;
-		geometryShader = newGeometry;
-		fragmentShader = newFragment;
-		computeShader = newCompute;
-		
-		if(Main.options.noTextureCache)
-			Texture.unloadTextures();
-		
-		String pseudoTotalSource = Resources.concatStandardShaderSource(shaders);
-		standardShaderUniforms = UniformsContext.scan(newStandardProgram, pseudoTotalSource);
-		standardShaderUniforms.apply();
-		
-		String pseudoComputeSource = Resources.concatComputeShaderSource(shaders);
-		computeShaderUniforms = UniformsContext.scan(newComputeProgram, pseudoComputeSource);
-		computeShaderUniforms.apply();
-		
-		return true;
-	}
-	
-	private static int buildShader(String source, int glType) {
-		int id = glCreateShader(glType);
-		glShaderSource(id, source);
-		glCompileShader(id);
-		if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE) {
-			Main.logger.warn("Compilation error: ");
-			for(String line : glGetShaderInfoLog(id).strip().split("\n"))
-				Main.logger.warn("  " + line);
-			glDeleteShader(id);
-			return -1;
-		}
-		return id;
-	}
-	
-	private static void deleteShaders(int... shaders) {
-		for(int s : shaders) {
-			if(s > 0)
-				glDeleteShader(s);
-		}
-	}
-	
-	private static void deletePrograms(int... programs) {
-		for(int s : programs) {
-			if(s > 0)
-				glDeleteProgram(s);
-		}
-	}
-
 	public static void printSystemInformation() {
 		System.out.println("GLFW:version               " + glfwGetVersionString());
 		System.out.println("OPENGL:version             " + glGetString(GL_VERSION));

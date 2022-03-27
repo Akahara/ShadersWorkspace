@@ -18,7 +18,10 @@ public class Main {
 	public static Options options;
 	
 	public static void main(String[] args) {
-		args = new String[] { "run", "-c", "compute.cs", "-v", "vertex.vs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
+//		args = new String[] { "?" };
+//		args = new String[] { "run", "--script", "script.py", "--hard-reload", "--verbose", "fragment.fs" };
+		args = new String[] { "run", "--script", "script.py", "-g", "geometry_lines.gs", "--hard-reload", "--verbose", "fragment.fs" };
+//		args = new String[] { "run", "-c", "compute.cs", "-v", "vertex.vs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
 //		args = new String[] { "systeminfo" };
 //		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
 //		args = new String[] { "run" };
@@ -72,6 +75,12 @@ public class Main {
 		public boolean verbose;
 		@Option(name = "--hard-reload", desc = "Reload every shader file every time a change is detected\n in one of their folders (may be required with some configurations)")
 		public boolean hardReload;
+		@Option(name = "--script", desc = "python script to run and get the vertices data from")
+		public File scriptFile;
+		@Option(name = "--script-log", desc = "Maximum numbers of characters printed from the script output at each execution, -1 to print everything")
+		public int scriptLogLength = 0;
+		@Option(name = "--vsync", desc = "Enables vsync, when used the informations given in the window title may be inaccurate")
+		public boolean vsync;
 		
 	}
 
@@ -82,6 +91,22 @@ public class Main {
 		
 		Main.options = options;
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
+		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
+		
+		if(options.computeShaderFile != null && options.scriptFile != null) {
+			logger.err("Compute shader and scripts cannot be used at the same time");
+			return;
+		}
+		if(options.scriptLogLength == -1) {
+			options.scriptLogLength = Integer.MAX_VALUE;
+		} else if(options.scriptLogLength < 0) {
+			logger.err("Invalid script log length: " + options.scriptLogLength);
+			return;
+		}
+		if(options.targetFPS <= 0) {
+			logger.err("Invalid fps: " + options.targetFPS);
+			return;
+		}
 		
 		ShaderFileWatcher shaderFiles = new ShaderFileWatcher();
 		try {
@@ -92,6 +117,8 @@ public class Main {
 				shaderFiles.addShaderFile(options.vertexShaderFile, Resources.TYPE_VERTEX);
 			if(options.computeShaderFile != null)
 				shaderFiles.addShaderFile(options.computeShaderFile, Resources.TYPE_COMPUTE);
+			if(options.scriptFile != null)
+				shaderFiles.setScriptFile(options.scriptFile);
 			shaderFiles.completeWithDefaultSources();
 			shaderFiles.startWatching();
 		} catch (IOException e) {
@@ -99,51 +126,45 @@ public class Main {
 			exit();
 		}
 		
-		long lastFrame = System.nanoTime();
+		Renderer renderer = options.scriptFile != null ? new ScriptRenderer() : new StandardRenderer();
+		
+		long nextFrame = System.nanoTime();
 		long lastSec = System.nanoTime();
 		int frames = 0;
 		long workTime = 0;
-		final int targetFPS = 60;
 		
 		logger.info("Creating window");
 		
 		try {
 			try {
 				GLWindow.createWindow(500, 500);
+				renderer.loadResources();
 			} catch (Error e) {
 				logger.merr(e, "Unable to create the window");
 				exit();
 			}
 			
-			synchronized (shaderFiles) {
-				if(!GLWindow.compileShaders(shaderFiles.pollShadersSources())) {
-					logger.merr("Could not compile stored shader");
-//					exit();
-				}
-			}
+			reloadShaders(shaderFiles, renderer);
 			
 			logger.info("Running shader");
 		
 			while (!GLWindow.shouldDispose()) {
 				long current = System.nanoTime();
 	
-				if(shaderFiles.needShaderRecompilation()) {
-					synchronized (shaderFiles) {
-						GLWindow.compileShaders(shaderFiles.pollShadersSources());
-					}
-				}
+				if(shaderFiles.needShaderRecompilation())
+					reloadShaders(shaderFiles, renderer);
 				
-				GLWindow.render();
+				renderer.render();
 	
 				workTime += System.nanoTime() - current;
 				current = System.nanoTime();
-				if (current < lastFrame) {
+				if (current < nextFrame) {
 					try {
-						Thread.sleep((lastFrame - current) / (int) 1E6);
+						Thread.sleep((nextFrame - current) / (int) 1E6);
 					} catch (InterruptedException x) {
 					}
 				}
-				lastFrame += 1E9 / targetFPS;
+				nextFrame += 1E9 / options.targetFPS;
 				frames++;
 				if (current > lastSec + 1E9) {
 					GLWindow.setWindowTitle(String.format("Shader workspace - %d fps - %f millis per frame - %d expected fps",
@@ -158,6 +179,14 @@ public class Main {
 		}
 		GLWindow.dispose();
 		exit();
+	}
+	
+	private static void reloadShaders(ShaderFileWatcher shaderFiles, Renderer renderer) {
+		synchronized (shaderFiles) {
+			if(options.scriptFile != null)
+				((ScriptRenderer) renderer).rerunScriptFile(options.scriptFile);
+			renderer.compileShaders(shaderFiles.pollShadersSources());
+		}
 	}
 	
 	public static synchronized void exit() {

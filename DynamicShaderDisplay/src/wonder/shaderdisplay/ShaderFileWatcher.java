@@ -14,7 +14,12 @@ class ShaderFileWatcher {
 	
 	private final Path[] shaderFiles = new Path[Resources.SHADERS_COUNT];
 	private final String[] shaderSources = new String[Resources.SHADERS_COUNT];
+	private File scriptFile;
 	private boolean needShaderRecompilation;
+	
+	public void setScriptFile(File scriptFile) {
+		this.scriptFile = scriptFile;
+	}
 	
 	public void addShaderFile(File file, int type) throws IOException {
 		shaderFiles[type] = file.toPath();
@@ -36,16 +41,10 @@ class ShaderFileWatcher {
 	
 	public void startWatching() throws IOException {
 		List<Path> paths = new ArrayList<>();
-		for(Path f : shaderFiles) {
-			if(f == null) continue;
-			Path parent = f.getParent();
-			if(!paths.contains(parent)) {
-				paths.add(parent);
-				Main.logger.debug("Watching directory " + parent + " for file " + f);
-			} else {
-				Main.logger.debug("Already watching directory " + parent + " for file " + f);
-			}
-		}
+		for(Path f : shaderFiles)
+			addWatchedPath(paths, f);
+		if(scriptFile != null)
+			addWatchedPath(paths, scriptFile.toPath());
 		DirectoryWatcher watcher = DirectoryWatcher
 				.builder()
 				.paths(paths)
@@ -68,9 +67,25 @@ class ShaderFileWatcher {
 								Main.exit();
 							}
 						}
+						if(ev.path().equals(scriptFile.toPath())) {
+							needShaderRecompilation = true;
+							Main.logger.debug("Reloading script " + scriptFile);
+						}
 					}
 				}).build();
 		new Thread(watcher::watch, "Shader File Watcher").start();
+	}
+	
+	private void addWatchedPath(List<Path> watchedDirectories, Path toAdd) {
+		if(toAdd == null)
+			return;
+		Path parent = toAdd.getParent();
+		if(!watchedDirectories.contains(parent)) {
+			watchedDirectories.add(parent);
+			Main.logger.debug("Watching directory " + parent + " for file " + toAdd);
+		} else {
+			Main.logger.debug("Already watching directory " + parent + " for file " + toAdd);
+		}
 	}
 	
 	/**
@@ -83,8 +98,12 @@ class ShaderFileWatcher {
 		return shaderSources;
 	}
 	
-	public boolean needShaderRecompilation() {
+	public synchronized boolean needShaderRecompilation() {
 		return needShaderRecompilation;
+	}
+
+	public File getScriptFile() {
+		return scriptFile;
 	}
 	
 }
