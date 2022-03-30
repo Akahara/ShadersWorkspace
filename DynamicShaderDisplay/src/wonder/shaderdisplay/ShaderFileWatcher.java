@@ -8,9 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import fr.wonder.commons.files.FilesUtils;
+import fr.wonder.commons.types.Unit;
 import io.methvin.watcher.DirectoryWatcher;
 
 class ShaderFileWatcher {
+	
+	private static final int PATH_WARNING_LIMIT = 50;
 	
 	private final Path[] shaderFiles = new Path[Resources.SHADERS_COUNT];
 	private final String[] shaderSources = new String[Resources.SHADERS_COUNT];
@@ -45,6 +48,7 @@ class ShaderFileWatcher {
 			addWatchedPath(paths, f);
 		if(scriptFile != null)
 			addWatchedPath(paths, scriptFile.toPath());
+		logWarningIfTooManySubDirs(paths);
 		DirectoryWatcher watcher = DirectoryWatcher
 				.builder()
 				.paths(paths)
@@ -73,7 +77,8 @@ class ShaderFileWatcher {
 						}
 					}
 				}).build();
-		new Thread(watcher::watch, "Shader File Watcher").start();
+		Main.logger.debug("Watching files for changes...");
+		new Thread(watcher::watch, "Shader file watcher").start();
 	}
 	
 	private void addWatchedPath(List<Path> watchedDirectories, Path toAdd) {
@@ -85,6 +90,29 @@ class ShaderFileWatcher {
 			Main.logger.debug("Watching directory " + parent + " for file " + toAdd);
 		} else {
 			Main.logger.debug("Already watching directory " + parent + " for file " + toAdd);
+		}
+	}
+	
+	private void logWarningIfTooManySubDirs(List<Path> paths) {
+		Unit<Integer> pathCount = new Unit<>(0);
+		for(Path p : paths)
+			countFiles(pathCount, p.toFile());
+		if(pathCount.val > PATH_WARNING_LIMIT) {
+			Main.logger.warn("The file watcher can only watch recursively, lots of directories"
+					+ " detected, prefer running dsd in a somewhat empty directory");
+		}
+	}
+	
+	private void countFiles(Unit<Integer> pathCount, File dir) {
+		for(File f : dir.listFiles()) {
+			if(f.isDirectory()) {
+				pathCount.val++;
+				if(pathCount.val > PATH_WARNING_LIMIT)
+					return;
+				countFiles(pathCount, f);
+				if(pathCount.val > PATH_WARNING_LIMIT)
+					return;
+			}
 		}
 	}
 	

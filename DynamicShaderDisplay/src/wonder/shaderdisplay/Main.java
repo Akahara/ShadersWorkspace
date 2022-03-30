@@ -27,10 +27,10 @@ public class Main {
 //		args = new String[] { "run", "--script", "script.py", "--hard-reload", "--verbose", "fragment.fs" };
 //		args = new String[] { "run", "--script", "script.py", "-g", "geometry_lines.gs", "--hard-reload", "--verbose", "fragment.fs" };
 //		args = new String[] { "run", "-i", "icosahedron.txt", "-g", "icosahedron.gs", "--hard-reload", "--verbose", "fragment.fs" };
-//		args = new String[] { "run", "-c", "compute.cs", "-v", "vertex.vs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
+//		args = new String[] { "run", "-c", "compute.cs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
 //		args = new String[] { "systeminfo" };
 //		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
-//		args = new String[] { "run" };
+		args = new String[] { "run" };
 		ArgParser.runHere(args);
 	}
 	
@@ -197,7 +197,7 @@ public class Main {
 					frames = 0;
 				}
 			}
-		} catch (IllegalStateException e) {
+		} catch (Throwable e) {
 			logger.merr(e);
 		}
 		GLWindow.dispose();

@@ -103,6 +103,7 @@ public abstract class Renderer {
 			String expected =
 					glDrawMode == GL_LINES ? "lines" :
 					glDrawMode == GL_POINTS ? "points" :
+					glDrawMode == GL_TRIANGLES ? "triangles" :
 					null;
 			if(expected == null)
 				throw new IllegalArgumentException("Unknown draw mode");
