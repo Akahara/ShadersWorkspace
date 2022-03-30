@@ -12,13 +12,13 @@ import java.util.Map;
 
 import javax.imageio.ImageIO;
 
-class Texture {
+public class Texture {
 	
 	private static final Map<String, Texture> cachedTextures = new HashMap<>();
 	
-	final int id;
+	public final int id;
 	
-	static Texture loadTexture(String path) {
+	public static Texture loadTexture(String path) {
 		if(Main.options.noTextureCache) {
 			Main.logger.debug("Loading texture: " + path);
 			return new Texture(path);
@@ -33,7 +33,7 @@ class Texture {
 		return tex;
 	}
 	
-	static void unloadTextures() {
+	public static void unloadTextures() {
 		for(Texture texture : cachedTextures.values())
 			texture.dispose();
 		cachedTextures.clear();

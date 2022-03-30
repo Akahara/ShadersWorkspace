@@ -2,8 +2,11 @@ package wonder.shaderdisplay;
 
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11.glBindTexture;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL20.glUniform1f;
+import static org.lwjgl.opengl.GL20.glUniform1i;
 import static org.lwjgl.opengl.GL20.glUniform2f;
 
 import java.util.ArrayList;
@@ -11,7 +14,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class UniformsContext {
+public class UniformsContext {
 	
 	private List<Uniform> uniforms = new ArrayList<>();
 	
@@ -58,12 +61,12 @@ class UniformsContext {
 		return context;
 	}
 	
-	void apply() {
+	public void apply() {
 		for(Uniform u : uniforms)
 			u.apply();
 	}
 	
-	void reapply() {
+	public void reapply() {
 		for(Uniform u : uniforms)
 			u.reapply();
 	}

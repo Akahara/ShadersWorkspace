@@ -53,6 +53,16 @@ mat4 translationMatrix(vec3 v) {
 		0, 0, 0, 1));
 }
 
+/* Scaling matrix */
+mat4 scalingMatrix(vec3 s) {
+	return mat4(
+		s.x, 0, 0, 0,
+		0, s.y, 0, 0,
+		0, 0, s.z, 0,
+		0, 0, 0, 1
+	);
+}
+
 /* Arbitrary rotation matrix */
 mat4 rotationMatrix(float yaw, float pitch, float roll) {
   float cy = cos(yaw), sy = sin(yaw);

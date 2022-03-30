@@ -24,11 +24,11 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
-class GLWindow {
+public class GLWindow {
 	
 	private static long window;
 //	private static int bindableVAO;
-	static int winWidth, winHeight;
+	public static int winWidth, winHeight;
 	
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
 

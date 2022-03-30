@@ -1,4 +1,4 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.renderers;
 
 import static org.lwjgl.opengl.GL15.glGetBufferSubData;
 

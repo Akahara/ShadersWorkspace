@@ -1,4 +1,4 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.renderers;
 
 import static org.lwjgl.opengl.GL11.GL_FALSE;
 import static org.lwjgl.opengl.GL20.*;
@@ -7,8 +7,14 @@ import static org.lwjgl.opengl.GL43.GL_COMPUTE_SHADER;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoField;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import fr.wonder.commons.exceptions.GenerationException;
+import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.Resources;
+import wonder.shaderdisplay.Texture;
+import wonder.shaderdisplay.UniformsContext;
 
 public abstract class Renderer {
 	
@@ -86,6 +92,25 @@ public abstract class Renderer {
 		computeShaderUniforms.apply();
 		
 		return true;
+	}
+	
+	protected void checkGeometryShaderInputType(String geometrySource, int glDrawMode) {
+		if(geometrySource == null)
+			return;
+		Matcher m = Pattern.compile("layout\\((\\w+)\\) in;").matcher(geometrySource);
+		if(m.find()) {
+			String in = m.group(1);
+			String expected =
+					glDrawMode == GL_LINES ? "lines" :
+					glDrawMode == GL_POINTS ? "points" :
+					null;
+			if(expected == null)
+				throw new IllegalArgumentException("Unknown draw mode");
+			if(!in.equals(expected))
+				Main.logger.err("The geometry shader input type does not match the provided type, expected '" + expected + "', got '" + in + "'");
+		} else {
+			Main.logger.err("The geometry shader is missing its 'layout(...) in;' directive");
+		}
 	}
 	
 	private String getCompilationTimestampString() {

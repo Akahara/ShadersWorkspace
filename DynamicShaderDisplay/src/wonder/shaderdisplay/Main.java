@@ -10,6 +10,11 @@ import fr.wonder.commons.systems.process.argparser.Argument;
 import fr.wonder.commons.systems.process.argparser.EntryPoint;
 import fr.wonder.commons.systems.process.argparser.Option;
 import fr.wonder.commons.systems.process.argparser.ProcessDoc;
+import wonder.shaderdisplay.renderers.FixedFileInputRenderer;
+import wonder.shaderdisplay.renderers.FormatedInputRenderer;
+import wonder.shaderdisplay.renderers.Renderer;
+import wonder.shaderdisplay.renderers.ScriptRenderer;
+import wonder.shaderdisplay.renderers.StandardRenderer;
 
 @ProcessDoc(doc = "DSD - dynamic shader display.\nThis stand-alone is a wrapper for lwjgl and openGL shaders.")
 public class Main {
@@ -20,7 +25,8 @@ public class Main {
 	public static void main(String[] args) {
 //		args = new String[] { "?" };
 //		args = new String[] { "run", "--script", "script.py", "--hard-reload", "--verbose", "fragment.fs" };
-		args = new String[] { "run", "--script", "script.py", "-g", "geometry_lines.gs", "--hard-reload", "--verbose", "fragment.fs" };
+//		args = new String[] { "run", "--script", "script.py", "-g", "geometry_lines.gs", "--hard-reload", "--verbose", "fragment.fs" };
+//		args = new String[] { "run", "-i", "icosahedron.txt", "-g", "icosahedron.gs", "--hard-reload", "--verbose", "fragment.fs" };
 //		args = new String[] { "run", "-c", "compute.cs", "-v", "vertex.vs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
 //		args = new String[] { "systeminfo" };
 //		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
@@ -75,7 +81,9 @@ public class Main {
 		public boolean verbose;
 		@Option(name = "--hard-reload", desc = "Reload every shader file every time a change is detected\n in one of their folders (may be required with some configurations)")
 		public boolean hardReload;
-		@Option(name = "--script", desc = "python script to run and get the vertices data from")
+		@Option(name = "--input-file", shortand = "-i", desc = "Input file to get the vertices data from")
+		public File inputFile;
+		@Option(name = "--script", desc = "External script to run and get the vertices data from")
 		public File scriptFile;
 		@Option(name = "--script-log", desc = "Maximum numbers of characters printed from the script output at each execution, -1 to print everything")
 		public int scriptLogLength = 0;
@@ -93,10 +101,15 @@ public class Main {
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		
-		if(options.computeShaderFile != null && options.scriptFile != null) {
-			logger.err("Compute shader and scripts cannot be used at the same time");
+		int activeRenderers = 0;
+		if(options.computeShaderFile != null) activeRenderers++;
+		if(options.scriptFile != null) activeRenderers++;
+		if(options.inputFile != null) activeRenderers++;
+		if(activeRenderers > 1) {
+			logger.err("Only one can be active: compute shader, script input, input file");
 			return;
 		}
+		
 		if(options.scriptLogLength == -1) {
 			options.scriptLogLength = Integer.MAX_VALUE;
 		} else if(options.scriptLogLength < 0) {
@@ -126,7 +139,17 @@ public class Main {
 			exit();
 		}
 		
-		Renderer renderer = options.scriptFile != null ? new ScriptRenderer() : new StandardRenderer();
+		Renderer renderer;
+		
+		if(options.scriptFile != null) {
+			renderer = new ScriptRenderer();
+		} else if(options.inputFile != null) {
+			renderer = new FixedFileInputRenderer();
+		} else if(options.computeShaderFile != null) {
+			renderer = new StandardRenderer();
+		} else {
+			renderer = new StandardRenderer();
+		}
 		
 		long nextFrame = System.nanoTime();
 		long lastSec = System.nanoTime();
@@ -183,8 +206,8 @@ public class Main {
 	
 	private static void reloadShaders(ShaderFileWatcher shaderFiles, Renderer renderer) {
 		synchronized (shaderFiles) {
-			if(options.scriptFile != null)
-				((ScriptRenderer) renderer).rerunScriptFile(options.scriptFile);
+			if(renderer instanceof FormatedInputRenderer)
+				((FormatedInputRenderer) renderer).reloadInputFile();
 			renderer.compileShaders(shaderFiles.pollShadersSources());
 		}
 	}

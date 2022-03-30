@@ -1,4 +1,4 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.renderers;
 
 import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
@@ -13,6 +13,9 @@ import static org.lwjgl.opengl.GL43.glDispatchCompute;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.nio.ByteBuffer;
+
+import wonder.shaderdisplay.GLWindow;
+import wonder.shaderdisplay.Resources;
 
 public class StandardRenderer extends Renderer {
 	
@@ -48,6 +51,14 @@ public class StandardRenderer extends Renderer {
 		
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, NULL);
+	}
+	
+	@Override
+	public boolean compileShaders(String[] shaders) {
+		boolean compiled = super.compileShaders(shaders);
+		if(compiled)
+			checkGeometryShaderInputType(shaders[Resources.TYPE_GEOMETRY], GL_TRIANGLES);
+		return compiled;
 	}
 	
 	@Override
