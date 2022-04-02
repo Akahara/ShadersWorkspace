@@ -1,22 +1,16 @@
 package wonder.shaderdisplay;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.GL_VERSION;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glGetInteger;
-import static org.lwjgl.opengl.GL11.glGetString;
-import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glGenVertexArrays;
-import static org.lwjgl.opengl.GL30.glGetIntegeri;
-import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_COUNT;
-import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
+import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL43.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWErrorCallback;
@@ -41,8 +35,7 @@ public class GLWindow {
 		if (!glfwInit())
 			throw new IllegalStateException("Unable to initialize GLFW !");
 
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		setGLVersionHint();
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
@@ -59,7 +52,9 @@ public class GLWindow {
 
 		GL.createCapabilities();
 		
-		closeableCallbacks.add(GLUtil.setupDebugMessageCallback(System.err));
+		Callback errorCallback = GLUtil.setupDebugMessageCallback(System.err);
+		if(errorCallback != null)
+			closeableCallbacks.add(errorCallback);
 		
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 1);
@@ -78,6 +73,20 @@ public class GLWindow {
 				glfwSetWindowShouldClose(window, true);
 			}
 		});
+	}
+	
+	private static void setGLVersionHint() {
+		if(Main.options.forcedGLVersion == null) {
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+			return;
+		} else {
+			Matcher m = Pattern.compile("(\\d+)\\.(\\d+)").matcher(Main.options.forcedGLVersion);
+			if(!m.find())
+				throw new IllegalArgumentException("Invalid gl version, got '" + Main.options.forcedGLVersion + "', expected something like 4.3");
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, Integer.parseInt(m.group(1)));
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, Integer.parseInt(m.group(2)));
+		}
 	}
 	
 	public static long getWindow() {

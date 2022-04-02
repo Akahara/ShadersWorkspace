@@ -13,6 +13,7 @@ import fr.wonder.commons.systems.process.argparser.ProcessDoc;
 import wonder.shaderdisplay.renderers.FixedFileInputRenderer;
 import wonder.shaderdisplay.renderers.FormatedInputRenderer;
 import wonder.shaderdisplay.renderers.Renderer;
+import wonder.shaderdisplay.renderers.RestrictedRenderer;
 import wonder.shaderdisplay.renderers.ScriptRenderer;
 import wonder.shaderdisplay.renderers.StandardRenderer;
 
@@ -28,9 +29,9 @@ public class Main {
 //		args = new String[] { "run", "--script", "script.py", "-g", "geometry_lines.gs", "--hard-reload", "--verbose", "fragment.fs" };
 //		args = new String[] { "run", "-i", "icosahedron.txt", "-g", "icosahedron.gs", "--hard-reload", "--verbose", "fragment.fs" };
 //		args = new String[] { "run", "-c", "compute.cs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
-//		args = new String[] { "systeminfo" };
+//		args = new String[] { "systeminfo", "--force-gl-version", "4.1" };
 //		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
-		args = new String[] { "run" };
+//		args = new String[] { "run", "frag.fs", "--force-gl-version", "4.1", "--force-restricted-renderer", "--verbose" };
 		ArgParser.runHere(args);
 	}
 	
@@ -59,7 +60,8 @@ public class Main {
 	}
 	
 	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
-	public static void systemInformation() {
+	public static void systemInformation(Options options) {
+		Main.options = options;
 		GLWindow.createWindow(1, 1);
 		GLWindow.printSystemInformation();
 		GLWindow.dispose();
@@ -89,6 +91,10 @@ public class Main {
 		public int scriptLogLength = 0;
 		@Option(name = "--vsync", desc = "Enables vsync, when used the informations given in the window title may be inaccurate")
 		public boolean vsync;
+		@Option(name = "--force-gl-version", desc = "Forces the opengl version, use format <major>.<minor> (ie: 4.3)")
+		public String forcedGLVersion;
+		@Option(name = "--force-restricted-renderer", desc = "Forces the use of the restricted renderer, it can only take fragment and vertex shaders as inputs but should work even on old opengl versions")
+		public boolean forceRestrictedRenderer;
 		
 	}
 
@@ -105,8 +111,9 @@ public class Main {
 		if(options.computeShaderFile != null) activeRenderers++;
 		if(options.scriptFile != null) activeRenderers++;
 		if(options.inputFile != null) activeRenderers++;
+		if(options.forceRestrictedRenderer) activeRenderers++;
 		if(activeRenderers > 1) {
-			logger.err("Only one can be active: compute shader, script input, input file");
+			logger.err("Only one can be active: restricted renderer, compute shader, script input, input file");
 			return;
 		}
 		
@@ -147,9 +154,13 @@ public class Main {
 			renderer = new FixedFileInputRenderer();
 		} else if(options.computeShaderFile != null) {
 			renderer = new StandardRenderer();
+		} else if(options.forceRestrictedRenderer) {
+			renderer = new RestrictedRenderer();
 		} else {
 			renderer = new StandardRenderer();
 		}
+		
+		logger.debug("Using renderer: " + renderer.getClass().getSimpleName());
 		
 		long nextFrame = System.nanoTime();
 		long lastSec = System.nanoTime();
@@ -200,8 +211,11 @@ public class Main {
 		} catch (Throwable e) {
 			logger.merr(e);
 		}
-		GLWindow.dispose();
-		exit();
+		try {
+			GLWindow.dispose();
+		} finally {
+			exit();
+		}
 	}
 	
 	private static void reloadShaders(ShaderFileWatcher shaderFiles, Renderer renderer) {
