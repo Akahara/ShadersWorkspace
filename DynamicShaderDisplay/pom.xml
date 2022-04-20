@@ -32,7 +32,7 @@
 
 	<properties>
 		<lwjgl.version>3.2.3</lwjgl.version>
-		<lwjgl.natives>natives-macos</lwjgl.natives>
+		<lwjgl.natives>natives-windows</lwjgl.natives>
 	</properties>
 
 	<!-- <dependencyManagement> <dependencies> <dependency> <groupId>org.lwjgl</groupId> 

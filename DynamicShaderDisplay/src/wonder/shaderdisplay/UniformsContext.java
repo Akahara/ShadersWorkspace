@@ -71,9 +71,17 @@ public class UniformsContext {
 			u.reapply();
 	}
 	
+	public static void setTimeUniform(float time) {
+		TimeUniform.firstNano = System.nanoTime()-(long)(time*1E9f);
+	}
+	
+	public static float getTimeUniform() {
+		return (System.nanoTime() - TimeUniform.firstNano) / 1E9f;
+	}
+	
 	private static class TimeUniform extends Uniform {
 		
-		private static final long firstNano = System.nanoTime();
+		private static long firstNano = System.nanoTime();
 		
 		private TimeUniform(int program) {
 			super(program, "iTime");
@@ -128,5 +136,7 @@ public class UniformsContext {
 		}
 		
 	}
+
+
 	
 }

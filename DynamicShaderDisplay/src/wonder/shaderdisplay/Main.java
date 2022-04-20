@@ -2,9 +2,11 @@ package wonder.shaderdisplay;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Scanner;
 
-import fr.wonder.commons.loggers.AnsiLogger;
 import fr.wonder.commons.loggers.Logger;
+import fr.wonder.commons.loggers.SimpleLogger;
+import fr.wonder.commons.systems.process.ProcessUtils;
 import fr.wonder.commons.systems.process.argparser.ArgParser;
 import fr.wonder.commons.systems.process.argparser.Argument;
 import fr.wonder.commons.systems.process.argparser.EntryPoint;
@@ -20,7 +22,8 @@ import wonder.shaderdisplay.renderers.StandardRenderer;
 @ProcessDoc(doc = "DSD - dynamic shader display.\nThis stand-alone is a wrapper for lwjgl and openGL shaders.")
 public class Main {
 
-	public static final Logger logger = new AnsiLogger("DSD");
+//	public static final Logger logger = new AnsiLogger("DSD");
+	public static final Logger logger = new SimpleLogger("DSD");
 	public static Options options;
 	
 	public static void main(String[] args) {
@@ -31,8 +34,13 @@ public class Main {
 //		args = new String[] { "run", "-c", "compute.cs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
 //		args = new String[] { "systeminfo", "--force-gl-version", "4.1" };
 //		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
-//		args = new String[] { "run", "frag.fs", "--force-gl-version", "4.1", "--force-restricted-renderer", "--verbose" };
-		ArgParser.runHere(args);
+		args = new String[] { "run", "frag.fs", "--force-gl-version", "4.1", "--force-restricted-renderer", "--verbose" };
+		try {
+			ArgParser.runHere(args);
+		} catch (Throwable t) {
+			logger.merr(t);
+			exit();
+		}
 	}
 	
 	@Argument(name = "name", desc = "A specific snippet name", defaultValue = "_")
@@ -107,16 +115,6 @@ public class Main {
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		
-		int activeRenderers = 0;
-		if(options.computeShaderFile != null) activeRenderers++;
-		if(options.scriptFile != null) activeRenderers++;
-		if(options.inputFile != null) activeRenderers++;
-		if(options.forceRestrictedRenderer) activeRenderers++;
-		if(activeRenderers > 1) {
-			logger.err("Only one can be active: restricted renderer, compute shader, script input, input file");
-			return;
-		}
-		
 		if(options.scriptLogLength == -1) {
 			options.scriptLogLength = Integer.MAX_VALUE;
 		} else if(options.scriptLogLength < 0) {
@@ -128,39 +126,24 @@ public class Main {
 			return;
 		}
 		
+		Renderer renderer;
+		try {
+			renderer = getSuitableRenderer(options);
+			logger.debug("Using renderer: " + renderer.getClass().getSimpleName());
+		} catch (IllegalArgumentException e) {
+			logger.err(e.getMessage());
+			exit(); return;
+		}
+		
 		ShaderFileWatcher shaderFiles = new ShaderFileWatcher();
 		try {
-			shaderFiles.addShaderFile(fragment, Resources.TYPE_FRAGMENT);
-			if(options.geometryShaderFile != null)
-				shaderFiles.addShaderFile(options.geometryShaderFile, Resources.TYPE_GEOMETRY);
-			if(options.vertexShaderFile != null)
-				shaderFiles.addShaderFile(options.vertexShaderFile, Resources.TYPE_VERTEX);
-			if(options.computeShaderFile != null)
-				shaderFiles.addShaderFile(options.computeShaderFile, Resources.TYPE_COMPUTE);
-			if(options.scriptFile != null)
-				shaderFiles.setScriptFile(options.scriptFile);
-			shaderFiles.completeWithDefaultSources();
-			shaderFiles.startWatching();
+			watchFiles(shaderFiles, fragment);
 		} catch (IOException e) {
 			logger.merr(e, "Unable to read/watch shader files");
 			exit();
 		}
 		
-		Renderer renderer;
-		
-		if(options.scriptFile != null) {
-			renderer = new ScriptRenderer();
-		} else if(options.inputFile != null) {
-			renderer = new FixedFileInputRenderer();
-		} else if(options.computeShaderFile != null) {
-			renderer = new StandardRenderer();
-		} else if(options.forceRestrictedRenderer) {
-			renderer = new RestrictedRenderer();
-		} else {
-			renderer = new StandardRenderer();
-		}
-		
-		logger.debug("Using renderer: " + renderer.getClass().getSimpleName());
+		ShaderDisplay shaderDisplay = ShaderDisplay.createDisplay(renderer, fragment);
 		
 		long nextFrame = System.nanoTime();
 		long lastSec = System.nanoTime();
@@ -169,7 +152,7 @@ public class Main {
 		
 		logger.info("Creating window");
 		
-		try {
+		try (Scanner commandsScanner = new Scanner(System.in)) {
 			try {
 				GLWindow.createWindow(500, 500);
 				renderer.loadResources();
@@ -188,16 +171,13 @@ public class Main {
 				if(shaderFiles.needShaderRecompilation())
 					reloadShaders(shaderFiles, renderer);
 				
-				renderer.render();
+				// draw frame
+				shaderDisplay.renderFrame();
 	
 				workTime += System.nanoTime() - current;
 				current = System.nanoTime();
-				if (current < nextFrame) {
-					try {
-						Thread.sleep((nextFrame - current) / (int) 1E6);
-					} catch (InterruptedException x) {
-					}
-				}
+				if (current < nextFrame)
+					ProcessUtils.sleep((nextFrame - current) / (int) 1E6);
 				nextFrame += 1E9 / options.targetFPS;
 				frames++;
 				if (current > lastSec + 1E9) {
@@ -207,6 +187,10 @@ public class Main {
 					workTime = 0;
 					frames = 0;
 				}
+				
+				// evaluate user commands
+				if(System.in.available() > 0 && commandsScanner.hasNextLine())
+					shaderDisplay.evalCommand(commandsScanner.nextLine());
 			}
 		} catch (Throwable e) {
 			logger.merr(e);
@@ -218,6 +202,41 @@ public class Main {
 		}
 	}
 	
+	private static Renderer getSuitableRenderer(Options options) {
+		int activeRenderers = 0;
+		if(options.computeShaderFile != null) activeRenderers++;
+		if(options.scriptFile != null) activeRenderers++;
+		if(options.inputFile != null) activeRenderers++;
+		if(options.forceRestrictedRenderer) activeRenderers++;
+		if(activeRenderers > 1)
+			throw new IllegalArgumentException("Only one can be active: restricted renderer, compute shader, script input, input file");
+		
+		if(options.scriptFile != null)
+			return new ScriptRenderer();
+		if(options.inputFile != null)
+			return new FixedFileInputRenderer();
+		if(options.computeShaderFile != null)
+			return new StandardRenderer();
+		if(options.forceRestrictedRenderer)
+			return new RestrictedRenderer();
+		
+		return new StandardRenderer();
+	}
+	
+	private static void watchFiles(ShaderFileWatcher shaderFiles, File fragment) throws IOException {
+		shaderFiles.addShaderFile(fragment, Resources.TYPE_FRAGMENT);
+		if(options.geometryShaderFile != null)
+			shaderFiles.addShaderFile(options.geometryShaderFile, Resources.TYPE_GEOMETRY);
+		if(options.vertexShaderFile != null)
+			shaderFiles.addShaderFile(options.vertexShaderFile, Resources.TYPE_VERTEX);
+		if(options.computeShaderFile != null)
+			shaderFiles.addShaderFile(options.computeShaderFile, Resources.TYPE_COMPUTE);
+		if(options.scriptFile != null)
+			shaderFiles.setScriptFile(options.scriptFile);
+		shaderFiles.completeWithDefaultSources();
+		shaderFiles.startWatching();
+	}
+	
 	private static void reloadShaders(ShaderFileWatcher shaderFiles, Renderer renderer) {
 		synchronized (shaderFiles) {
 			if(renderer instanceof FormatedInputRenderer)
@@ -226,7 +245,8 @@ public class Main {
 		}
 	}
 	
-	public static synchronized void exit() {
+	public static void exit() {
 		System.exit(0);
 	}
+	
 }

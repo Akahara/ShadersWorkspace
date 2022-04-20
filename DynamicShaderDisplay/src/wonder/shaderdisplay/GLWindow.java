@@ -3,20 +3,31 @@ package wonder.shaderdisplay;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
-import static org.lwjgl.opengl.GL30.*;
-import static org.lwjgl.opengl.GL43.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+import static org.lwjgl.opengl.GL30.glGetIntegeri;
+import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_COUNT;
+import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
+import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
 
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
+
+import fr.wonder.commons.files.FilesUtils;
 
 public class GLWindow {
 	
@@ -126,6 +137,24 @@ public class GLWindow {
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2) + ")");
 		System.out.println("GLSL:computeMaxInvocations " + glGetInteger(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS));
+	}
+
+	public static File saveScreenshot(File file) throws IOException {
+		int[] pixels = new int[winWidth*winHeight*4];
+		glfwSwapBuffers(window);
+		glReadPixels(0, 0, winWidth, winHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+		glfwSwapBuffers(window);
+		BufferedImage buf = new BufferedImage(winWidth, winHeight, BufferedImage.TYPE_INT_ARGB);
+		buf.setRGB(0, 0, winWidth, winHeight, pixels, 0, winWidth);
+		String format = FilesUtils.getFileExtension(file);
+		if(format == null) {
+			format = "PNG";
+			file = new File(file.getParentFile(), file.getName() + ".png");
+		} else {
+			format = format.toUpperCase();
+		}
+		ImageIO.write(buf, format, file);
+		return file;
 	}
 
 }
