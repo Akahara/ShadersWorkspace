@@ -23,7 +23,6 @@ public class UserCommands {
 	@EntryPoint(path = "time")
 	@Argument(name ="time", defaultValue = "0")
 	public static void setTime(float time) {
-		System.out.println(">>"+time);
 		UniformsContext.setTimeUniform(time);
 	}
 	
@@ -43,4 +42,12 @@ public class UserCommands {
 		outputFile = GLWindow.saveScreenshot(outputFile);
 		Main.logger.info("File saved as " + outputFile.getCanonicalPath());
 	}
+	
+	@EntryPoint(path = "resize")
+	@Argument(name = "width", desc = "the new window width, set to -1 to change only the height")
+	@Argument(name = "height", desc = "the new window height, set to -1 to change only the width")
+	public static void setWindowSize(int width, int height) {
+		GLWindow.resizeWindow(width, height);
+	}
+	
 }

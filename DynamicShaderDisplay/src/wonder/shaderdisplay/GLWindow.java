@@ -124,6 +124,12 @@ public class GLWindow {
 		glfwSetWindowTitle(window, title);
 	}
 	
+	public static void resizeWindow(int width, int height) {
+		winWidth = width <= 0 ? winWidth : width;
+		winHeight = height <= 0 ? winHeight : height;
+		glfwSetWindowSize(window, winWidth, winHeight);
+	}
+	
 	public static void printSystemInformation() {
 		System.out.println("GLFW:version               " + glfwGetVersionString());
 		System.out.println("OPENGL:version             " + glGetString(GL_VERSION));

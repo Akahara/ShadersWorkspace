@@ -34,7 +34,7 @@ public class Main {
 //		args = new String[] { "run", "-c", "compute.cs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
 //		args = new String[] { "systeminfo", "--force-gl-version", "4.1" };
 //		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
-		args = new String[] { "run", "frag.fs", "--force-gl-version", "4.1", "--force-restricted-renderer", "--verbose" };
+//		args = new String[] { "run", "frag.fs", "--force-gl-version", "4.1", "--force-restricted-renderer", "--verbose" };
 		try {
 			ArgParser.runHere(args);
 		} catch (Throwable t) {
@@ -103,6 +103,10 @@ public class Main {
 		public String forcedGLVersion;
 		@Option(name = "--force-restricted-renderer", desc = "Forces the use of the restricted renderer, it can only take fragment and vertex shaders as inputs but should work even on old opengl versions")
 		public boolean forceRestrictedRenderer;
+		@Option(name = "--width", desc = "Sets the initial window width")
+		public int winWidth = 500;
+		@Option(name = "--height", desc = "Sets the initial window height")
+		public int winHeight = 500;
 		
 	}
 
@@ -154,7 +158,7 @@ public class Main {
 		
 		try (Scanner commandsScanner = new Scanner(System.in)) {
 			try {
-				GLWindow.createWindow(500, 500);
+				GLWindow.createWindow(options.winWidth, options.winHeight);
 				renderer.loadResources();
 			} catch (Error e) {
 				logger.merr(e, "Unable to create the window");
