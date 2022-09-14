@@ -1,9 +1,13 @@
 package wonder.shaderdisplay;
 
+import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
+
 import java.io.File;
 import java.io.IOException;
-import java.util.Scanner;
+import java.util.Arrays;
 
+import fr.wonder.commons.exceptions.UnreachableException;
 import fr.wonder.commons.loggers.Logger;
 import fr.wonder.commons.loggers.SimpleLogger;
 import fr.wonder.commons.systems.process.ProcessUtils;
@@ -12,6 +16,9 @@ import fr.wonder.commons.systems.process.argparser.Argument;
 import fr.wonder.commons.systems.process.argparser.EntryPoint;
 import fr.wonder.commons.systems.process.argparser.Option;
 import fr.wonder.commons.systems.process.argparser.ProcessDoc;
+import imgui.ImGui;
+import imgui.gl3.ImGuiImplGl3;
+import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.renderers.FixedFileInputRenderer;
 import wonder.shaderdisplay.renderers.FormatedInputRenderer;
 import wonder.shaderdisplay.renderers.Renderer;
@@ -19,22 +26,19 @@ import wonder.shaderdisplay.renderers.RestrictedRenderer;
 import wonder.shaderdisplay.renderers.ScriptRenderer;
 import wonder.shaderdisplay.renderers.StandardRenderer;
 
-@ProcessDoc(doc = "DSD - dynamic shader display.\nThis stand-alone is a wrapper for lwjgl and openGL shaders.")
+@ProcessDoc(doc = "DSD - dynamic shader display.\nThis stand-alone is a wrapper for lwjgl and openGL shaders.\nRun with '?' to print help.")
 public class Main {
 
-//	public static final Logger logger = new AnsiLogger("DSD");
 	public static final Logger logger = new SimpleLogger("DSD");
 	public static Options options;
 	
 	public static void main(String[] args) {
-//		args = new String[] { "?" };
-//		args = new String[] { "run", "--script", "script.py", "--hard-reload", "--verbose", "fragment.fs" };
-//		args = new String[] { "run", "--script", "script.py", "-g", "geometry_lines.gs", "--hard-reload", "--verbose", "fragment.fs" };
-//		args = new String[] { "run", "-i", "icosahedron.txt", "-g", "icosahedron.gs", "--hard-reload", "--verbose", "fragment.fs" };
-//		args = new String[] { "run", "-c", "compute.cs", "-g", "geometry.gs", "--verbose", "--hard-reload" };
-//		args = new String[] { "systeminfo", "--force-gl-version", "4.1" };
-//		args = new String[] { "run", "--verbose", "-c", "compute.cs", "--hard-reload" };
-//		args = new String[] { "run", "frag.fs", "--force-gl-version", "4.1", "--force-restricted-renderer", "--verbose" };
+		if(args.length == 0) {
+			String testCmd = System.getenv("TEST_COMMAND");
+			if(testCmd != null)
+				args = testCmd.split(" "); // warning: quotes cannot be used
+		}
+		System.out.println(Arrays.toString(args));
 		try {
 			ArgParser.runHere(args);
 		} catch (Throwable t) {
@@ -109,7 +113,7 @@ public class Main {
 		public int winHeight = 500;
 		
 	}
-
+	
 	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
 	@EntryPoint(path = "run", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
 	public static void runDisplay(Options options, File fragment) {
@@ -147,8 +151,6 @@ public class Main {
 			exit();
 		}
 		
-		ShaderDisplay shaderDisplay = ShaderDisplay.createDisplay(renderer, fragment);
-		
 		long nextFrame = System.nanoTime();
 		long lastSec = System.nanoTime();
 		int frames = 0;
@@ -156,27 +158,50 @@ public class Main {
 		
 		logger.info("Creating window");
 		
-		try (Scanner commandsScanner = new Scanner(System.in)) {
+		try {
+			ImGuiImplGlfw glfw;
+			ImGuiImplGl3 gl3;
 			try {
 				GLWindow.createWindow(options.winWidth, options.winHeight);
+				ImGui.createContext();
+				ImGui.getIO().setIniFilename(null); // remove the imgui.ini file
+				glfw = new ImGuiImplGlfw();
+				gl3 = new ImGuiImplGl3();
+				glfw.init(GLWindow.getWindow(), true);
+				gl3.init();
 				renderer.loadResources();
 			} catch (Error e) {
 				logger.merr(e, "Unable to create the window");
 				exit();
+				throw new UnreachableException();
 			}
 			
 			reloadShaders(shaderFiles, renderer);
 			
 			logger.info("Running shader");
 		
+			long shaderLastNano = System.nanoTime();
+			
 			while (!GLWindow.shouldDispose()) {
 				long current = System.nanoTime();
+				renderer.step((current - shaderLastNano)/(float)1E9);
+				shaderLastNano = current;
 	
 				if(shaderFiles.needShaderRecompilation())
 					reloadShaders(shaderFiles, renderer);
 				
 				// draw frame
-				shaderDisplay.renderFrame();
+				glfw.newFrame();
+				ImGui.newFrame();
+				if(!ImGui.begin("Shader controls"))
+					throw new UnreachableException("invalid imgui context");
+				UserControls.renderControls();
+				renderer.render();
+				ImGui.end();
+				ImGui.render();
+				gl3.renderDrawData(ImGui.getDrawData());
+				glfwSwapBuffers(GLWindow.getWindow());
+				glfwPollEvents();
 	
 				workTime += System.nanoTime() - current;
 				current = System.nanoTime();
@@ -191,10 +216,6 @@ public class Main {
 					workTime = 0;
 					frames = 0;
 				}
-				
-				// evaluate user commands
-				if(System.in.available() > 0 && commandsScanner.hasNextLine())
-					shaderDisplay.evalCommand(commandsScanner.nextLine());
 			}
 		} catch (Throwable e) {
 			logger.merr(e);

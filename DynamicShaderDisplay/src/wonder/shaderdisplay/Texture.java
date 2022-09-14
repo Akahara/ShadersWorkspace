@@ -6,6 +6,7 @@ import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
@@ -78,7 +79,7 @@ public class Texture {
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
 			glBindTexture(GL_TEXTURE_2D, 0);
 			
-		} catch(IOException e) {
+		} catch(IOException | InvalidPathException e) {
 			e.printStackTrace();
 			id = 0;
 		}

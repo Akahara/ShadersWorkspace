@@ -18,12 +18,19 @@ import wonder.shaderdisplay.UniformsContext;
 
 public abstract class Renderer {
 	
-	protected UniformsContext standardShaderUniforms, computeShaderUniforms;
+	protected UniformsContext standardShaderUniforms = new UniformsContext(), computeShaderUniforms = new UniformsContext();
 	protected int standardShaderProgram, computeShaderProgram;
 	protected int vertexShader, geometryShader, fragmentShader, computeShader;
 	
 	public abstract void loadResources();
 	public abstract void render();
+	
+	public void step(float delta) {
+//		if(standardShaderUniforms != null)
+			standardShaderUniforms.step(delta);
+//		if(computeShaderUniforms != null)
+			computeShaderUniforms.step(delta);
+	}
 
 	public boolean compileShaders(String[] shaders) {
 		int newFragment = 0, newVertex = 0, newGeometry = 0, newCompute = 0;
@@ -84,12 +91,10 @@ public abstract class Renderer {
 			Texture.unloadTextures();
 		
 		String pseudoTotalSource = Resources.concatStandardShaderSource(shaders);
-		standardShaderUniforms = UniformsContext.scan(newStandardProgram, pseudoTotalSource);
-		standardShaderUniforms.apply();
+		standardShaderUniforms.scan(newStandardProgram, pseudoTotalSource);
 		
 		String pseudoComputeSource = Resources.concatComputeShaderSource(shaders);
-		computeShaderUniforms = UniformsContext.scan(newComputeProgram, pseudoComputeSource);
-		computeShaderUniforms.apply();
+		computeShaderUniforms.scan(newComputeProgram, pseudoComputeSource);
 		
 		return true;
 	}
