@@ -24,6 +24,7 @@ public abstract class Renderer {
 	
 	public abstract void loadResources();
 	public abstract void render();
+	public abstract void renderControls();
 	
 	public void step(float delta) {
 //		if(standardShaderUniforms != null)

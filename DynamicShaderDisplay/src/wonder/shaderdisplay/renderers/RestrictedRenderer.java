@@ -50,9 +50,15 @@ public class RestrictedRenderer extends Renderer {
 		glClear(GL_COLOR_BUFFER_BIT);
 		
 		if(standardShaderProgram > 0) {
-			standardShaderUniforms.renderUI("Uniforms");
-			standardShaderUniforms.apply();
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+	}
+	
+	@Override
+	public void renderControls() {
+		if(standardShaderProgram > 0) {
+			standardShaderUniforms.renderControls("Uniforms");
+			standardShaderUniforms.apply();
 		}
 	}
 	

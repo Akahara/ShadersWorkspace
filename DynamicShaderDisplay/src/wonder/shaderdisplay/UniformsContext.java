@@ -40,7 +40,7 @@ public class UniformsContext {
 		}
 		
 		abstract void apply();
-		abstract void renderUI();
+		abstract void renderControl();
 		void step(float delta) {}
 		
 	}
@@ -107,11 +107,11 @@ public class UniformsContext {
 			u.apply();
 	}
 	
-	public void renderUI(String name) {
+	public void renderControls(String name) {
 		if(!ImGui.collapsingHeader(name))
 			return;
 		for(Uniform u : uniforms)
-			u.renderUI();
+			u.renderControl();
 	}
 	
 	public void step(float delta) {
@@ -139,7 +139,7 @@ public class UniformsContext {
 		}
 		
 		@Override
-		void renderUI() {
+		void renderControl() {
 			ImGui.checkbox("Pause iTime", paused);
 			
 			if(ImGui.button("Reset iTime"))
@@ -179,7 +179,7 @@ public class UniformsContext {
 		}
 		
 		@Override
-		void renderUI() {
+		void renderControl() {
 			ImGui.beginDisabled();
 			ImGui.dragFloat2(name, new float[] { GLWindow.winWidth, GLWindow.winHeight });
 			ImGui.endDisabled();
@@ -208,7 +208,7 @@ public class UniformsContext {
 		}
 		
 		@Override
-		void renderUI() {
+		void renderControl() {
 			ImGui.beginDisabled();
 			ImGui.inputText(name, new ImString(texturePath));
 			ImGui.endDisabled();
@@ -235,7 +235,7 @@ public class UniformsContext {
 		}
 		
 		@Override
-		void renderUI() {
+		void renderControl() {
 			if(ptr.length == 1)      ImGui.dragFloat (name, ptr, .01f);
 			else if(ptr.length == 2) ImGui.dragFloat2(name, ptr, .01f);
 			else if(ptr.length == 3) ImGui.dragFloat3(name, ptr, .01f);
@@ -272,7 +272,7 @@ public class UniformsContext {
 		}
 		
 		@Override
-		void renderUI() {
+		void renderControl() {
 			float[] p = new float[1];
 			ImGui.text(name);
 			ImGui.beginTable(name, size);

@@ -5,7 +5,6 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 
 import fr.wonder.commons.exceptions.UnreachableException;
 import fr.wonder.commons.loggers.Logger;
@@ -38,7 +37,7 @@ public class Main {
 			if(testCmd != null)
 				args = testCmd.split(" "); // warning: quotes cannot be used
 		}
-		System.out.println(Arrays.toString(args));
+//		System.out.println(Arrays.toString(args));
 		try {
 			ArgParser.runHere(args);
 		} catch (Throwable t) {
@@ -162,6 +161,7 @@ public class Main {
 			ImGuiImplGlfw glfw;
 			ImGuiImplGl3 gl3;
 			try {
+				ProcessUtils.extractAndLoadDLL("/imgui-java64.dll"); // TODO make this work on linux/macos
 				GLWindow.createWindow(options.winWidth, options.winHeight);
 				ImGui.createContext();
 				ImGui.getIO().setIniFilename(null); // remove the imgui.ini file
@@ -193,12 +193,12 @@ public class Main {
 				// draw frame
 				glfw.newFrame();
 				ImGui.newFrame();
-				if(!ImGui.begin("Shader controls"))
-					throw new UnreachableException("invalid imgui context");
-				UserControls.renderControls();
-				renderer.render();
+				if(ImGui.begin("Shader controls"))
+					UserControls.renderControls();
+				renderer.renderControls();
 				ImGui.end();
 				ImGui.render();
+				renderer.render();
 				gl3.renderDrawData(ImGui.getDrawData());
 				glfwSwapBuffers(GLWindow.getWindow());
 				glfwPollEvents();

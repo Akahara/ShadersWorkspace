@@ -127,10 +127,17 @@ public abstract class FormatedInputRenderer extends Renderer {
 		glClear(GL_COLOR_BUFFER_BIT);
 		
 		if(standardShaderProgram > 0) {
-			standardShaderUniforms.renderUI("Uniforms");
 			glUseProgram(standardShaderProgram);
-			standardShaderUniforms.apply();
 			glDrawElements(drawMode, verticesDrawCount, GL_UNSIGNED_INT, 0);
+		}
+	}
+	
+	@Override
+	public void renderControls() {
+		if(standardShaderProgram > 0) {
+			glUseProgram(standardShaderProgram);
+			standardShaderUniforms.renderControls("Uniforms");
+			standardShaderUniforms.apply();
 		}
 	}
 
