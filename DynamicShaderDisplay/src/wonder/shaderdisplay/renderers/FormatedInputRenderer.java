@@ -128,17 +128,15 @@ public abstract class FormatedInputRenderer extends Renderer {
 		
 		if(standardShaderProgram > 0) {
 			glUseProgram(standardShaderProgram);
+			standardShaderUniforms.apply();
 			glDrawElements(drawMode, verticesDrawCount, GL_UNSIGNED_INT, 0);
 		}
 	}
 	
 	@Override
 	public void renderControls() {
-		if(standardShaderProgram > 0) {
-			glUseProgram(standardShaderProgram);
+		if(standardShaderProgram > 0)
 			standardShaderUniforms.renderControls("Uniforms");
-			standardShaderUniforms.apply();
-		}
 	}
 
 }

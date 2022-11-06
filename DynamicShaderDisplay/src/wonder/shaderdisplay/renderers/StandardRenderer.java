@@ -72,8 +72,11 @@ public class StandardRenderer extends Renderer {
 	
 	@Override
 	public void render() {
+		
+		
 		if(computeShaderProgram > 0) {
 			glUseProgram(computeShaderProgram);
+			computeShaderUniforms.apply();
 			glDispatchCompute(1, 1, 1);
 		}
 		
@@ -82,6 +85,7 @@ public class StandardRenderer extends Renderer {
 		if(standardShaderProgram > 0) {
 			glFinish();
 			glUseProgram(standardShaderProgram);
+			standardShaderUniforms.apply();
 			int triangleCount = BufferUtils.readBufferInt(GL_SHADER_STORAGE_BUFFER, 0);
 			glDrawElements(GL_TRIANGLES, 3*triangleCount, GL_UNSIGNED_INT, 4);
 		}
@@ -89,17 +93,10 @@ public class StandardRenderer extends Renderer {
 	
 	@Override
 	public void renderControls() {
-		if(computeShaderProgram > 0) {
-			glUseProgram(computeShaderProgram);
+		if(computeShaderProgram > 0)
 			computeShaderUniforms.renderControls("Compute shader uniforms");
-			computeShaderUniforms.apply();
-		}
-		
-		if(standardShaderProgram > 0) {
-			glUseProgram(standardShaderProgram);
+		if(standardShaderProgram > 0)
 			standardShaderUniforms.renderControls("Standard shader uniforms");
-			standardShaderUniforms.apply();
-		}
 	}
 
 }

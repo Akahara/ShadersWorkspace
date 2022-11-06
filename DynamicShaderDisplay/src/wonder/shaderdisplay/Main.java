@@ -37,7 +37,7 @@ public class Main {
 			if(testCmd != null)
 				args = testCmd.split(" "); // warning: quotes cannot be used
 		}
-//		System.out.println(Arrays.toString(args));
+		
 		try {
 			ArgParser.runHere(args);
 		} catch (Throwable t) {
@@ -110,6 +110,8 @@ public class Main {
 		public int winWidth = 500;
 		@Option(name = "--height", desc = "Sets the initial window height")
 		public int winHeight = 500;
+		@Option(name = "--nogui", desc = "Removes the uniforms gui")
+		public boolean noGui = false;
 		
 	}
 	
@@ -158,17 +160,19 @@ public class Main {
 		logger.info("Creating window");
 		
 		try {
-			ImGuiImplGlfw glfw;
-			ImGuiImplGl3 gl3;
+			ImGuiImplGlfw glfw = null;
+			ImGuiImplGl3 gl3 = null;
 			try {
-				ProcessUtils.extractAndLoadDLL("/imgui-java64.dll"); // TODO make this work on linux/macos
 				GLWindow.createWindow(options.winWidth, options.winHeight);
-				ImGui.createContext();
-				ImGui.getIO().setIniFilename(null); // remove the imgui.ini file
-				glfw = new ImGuiImplGlfw();
-				gl3 = new ImGuiImplGl3();
-				glfw.init(GLWindow.getWindow(), true);
-				gl3.init();
+				if(!options.noGui) {
+					loadImguiDLL();
+					ImGui.createContext();
+					ImGui.getIO().setIniFilename(null); // remove the imgui.ini file
+					glfw = new ImGuiImplGlfw();
+					gl3 = new ImGuiImplGl3();
+					glfw.init(GLWindow.getWindow(), true);
+					gl3.init();
+				}
 				renderer.loadResources();
 			} catch (Error e) {
 				logger.merr(e, "Unable to create the window");
@@ -191,15 +195,19 @@ public class Main {
 					reloadShaders(shaderFiles, renderer);
 				
 				// draw frame
-				glfw.newFrame();
-				ImGui.newFrame();
-				if(ImGui.begin("Shader controls"))
-					UserControls.renderControls();
-				renderer.renderControls();
-				ImGui.end();
-				ImGui.render();
+				if(!options.noGui) {
+					glfw.newFrame();
+					ImGui.newFrame();
+					if(ImGui.begin("Shader controls"))
+						UserControls.renderControls();
+					renderer.renderControls();
+					ImGui.end();
+					ImGui.render();
+				}
 				renderer.render();
-				gl3.renderDrawData(ImGui.getDrawData());
+				if(!options.noGui) {
+					gl3.renderDrawData(ImGui.getDrawData());
+				}
 				glfwSwapBuffers(GLWindow.getWindow());
 				glfwPollEvents();
 	
@@ -246,6 +254,15 @@ public class Main {
 			return new RestrictedRenderer();
 		
 		return new StandardRenderer();
+	}
+	
+	private static void loadImguiDLL() throws IOException {
+		File dllFile = new File("imgui-java64.dll" /* output file path */);
+		if(!dllFile.exists()) {
+			logger.info("Extracting imgui dll to " + dllFile.getPath());
+			ProcessUtils.extractFileFromResources("/imgui-java64.dll" /* file name in resources */, dllFile);
+		}
+		ProcessUtils.loadDLL(dllFile.getAbsolutePath()); // TODO make this work on linux/macos
 	}
 	
 	private static void watchFiles(ShaderFileWatcher shaderFiles, File fragment) throws IOException {
