@@ -86,9 +86,13 @@ mat4 rotationMatrix(float yaw, float pitch, float roll) {
   );
 }
 
-/* Random function */
+/* Random function v2 */
 float rand(vec2 u) {
     return fract(sin(dot(u, vec2(12.9898, 78.233))) * 43758.5453);
+}
+/* Random function f1 */
+float rand(float f) {
+    return fract(sin(f * 6342.63175) * 43758.5453);
 }
 
 /* Random vector */

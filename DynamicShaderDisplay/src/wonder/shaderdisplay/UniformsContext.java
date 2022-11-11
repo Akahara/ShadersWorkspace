@@ -5,11 +5,15 @@ import static org.lwjgl.opengl.GL11.glBindTexture;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL20.glGetUniformLocation;
+import static org.lwjgl.opengl.GL20.glGetUniformfv;
 import static org.lwjgl.opengl.GL20.glUniform1f;
-import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL20.glUniform1i;
 import static org.lwjgl.opengl.GL20.glUniform2f;
 import static org.lwjgl.opengl.GL20.glUniform3f;
 import static org.lwjgl.opengl.GL20.glUniform4f;
+import static org.lwjgl.opengl.GL20.glUniformMatrix2fv;
+import static org.lwjgl.opengl.GL20.glUniformMatrix3fv;
+import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +23,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import fr.wonder.commons.exceptions.UnreachableException;
+import fr.wonder.commons.types.Triplet;
 import imgui.ImGui;
 import imgui.type.ImBoolean;
 import imgui.type.ImString;
@@ -68,18 +73,60 @@ public class UniformsContext {
 			}
 		}
 		
+		List<Triplet<String, String, String>> foundUniforms = new ArrayList<>();
 		{ // find other uniforms
-			Map<String, Integer> vecTypesSizes = Map.of("float", 1, "vec2", 2, "vec3", 3, "vec4", 4);
-			Map<String, Integer> matTypesSizes = Map.of("mat2", 2, "mat3", 3, "mat4", 4);
-			Pattern pattern = Pattern.compile("\nuniform (float|vec[234]|mat[234]) (\\w+);");
-			Matcher matcher = pattern.matcher(code);
-			
+			Pattern uniformPattern = Pattern.compile("\nuniform (float|vec[234]|mat[234]) ([a-zA-Z_ ,=0-9.()\\-]+);");
+			Pattern declarationPattern = Pattern.compile("([a-zA-Z_0-9]+)\\s*(?:=(.*))?");
+			Matcher matcher = uniformPattern.matcher(code);
 			while(matcher.find()) {
 				String type = matcher.group(1);
-				String name = matcher.group(2);
+				String declarations = matcher.group(2);
+				
+				List<String> splits = new ArrayList<>();
+				int lastSplit = 0, openedParentheses = 0;
+				for(int i = 0; i < declarations.length(); i++) {
+					char c = declarations.charAt(i);
+					if(c == ',' && openedParentheses == 0) {
+						splits.add(declarations.substring(lastSplit, i));
+						lastSplit = i+1;
+					} else if(c == '(') {
+						openedParentheses++;
+					} else if(c == ')') {
+						openedParentheses--;
+					}
+				}
+				if(lastSplit != declarations.length())
+					splits.add(declarations.substring(lastSplit));
+				for(String decl : splits) {
+					Matcher declMatcher = declarationPattern.matcher(decl);
+					if(!declMatcher.find()) {
+						System.err.println("Could not read uniform '" + decl + "'");
+						continue;
+					}
+					String name = declMatcher.group(1).strip();
+					String defaultValue = declMatcher.group(2);
+					defaultValue = defaultValue == null ? null : defaultValue.strip();
+					foundUniforms.add(new Triplet<>(type, name, defaultValue));
+				}
+			}
+		}
+		
+		{ // find other uniforms
+			Map<String, Integer> colTypeSizes  = Map.of("vec3", 3, "vec4", 4);
+			Map<String, Integer> vecTypesSizes = Map.of("float", 1, "vec2", 2, "vec3", 3, "vec4", 4);
+			Map<String, Integer> matTypesSizes = Map.of("mat2", 2, "mat3", 3, "mat4", 4);
+			
+			for(Triplet<String, String, String> u : foundUniforms) {
+				String type = u.a;
+				String name = u.b;
+//				String defaultValue = u.c; // default values are not parsed, instead they are read from gpu memory
+				                           // since they are initialized in the shader
 				if(getUniform(name) != null)
 					continue;
-				if(vecTypesSizes.containsKey(type)) {
+				if(colTypeSizes.containsKey(type) && name.startsWith("c_")) {
+					int size = vecTypesSizes.get(type);
+					uniforms.add(new ColorUniformN(program, name, size).copy(oldUniforms.get(name)));
+				} else if(vecTypesSizes.containsKey(type)) {
 					int size = vecTypesSizes.get(type);
 					uniforms.add(new ArbitraryUniformNF(program, name, size).copy(oldUniforms.get(name)));
 				} else {
@@ -223,6 +270,7 @@ public class UniformsContext {
 		public ArbitraryUniformNF(int program, String name, int size) {
 			super(program, name);
 			this.ptr = new float[size];
+			glGetUniformfv(program, loc, ptr);
 		}
 		
 		@Override
@@ -250,6 +298,36 @@ public class UniformsContext {
 		
 	}
 	
+	private static class ColorUniformN extends Uniform {
+
+		private float[] ptr;
+		
+		public ColorUniformN(int program, String name, int size) {
+			super(program, name);
+			this.ptr = new float[size];
+			glGetUniformfv(program, loc, ptr);
+		}
+		
+		@Override
+		void apply() {
+			if(ptr.length == 3)      glUniform3f(loc, ptr[0], ptr[1], ptr[2]);
+			else if(ptr.length == 4) glUniform4f(loc, ptr[0], ptr[1], ptr[2], ptr[3]);
+			else throw new UnreachableException("Invalid uniform size " + ptr.length);
+		}
+		
+		@Override
+		void renderControl() {
+			if(ptr.length == 3)      ImGui.colorEdit3(name, ptr);
+			else if(ptr.length == 4) ImGui.colorEdit4(name, ptr);
+		}
+		
+		ColorUniformN copy(Uniform u) {
+			if(u instanceof ColorUniformN && ptr.length == ((ColorUniformN) u).ptr.length)
+				ptr = ((ColorUniformN) u).ptr;
+			return this;
+		}
+	}
+	
 	private static class ArbitraryUniformM extends Uniform {
 		
 		private float[] ptr;
@@ -259,6 +337,7 @@ public class UniformsContext {
 			super(program, name);
 			this.size = size;
 			this.ptr = new float[size*size];
+			glGetUniformfv(program, loc, ptr);
 		}
 		
 		@Override
