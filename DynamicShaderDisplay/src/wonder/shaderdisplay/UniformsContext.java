@@ -69,7 +69,10 @@ public class UniformsContext {
 			for(int i = 0; matcher.find(); i++) {
 				String name = matcher.group(1);
 				String path = matcher.group(2);
-				uniforms.add(new TextureUniform(program, i, name, path));
+				Texture texture = path.matches("\\d+") ?
+					Texture.loadTextureFromResources(Integer.parseInt(path)) :
+					Texture.loadTexture(path);
+				uniforms.add(new TextureUniform(program, i, name, texture, path));
 			}
 		}
 		
@@ -237,13 +240,13 @@ public class UniformsContext {
 	private static class TextureUniform extends Uniform {
 		
 		private final Texture texture;
-		private final String texturePath;
+		private final String textureName;
 		private final int textureIndex;
 		
-		TextureUniform(int program, int textureIndex, String name, String path) {
+		TextureUniform(int program, int textureIndex, String name, Texture texture, String textureName) {
 			super(program, name);
-			this.texture = Texture.loadTexture(path);
-			this.texturePath = path;
+			this.texture = texture;
+			this.textureName = textureName;
 			this.textureIndex = textureIndex;
 		}
 		
@@ -257,7 +260,7 @@ public class UniformsContext {
 		@Override
 		void renderControl() {
 			ImGui.beginDisabled();
-			ImGui.inputText(name, new ImString(texturePath));
+			ImGui.inputText(name, new ImString(textureName));
 			ImGui.endDisabled();
 		}
 		
