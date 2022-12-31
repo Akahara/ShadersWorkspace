@@ -2,6 +2,7 @@ package wonder.shaderdisplay;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.GL_BGRA;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
@@ -146,12 +147,17 @@ public class GLWindow {
 	}
 
 	public static File saveScreenshot(File file) throws IOException {
-		int[] pixels = new int[winWidth*winHeight*4];
+		int[] pixels = new int[winWidth*winHeight];
 		glfwSwapBuffers(window);
-		glReadPixels(0, 0, winWidth, winHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+		
+		glReadPixels(0, 0, winWidth, winHeight, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 		glfwSwapBuffers(window);
 		BufferedImage buf = new BufferedImage(winWidth, winHeight, BufferedImage.TYPE_INT_ARGB);
-		buf.setRGB(0, 0, winWidth, winHeight, pixels, 0, winWidth);
+		int[] newPixels = new int[winWidth*winHeight];
+		for(int x = 0; x < winWidth; x++)
+			for(int y = 0; y < winHeight; y++)
+				newPixels[y*winWidth+x] = pixels[(winHeight-1-y)*winWidth+x];
+		buf.setRGB(0, 0, winWidth, winHeight, newPixels, 0, winWidth);
 		String format = FilesUtils.getFileExtension(file);
 		if(format == null) {
 			format = "PNG";

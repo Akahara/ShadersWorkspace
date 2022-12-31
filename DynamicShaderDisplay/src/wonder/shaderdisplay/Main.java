@@ -29,7 +29,9 @@ import wonder.shaderdisplay.renderers.StandardRenderer;
 public class Main {
 
 	public static final Logger logger = new SimpleLogger("DSD");
+	
 	public static Options options;
+	public static Events events;
 	
 	public static void main(String[] args) {
 		if(args.length == 0) {
@@ -115,12 +117,20 @@ public class Main {
 		
 	}
 	
+	public static class Events {
+		
+		public boolean nextFrameIsScreenshot = false;
+		
+	}
+	
 	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
 	@EntryPoint(path = "run", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
 	public static void runDisplay(Options options, File fragment) {
 		logger.info("-- Running display --");
 		
 		Main.options = options;
+		Main.events = new Events();
+		
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		
@@ -194,8 +204,10 @@ public class Main {
 				if(shaderFiles.needShaderRecompilation())
 					reloadShaders(shaderFiles, renderer);
 				
-				// draw frame
-				if(!options.noGui) {
+				// -------- draw frame ---------
+				
+				// begin GUI
+				if(!options.noGui && !events.nextFrameIsScreenshot) {
 					glfw.newFrame();
 					ImGui.newFrame();
 					if(ImGui.begin("Shader controls"))
@@ -204,12 +216,21 @@ public class Main {
 					ImGui.end();
 					ImGui.render();
 				}
+				// render the actual frame
 				renderer.render();
-				if(!options.noGui) {
+				// end GUI
+				if(!options.noGui && !events.nextFrameIsScreenshot)
 					gl3.renderDrawData(ImGui.getDrawData());
-				}
+				
+				// ---------/draw frame/---------
+				
 				glfwSwapBuffers(GLWindow.getWindow());
 				glfwPollEvents();
+				
+				if(events.nextFrameIsScreenshot) {
+					UserControls.takeScreenshot();
+					events.nextFrameIsScreenshot = false;
+				}
 	
 				workTime += System.nanoTime() - current;
 				current = System.nanoTime();
