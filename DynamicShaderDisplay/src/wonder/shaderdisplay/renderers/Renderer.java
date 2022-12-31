@@ -14,7 +14,7 @@ import fr.wonder.commons.exceptions.GenerationException;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.Texture;
-import wonder.shaderdisplay.UniformsContext;
+import wonder.shaderdisplay.uniforms.UniformsContext;
 
 public abstract class Renderer {
 	
