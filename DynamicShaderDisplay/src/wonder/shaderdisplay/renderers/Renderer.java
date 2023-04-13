@@ -1,6 +1,9 @@
 package wonder.shaderdisplay.renderers;
 
 import static org.lwjgl.opengl.GL11.GL_FALSE;
+import static org.lwjgl.opengl.GL11.GL_LINES;
+import static org.lwjgl.opengl.GL11.GL_POINTS;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
 import static org.lwjgl.opengl.GL43.GL_COMPUTE_SHADER;
@@ -26,13 +29,6 @@ public abstract class Renderer {
 	public abstract void render();
 	public abstract void renderControls();
 	
-	public void step(float delta) {
-//		if(standardShaderUniforms != null)
-			standardShaderUniforms.step(delta);
-//		if(computeShaderUniforms != null)
-			computeShaderUniforms.step(delta);
-	}
-
 	public boolean compileShaders(String[] shaders) {
 		int newFragment = 0, newVertex = 0, newGeometry = 0, newCompute = 0;
 		int newStandardProgram = 0, newComputeProgram = 0;

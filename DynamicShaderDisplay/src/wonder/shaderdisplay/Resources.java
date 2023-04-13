@@ -1,16 +1,18 @@
 package wonder.shaderdisplay;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
-import fr.wonder.commons.types.Tuple;
+import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.utils.ArrayOperator;
 
 public class Resources {
@@ -31,7 +33,10 @@ public class Resources {
 	
 	public static final boolean[] REQUIRED_SHADERS = { true, false, true, false };
 	
-	private static final String SNIPPETS_FILE = "/snippets.fs";
+	private static final String SNIPPET_FILE_EXTENSION = "snippets";
+	private static final String SNIPPETS_FILE = "/snippets.snippets";
+	
+	public static final List<Snippet> SNIPPETS = new ArrayList<>();
 	
 	private static String readResource(String path) throws IOException {
 		try (InputStream is = ShaderFileWatcher.class.getResourceAsStream(path)) {
@@ -45,50 +50,85 @@ public class Resources {
 		return readResource(DEFAULT_SOURCES[type]);
 	}
 	
-	private static List<Tuple<String, String>> readSnippetsList() throws IOException {
-		String wholeSource = readResource(SNIPPETS_FILE);
-		List<Tuple<String, String>> snippets = new ArrayList<>();
+	private static List<Snippet> readSnippets(String source) throws IOException {
+		List<Snippet> snippets = new ArrayList<>();
 		
-		Pattern p = Pattern.compile("/\\*(.*)");
-		Matcher m = p.matcher(wholeSource);
-		String snippetName = null;
-		int snippetStartPos = -1;
-		while(m.find()) {
-			if(snippetName != null) {
-				String snippetSource = wholeSource.substring(snippetStartPos, m.start());
-				snippets.add(new Tuple<>(snippetName, snippetSource));
-			}
+		final String tokenStart = "BEGIN ", tokenEnd = "EOS";
+		
+		int current = 0;
+		
+		while(true) {
+			int startPos = source.indexOf(tokenStart, current);
+			if(startPos == -1)
+				break;
+			int headerEnd = source.indexOf('\n', startPos);
+			int endPos = source.indexOf(tokenEnd, headerEnd);
+			String name = source.substring(startPos+tokenStart.length(), headerEnd).trim();
+			String code = source.substring(headerEnd+1, endPos);
 			
-			snippetName = m.group(1);
-			if(snippetName.endsWith(" */"))
-				snippetName = snippetName.substring(0, snippetName.length()-3);
-			snippetStartPos = m.start();
-		}
-		
-		if(snippetName != null) {
-			String snippetSource = wholeSource.substring(snippetStartPos);
-			snippets.add(new Tuple<>(snippetName, snippetSource));
+			snippets.add(new Snippet(name, code));
+			current = endPos + tokenEnd.length();
 		}
 		
 		return snippets;
 	}
 	
-	private static String collectSnippets(String name, String separator,
-			Function<Tuple<String, String>, String> snippetValueGetter) throws IOException {
-		String nameKey = name.equals("_") ? "" : name.toLowerCase();
-		List<Tuple<String, String>> snippets = readSnippetsList();
-		snippets.removeIf(snippet -> !snippet.a.toLowerCase().contains(nameKey));
-		if(snippets.isEmpty())
-			return "No matching snippet";
-		return String.join(separator, snippets.stream().map(snippetValueGetter).collect(Collectors.toList()));
-	}
-
-	public static String readSnippets(String name) throws IOException {
-		return collectSnippets(name, "", tuple -> tuple.b);
+	public static List<Snippet> filterSnippets(String filter) throws PatternSyntaxException {
+		Pattern p = Pattern.compile(filter, Pattern.CASE_INSENSITIVE);
+		return SNIPPETS.stream().filter(s -> p.matcher(s.name).find()).collect(Collectors.toList());
 	}
 	
-	public static String listSnippets(String name) throws IOException {
-		return collectSnippets(name, "\n", tuple -> tuple.a);
+	private static void loadSnippets(List<Snippet> snippets) {
+		for(Snippet s : snippets) {
+			if(SNIPPETS.contains(s)) {
+				Main.logger.warn("Dupplicate snippet found: '" + s.name + "'");
+				continue;
+			}
+			SNIPPETS.add(s);
+		}
+	}
+	
+	public static void scanForAndLoadSnippets() {
+		try {
+			loadSnippets(readSnippets(readResource(SNIPPETS_FILE)));
+			
+			File currentDir = new File(".");
+			Main.logger.debug("Searching for snippets file from '" + currentDir.getCanonicalPath() + "'");
+			for(File file : Files.walk(currentDir.toPath(), 2).map(Path::toFile).collect(Collectors.toList())) {
+				if(SNIPPET_FILE_EXTENSION.equals(FilesUtils.getFileExtension(file))) {
+					Main.logger.debug("Found snippets file '" + file.getCanonicalPath() + "'");
+					loadSnippets(readSnippets(FilesUtils.read(file)));
+				}
+			}
+			
+			Main.logger.debug("Loaded " + SNIPPETS.size() + " snippets");
+		} catch (IOException e) {
+			Main.logger.err(e, "Could not load all snippets");
+		} finally {
+			SNIPPETS.sort((s1,s2) -> s1.name.compareTo(s2.name));
+		}
+	}
+	
+	public static class Snippet {
+		
+		public final String name;
+		public final String code;
+		
+		public Snippet(String name, String code) {
+			this.name = name;
+			this.code = code;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			return obj instanceof Snippet && ((Snippet)obj).name.equals(name);
+		}
+		
+		@Override
+		public int hashCode() {
+			return name.hashCode();
+		}
+		
 	}
 
 	public static String concatStandardShaderSource(String[] shaders) {

@@ -1,7 +1,7 @@
 package wonder.shaderdisplay.uniforms;
 
 import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL40.*;
+import static org.lwjgl.opengl.GL20.glGetUniformfv;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +17,7 @@ import imgui.ImGui;
 import imgui.flag.ImGuiTreeNodeFlags;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Texture;
+import wonder.shaderdisplay.Time;
 
 public class UniformsContext {
 	
@@ -62,8 +63,10 @@ public class UniformsContext {
 		
 		// find iTime
 		if(code.contains("uniform float iTime;"))
-			uniforms.add(new TimeUniform(program).copy(oldUniforms.get("iTime")));
-		
+			uniforms.add(new TimeUniform(program));
+		// find iFrame
+		if(code.contains("uniform float iFrame;"))
+			uniforms.add(new FrameUniform(program)); // TODO implement int uniforms
 		// find iResolution
 		if(code.contains("uniform vec2 iResolution;"))
 			uniforms.add(new ResolutionUniform(program));
@@ -203,13 +206,9 @@ public class UniformsContext {
 	public void renderControls(String name) {
 		if(!ImGui.collapsingHeader(name, ImGuiTreeNodeFlags.DefaultOpen))
 			return;
+		Time.renderControls();
 		for(Uniform u : uniforms)
 			u.renderControl();
-	}
-	
-	public void step(float delta) {
-		for(Uniform u : uniforms)
-			u.step(delta);
 	}
 	
 }

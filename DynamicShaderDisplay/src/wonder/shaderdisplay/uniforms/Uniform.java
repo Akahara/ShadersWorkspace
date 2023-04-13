@@ -10,6 +10,5 @@ abstract class Uniform {
 	
 	public abstract void apply();
 	public abstract void renderControl();
-	public void step(float delta) {}
 	
 }

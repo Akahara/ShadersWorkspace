@@ -5,6 +5,8 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
+import java.util.regex.PatternSyntaxException;
 
 import fr.wonder.commons.exceptions.UnreachableException;
 import fr.wonder.commons.loggers.Logger;
@@ -16,8 +18,10 @@ import fr.wonder.commons.systems.process.argparser.EntryPoint;
 import fr.wonder.commons.systems.process.argparser.Option;
 import fr.wonder.commons.systems.process.argparser.ProcessDoc;
 import imgui.ImGui;
+import imgui.flag.ImGuiCond;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
+import wonder.shaderdisplay.Resources.Snippet;
 import wonder.shaderdisplay.renderers.FixedFileInputRenderer;
 import wonder.shaderdisplay.renderers.FormatedInputRenderer;
 import wonder.shaderdisplay.renderers.Renderer;
@@ -30,7 +34,7 @@ public class Main {
 
 	public static final Logger logger = new SimpleLogger("DSD");
 	
-	public static Options options;
+	public static RunOptions options;
 	public static Events events;
 	
 	public static void main(String[] args) {
@@ -48,39 +52,62 @@ public class Main {
 		}
 	}
 	
-	@Argument(name = "name", desc = "A specific snippet name", defaultValue = "_")
-	@EntryPoint(path = "snippets", help = "Prints a list of snippets to standard output. Snippets can be filtered with <name>")
-	public static void writeSnippets(String name) {
-		try {
-			String snippets = Resources.readSnippets(name);
-			System.out.println(snippets);
-		} catch (IOException e) {
-			logger.merr(e, "Could not read snippets");
+	public static class SnippetsOptions {
+
+		@Option(name = "--verbose", desc = "Verbose output")
+		public boolean verbose;
+		@Option(name = "--filter", desc = "snippet filter (regex)")
+		public String filter;
+		
+	}
+	
+	@EntryPoint(path = "snippets", help = "Prints a list of snippets to standard output. Snippets can be filtered with --filter")
+	public static void writeSnippets(SnippetsOptions options) {
+		if(options.filter == null) {
+			System.out.println("No filter given, did you forget --filter ?");
 			return;
 		}
+		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
+		Resources.scanForAndLoadSnippets();
+		List<Snippet> snippets;
+		try {
+			snippets = Resources.filterSnippets(options.filter);
+		} catch (PatternSyntaxException e) {
+			Main.logger.err(e, "Invalid filter");
+			return;
+		}
+		if(snippets.isEmpty())
+			System.err.println("No matching snippets");
+		for(Snippet s : snippets)
+			System.out.println(s.code);
 	}
 
-	@Argument(name = "name", desc = "A specific snippet name", defaultValue = "_")
-	@EntryPoint(path = "listsnippets", help = "List known snippets. Snippets can be filtered with <name>")
-	public static void listSnippets(String name) {
+	@EntryPoint(path = "snippets-list", help = "List known snippets. Snippets can be filtered with --filter")
+	public static void listSnippets(SnippetsOptions options) {
+		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
+		Resources.scanForAndLoadSnippets();
+		List<Snippet> snippets;
 		try {
-			String snippets = Resources.listSnippets(name);
-			System.out.println(snippets);
-		} catch (IOException e) {
-			logger.merr(e, "Could not read snippets");
+			snippets = options.filter == null ? Resources.SNIPPETS : Resources.filterSnippets(options.filter);
+		} catch (PatternSyntaxException e) {
+			Main.logger.err(e, "Invalid filter");
 			return;
 		}
+		if(snippets.isEmpty())
+			System.out.println("No matching snippets");
+		for(Snippet s : snippets)
+			System.out.println("- " + s.name);
 	}
 	
 	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
-	public static void systemInformation(Options options) {
+	public static void systemInformation(RunOptions options) {
 		Main.options = options;
 		GLWindow.createWindow(1, 1);
 		GLWindow.printSystemInformation();
 		GLWindow.dispose();
 	}
 	
-	public static class Options {
+	public static class RunOptions {
 
 		@Option(name = "--geometry", shortand = "-g", desc = "The geometry shader file")
 		public File geometryShaderFile;
@@ -88,8 +115,8 @@ public class Main {
 		public File vertexShaderFile;
 		@Option(name = "--compute", shortand = "-c", desc = "The compute shader file")
 		public File computeShaderFile;
-		@Option(name = "--fps", desc = "Target maximum fps (frames per second)")
-		public int targetFPS = 60;
+		@Option(name = "--fps", desc = "Target maximum fps (frames per second), or exact fps for video rendering")
+		public float targetFPS = 60;
 		@Option(name = "--no-texture-cache", desc = "Disable texture caching")
 		public boolean noTextureCache;
 		@Option(name = "--verbose", desc = "Verbose output")
@@ -125,7 +152,7 @@ public class Main {
 	
 	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
 	@EntryPoint(path = "run", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
-	public static void runDisplay(Options options, File fragment) {
+	public static void runDisplay(RunOptions options, File fragment) {
 		logger.info("-- Running display --");
 		
 		Main.options = options;
@@ -162,17 +189,11 @@ public class Main {
 			exit();
 		}
 		
-		long nextFrame = System.nanoTime();
-		long lastSec = System.nanoTime();
-		int frames = 0;
-		long workTime = 0;
-		
-		logger.info("Creating window");
-		
 		try {
 			ImGuiImplGlfw glfw = null;
 			ImGuiImplGl3 gl3 = null;
 			try {
+				logger.info("Creating window");
 				GLWindow.createWindow(options.winWidth, options.winHeight);
 				if(!options.noGui) {
 					loadImguiDLL();
@@ -189,20 +210,29 @@ public class Main {
 				exit();
 				throw new UnreachableException();
 			}
-			
+
+			Resources.scanForAndLoadSnippets();
+			UserControls.init();
 			reloadShaders(shaderFiles, renderer);
 			
 			logger.info("Running shader");
 		
 			long shaderLastNano = System.nanoTime();
+			long nextFrame = System.nanoTime();
+			long lastSec = System.nanoTime();
+			int frames = 0;
+			long workTime = 0;
 			
 			while (!GLWindow.shouldDispose()) {
 				long current = System.nanoTime();
-				renderer.step((current - shaderLastNano)/(float)1E9);
+				Time.step((current - shaderLastNano)/(float)1E9);
 				shaderLastNano = current;
 	
 				if(shaderFiles.needShaderRecompilation())
 					reloadShaders(shaderFiles, renderer);
+				
+				if(System.in.available() > 0)
+					UserControls.readStdin();
 				
 				// -------- draw frame ---------
 				
@@ -210,6 +240,8 @@ public class Main {
 				if(!options.noGui && !events.nextFrameIsScreenshot) {
 					glfw.newFrame();
 					ImGui.newFrame();
+					ImGui.setNextWindowPos(0, 0, ImGuiCond.Once);
+					ImGui.setNextWindowCollapsed(true, ImGuiCond.Once);
 					if(ImGui.begin("Shader controls"))
 						UserControls.renderControls();
 					renderer.renderControls();
@@ -256,7 +288,7 @@ public class Main {
 		}
 	}
 	
-	private static Renderer getSuitableRenderer(Options options) {
+	private static Renderer getSuitableRenderer(RunOptions options) {
 		int activeRenderers = 0;
 		if(options.computeShaderFile != null) activeRenderers++;
 		if(options.scriptFile != null) activeRenderers++;
