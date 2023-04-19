@@ -48,8 +48,7 @@ public class UniformsContext {
 			"mat3", (loc, value) -> GL40.glUniformMatrix3fv(loc, false, value),
 			"mat4", (loc, value) -> GL40.glUniformMatrix4fv(loc, false, value)
 	);
-	
-	
+
 	
 	private List<Uniform> uniforms = new ArrayList<>();
 	
@@ -102,7 +101,7 @@ public class UniformsContext {
 				for(String decl : declaredVariables) {
 					Matcher declMatcher = declarationPattern.matcher(decl);
 					if(!declMatcher.find()) {
-						System.err.println("Could not read uniform '" + decl + "'");
+						Main.logger.err("Could not read uniform '" + decl + "'");
 						continue;
 					}
 					String name = declMatcher.group(1).strip();

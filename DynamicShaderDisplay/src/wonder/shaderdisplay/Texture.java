@@ -2,6 +2,8 @@ package wonder.shaderdisplay;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.glActiveTexture;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -19,8 +21,10 @@ public class Texture {
 	
 	private static final Map<String, Texture> cachedTextures = new HashMap<>();
 	private static Texture MISSING_TEXTURE;
+	private static boolean useCache;
 	
-	public final int id;
+	private final int id;
+	private final int width, height;
 	
 	public static Texture loadTexture(String path) {
 		return loadOrUseCachedTexture("file_" + path, () -> loadFromFiles(path));
@@ -42,7 +46,7 @@ public class Texture {
 		Main.logger.debug("Loading texture: " + name);
 		Texture tex = cacheMissSupplier.get();
 		
-		if(!Main.options.noTextureCache && tex != MISSING_TEXTURE)
+		if(useCache && tex != MISSING_TEXTURE)
 			cachedTextures.put(name, tex);
 		return tex;
 	}
@@ -69,6 +73,14 @@ public class Texture {
 		}
 	}
 	
+	public static void setUseCache(boolean useCache) {
+		Texture.useCache = useCache;
+	}
+	
+	public static boolean isUsingCache() {
+		return useCache;
+	}
+	
 	public static void unloadTextures() {
 		for(Texture texture : cachedTextures.values())
 			texture.dispose();
@@ -76,8 +88,9 @@ public class Texture {
 		Main.logger.debug("Unloaded textures");
 	}
 
-	private Texture(BufferedImage image) {
-		int width = image.getWidth(), height = image.getHeight();
+	public Texture(BufferedImage image) {
+		this.width = image.getWidth();
+		this.height = image.getHeight();
 		
 		int size = width*height;
 		int[] data = new int[size];
@@ -110,8 +123,10 @@ public class Texture {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	Texture(int width, int height, ByteBuffer buffer) {
+	public Texture(int width, int height, ByteBuffer buffer) {
 		this.id = glGenTextures();
+		this.width = width;
+		this.height = height;
 		glBindTexture(GL_TEXTURE_2D, id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -123,6 +138,23 @@ public class Texture {
 	
 	public void dispose() {
 		glDeleteTextures(id);
+	}
+	
+	public void bind(int slot) {
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, id);
+	}
+
+	public int getId() {
+		return id;
+	}
+	
+	public int getWidth() {
+		return width;
+	}
+	
+	public int getHeight() {
+		return height;
 	}
 	
 }

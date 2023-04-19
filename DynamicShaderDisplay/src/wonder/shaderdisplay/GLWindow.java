@@ -38,7 +38,7 @@ public class GLWindow {
 	
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
 
-	static void createWindow(int width, int height) {
+	public static void createWindow(int width, int height, boolean visible, boolean vsync, String forcedGlVersion) {
 		winWidth = width;
 		winHeight = height;
 
@@ -47,10 +47,11 @@ public class GLWindow {
 		if (!glfwInit())
 			throw new IllegalStateException("Unable to initialize GLFW !");
 
-		setGLVersionHint();
+		setGLVersionHint(forcedGlVersion);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 		
 		window = glfwCreateWindow(width, height, "Shader Display", NULL, NULL);
 
@@ -58,9 +59,11 @@ public class GLWindow {
 			throw new IllegalStateException("Unable to create a window !");
 
 		glfwMakeContextCurrent(window);
-		glfwShowWindow(window);
-		glfwFocusWindow(window);
-		glfwSwapInterval(Main.options.vsync ? 1 : 0);
+		glfwSwapInterval(vsync ? 1 : 0);
+		if(visible) {
+			glfwShowWindow(window);
+			glfwFocusWindow(window);
+		}
 
 		GL.createCapabilities();
 		
@@ -87,15 +90,15 @@ public class GLWindow {
 		});
 	}
 	
-	private static void setGLVersionHint() {
-		if(Main.options.forcedGLVersion == null) {
+	private static void setGLVersionHint(String forcedGLVersion) {
+		if(forcedGLVersion == null) {
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 			return;
 		} else {
-			Matcher m = Pattern.compile("(\\d+)\\.(\\d+)").matcher(Main.options.forcedGLVersion);
+			Matcher m = Pattern.compile("(\\d+)\\.(\\d+)").matcher(forcedGLVersion);
 			if(!m.find())
-				throw new IllegalArgumentException("Invalid gl version, got '" + Main.options.forcedGLVersion + "', expected something like 4.3");
+				throw new IllegalArgumentException("Invalid gl version, got '" + forcedGLVersion + "', expected something like 4.3");
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, Integer.parseInt(m.group(1)));
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, Integer.parseInt(m.group(2)));
 		}
@@ -135,11 +138,11 @@ public class GLWindow {
 		System.out.println("GLFW:version               " + glfwGetVersionString());
 		System.out.println("OPENGL:version             " + glGetString(GL_VERSION));
 		System.out.println("OPENGL:glslversion         " + glGetString(GL_SHADING_LANGUAGE_VERSION));
-		System.out.println("GLSL:computeMaxWorkGroup   (" + 
+		System.out.println("GLSL:computeMaxWorkGroup   (" +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2) + ")");
-		System.out.println("GLSL:computeMaxWorkSize    (" + 
+		System.out.println("GLSL:computeMaxWorkSize    (" +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2) + ")");

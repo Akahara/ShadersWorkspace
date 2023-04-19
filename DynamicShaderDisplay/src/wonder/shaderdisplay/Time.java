@@ -4,6 +4,7 @@ import imgui.ImGui;
 
 public class Time {
 	
+	private static float fps;
 	private static float time;
 	private static boolean paused;
 	
@@ -14,7 +15,7 @@ public class Time {
 	}
 	
 	public static int getFrame() {
-		return (int) (time * Main.options.targetFPS);
+		return (int) (time * fps);
 	}
 	
 	public static void setPaused(boolean paused) {
@@ -30,9 +31,13 @@ public class Time {
 	}
 	
 	public static void setFrame(int frame) {
-		time = frame / Main.options.targetFPS;
+		time = frame / fps;
 	}
 
+	public static void setFps(float fps) {
+		Time.fps = fps;
+	}
+	
 	public static void step(float realDelta) {
 		if(!paused)
 			time += realDelta;

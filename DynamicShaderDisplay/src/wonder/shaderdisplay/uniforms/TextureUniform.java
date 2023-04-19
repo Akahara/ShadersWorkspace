@@ -1,9 +1,5 @@
 package wonder.shaderdisplay.uniforms;
 
-import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
-import static org.lwjgl.opengl.GL11.glBindTexture;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
-import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import imgui.ImGui;
@@ -28,8 +24,7 @@ class TextureUniform extends Uniform {
 	@Override
 	public void apply() {
 		glUniform1i(location, textureIndex);
-		glActiveTexture(GL_TEXTURE0 + textureIndex);
-		glBindTexture(GL_TEXTURE_2D, texture.id);
+		texture.bind(textureIndex);
 	}
 	
 	@Override

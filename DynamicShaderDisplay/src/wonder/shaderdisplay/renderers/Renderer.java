@@ -84,7 +84,7 @@ public abstract class Renderer {
 		fragmentShader = newFragment;
 		computeShader = newCompute;
 		
-		if(Main.options.noTextureCache)
+		if(!Texture.isUsingCache())
 			Texture.unloadTextures();
 		
 		String pseudoTotalSource = Resources.concatStandardShaderSource(shaders);

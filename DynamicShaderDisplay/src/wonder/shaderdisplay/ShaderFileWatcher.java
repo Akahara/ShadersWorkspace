@@ -2,47 +2,21 @@ package wonder.shaderdisplay;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import fr.wonder.commons.files.FilesUtils;
-import fr.wonder.commons.types.Unit;
 import io.methvin.watcher.DirectoryWatcher;
 
-class ShaderFileWatcher {
+public class ShaderFileWatcher extends ShaderFiles {
 	
 	private static final int PATH_WARNING_LIMIT = 50;
 	
-	private final Path[] shaderFiles = new Path[Resources.SHADERS_COUNT];
-	private final String[] shaderSources = new String[Resources.SHADERS_COUNT];
-	private File scriptFile;
 	private boolean needShaderRecompilation;
 	
-	public void setScriptFile(File scriptFile) {
-		this.scriptFile = scriptFile;
-	}
-	
-	public void addShaderFile(File file, int type) throws IOException {
-		shaderFiles[type] = file.toPath();
-		if(!file.isFile()) {
-			String source = Resources.readDefaultSource(type);
-			shaderSources[type] = source;
-			Files.writeString(shaderFiles[type], source);
-		} else {
-			shaderSources[type] = Files.readString(shaderFiles[type]);
-		}
-	}
-	
-	public void completeWithDefaultSources() throws IOException {
-		for(int i = 0; i < shaderSources.length; i++) {
-			if(shaderSources[i] == null && Resources.REQUIRED_SHADERS[i])
-				shaderSources[i] = Resources.readDefaultSource(i);
-		}
-	}
-	
-	public void startWatching() throws IOException {
+	public void startWatching(boolean hardReload) throws IOException {
 		List<Path> paths = new ArrayList<>();
 		for(Path f : shaderFiles)
 			addWatchedPath(paths, f);
@@ -55,7 +29,7 @@ class ShaderFileWatcher {
 				.listener((ev) -> {
 					synchronized (ShaderFileWatcher.this) {
 						for(int i = 0; i < shaderFiles.length; i++) {
-							if(shaderFiles[i] == null || (!Main.options.hardReload && !ev.path().equals(shaderFiles[i])))
+							if(shaderFiles[i] == null || (!hardReload && !ev.path().equals(shaderFiles[i])))
 								continue;
 							File f = shaderFiles[i].toFile();
 							if(!f.exists() || !f.isFile()) {
@@ -94,44 +68,37 @@ class ShaderFileWatcher {
 	}
 	
 	private void logWarningIfTooManySubDirs(List<Path> paths) {
-		Unit<Integer> pathCount = new Unit<>(0);
+		int count = 0;
 		for(Path p : paths)
-			countFiles(pathCount, p.toFile());
-		if(pathCount.val > PATH_WARNING_LIMIT) {
+			count = countFiles(p.toFile(), count);
+		if(count > PATH_WARNING_LIMIT) {
 			Main.logger.warn("The file watcher can only watch recursively, lots of directories"
 					+ " detected, prefer running dsd in a somewhat empty directory");
 		}
 	}
 	
-	private void countFiles(Unit<Integer> pathCount, File dir) {
+	private int countFiles(File dir, int current) {
+		if(current > PATH_WARNING_LIMIT)
+			return current;
 		for(File f : dir.listFiles()) {
 			if(f.isDirectory()) {
-				pathCount.val++;
-				if(pathCount.val > PATH_WARNING_LIMIT)
-					return;
-				countFiles(pathCount, f);
-				if(pathCount.val > PATH_WARNING_LIMIT)
-					return;
+				current++;
+				current = countFiles(f, current);
+				if(current > PATH_WARNING_LIMIT)
+					return current;
 			}
 		}
-	}
-	
-	/**
-	 * When using this method, the caller must synchronize on the watcher instance,
-	 * the returned array must not be read from while not in a synchronized block.
-	 * The returned array must not be written to.
-	 */
-	public String[] pollShadersSources() {
-		needShaderRecompilation = false;
-		return shaderSources;
+		return current;
 	}
 	
 	public synchronized boolean needShaderRecompilation() {
 		return needShaderRecompilation;
 	}
-
-	public File getScriptFile() {
-		return scriptFile;
+	
+	@Override
+	public synchronized String[] pollShadersSources() {
+		needShaderRecompilation = false;
+		return Arrays.copyOf(shaderSources, shaderSources.length);
 	}
 	
 }

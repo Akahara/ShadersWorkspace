@@ -8,10 +8,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 
-import fr.wonder.commons.systems.process.argparser.ArgParser;
-import fr.wonder.commons.systems.process.argparser.Argument;
-import fr.wonder.commons.systems.process.argparser.EntryPoint;
-import fr.wonder.commons.systems.process.argparser.Option;
+import fr.wonder.commons.systems.argparser.ArgParser;
+import fr.wonder.commons.systems.argparser.InvalidDeclarationError;
+import fr.wonder.commons.systems.argparser.annotations.Argument;
+import fr.wonder.commons.systems.argparser.annotations.EntryPoint;
+import fr.wonder.commons.systems.argparser.annotations.Option;
 import imgui.ImGui;
 import wonder.shaderdisplay.Resources.Snippet;
 
@@ -52,7 +53,11 @@ public class UserControls {
 	}
 	
 	public static void interpretCommand(String command) {
-		new ArgParser("", UserCommands.class).run(command);
+		try {
+			new ArgParser("", UserCommands.class).run(command);
+		} catch (InvalidDeclarationError e) {
+			Main.logger.merr(e);
+		}
 	}
 
 	public static void readStdin() throws IOException {
@@ -70,9 +75,9 @@ public class UserControls {
 		
 		public static class SnippetsOptions {
 			
-			@Option(name = "--code", shortand = "-c", desc = "Prints the snippets code instead of their names")
+			@Option(name = "--code", shorthand = "-c", desc = "Prints the snippets code instead of their names")
 			public boolean printCode = false;
-			@Option(name = "--out", shortand = "-o", valueName = "file", desc = "Writes the snippets codes to a file")
+			@Option(name = "--out", shorthand = "-o", valueName = "file", desc = "Writes the snippets codes to a file")
 			public File outputFile;
 			
 		}

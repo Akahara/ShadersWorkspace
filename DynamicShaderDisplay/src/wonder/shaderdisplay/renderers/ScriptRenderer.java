@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Objects;
 
 import fr.wonder.commons.loggers.AnsiLogger;
 import fr.wonder.commons.loggers.Logger;
@@ -14,14 +15,22 @@ public class ScriptRenderer extends FormatedInputRenderer {
 	
 	public static final Logger scriptLogger = new AnsiLogger("Script");
 	
+	private final File scriptFile;
+	private final int scriptLogLength;
+	
+	public ScriptRenderer(File scriptFile, int scriptLogLength) {
+		this.scriptFile = Objects.requireNonNull(scriptFile);
+		this.scriptLogLength = scriptLogLength;
+	}
+
 	@Override
 	public void reloadInputFile() {
-		String scriptOutput = runScriptFile(Main.options.scriptFile);
+		String scriptOutput = runScriptFile(scriptFile);
 		if(scriptOutput != null)
 			rebuildBuffersInput(scriptOutput);
 	}
 	
-	private static String runScriptFile(File scriptFile) {
+	private String runScriptFile(File scriptFile) {
 		if(!scriptFile.exists()) {
 			Main.logger.err("The script file does not exist: " + scriptFile.getAbsolutePath());
 			return null;
@@ -44,10 +53,10 @@ public class ScriptRenderer extends FormatedInputRenderer {
 			scriptLogger.debug("Ran script in " + (System.currentTimeMillis() - scriptTimestamp) + "ms");
 			String stderr = readProcessOutput(errbao);
 			String stdout = readProcessOutput(stdbao);
-			if(Main.options.scriptLogLength != 0) {
+			if(scriptLogLength != 0) {
 				String verboseOuput;
-				if(stdout.length() > Main.options.scriptLogLength)
-					verboseOuput = stdout.substring(0, Main.options.scriptLogLength) + "... (+" + (stdout.length()-Main.options.scriptLogLength) + " bytes)";
+				if(stdout.length() > scriptLogLength)
+					verboseOuput = stdout.substring(0, scriptLogLength) + "... (+" + (stdout.length()-scriptLogLength) + " bytes)";
 				else
 					verboseOuput = stdout;
 				scriptLogger.debug("Script output:\n" + verboseOuput);
