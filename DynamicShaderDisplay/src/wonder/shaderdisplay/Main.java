@@ -44,7 +44,6 @@ public class Main {
 
 	public static final Logger logger = new SimpleLogger("DSD");
 	
-//	public static RunOptions options; // nullable, depends on the entry point
 	public static Events events = new Events();
 	
 	public static void main(String[] args) {
@@ -115,6 +114,10 @@ public class Main {
 		public boolean vsync;
 		@Option(name = "--nogui", desc = "Removes the uniforms gui")
 		public boolean noGui = false;
+		@Option(name = "--reset-time-on-update", shorthand = "-r", desc = "Resets the iTime uniform when shaders are updated")
+		public boolean resetTimeOnUpdate = false;
+		@Option(name = "--reset-render-targets-on-update", shorthand = "-t", desc = "Clears the render target textures when shaders are updated")
+		public boolean resetRenderTargetsOnUpdate = false;
 		
 	}
 	
@@ -140,7 +143,7 @@ public class Main {
 	
 	public static class Events {
 		
-		public boolean nextFrameIsScreenshot = false;
+		public boolean takeScreenshot = false;
 		
 	}
 	
@@ -201,17 +204,20 @@ public class Main {
 		logger.info("-- Running display --");
 		
 		// create display, load renderer etc
-		Display display = initDisplayCapabilities(options.displayOptions, fragment, true, options.vsync);
+		Display display = createDisplay(options.displayOptions, fragment, true, options.vsync);
+		Texture.setUseCache(!options.noTextureCache);
 		
 		if(display == null)
 			exit(); // early exit
 		
 		try {
+			TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
 			ShaderFileWatcher shaderFiles = new ShaderFileWatcher();
 			fillInShaderFiles(shaderFiles, fragment, options.displayOptions);
 			shaderFiles.startWatching(options.hardReload);
 			Resources.scanForAndLoadSnippets();
 			UserControls.init();
+			GLWindow.addResizeListener((w, h) -> renderTargetsSwapChain.resizeTextures(w, h));
 	
 			reloadShaders(shaderFiles, display.renderer);
 		
@@ -237,20 +243,33 @@ public class Main {
 			long workTime = 0;
 			
 			while (!GLWindow.shouldDispose()) {
-				long current = System.nanoTime();
-				Time.step((current - shaderLastNano)/(float)1E9);
-				shaderLastNano = current;
-	
-				if(shaderFiles.needShaderRecompilation())
+				if(shaderFiles.needShaderRecompilation()) {
 					reloadShaders(shaderFiles, display.renderer);
+					if(options.resetTimeOnUpdate)
+						Time.setFrame(0);
+					if(options.resetRenderTargetsOnUpdate)
+						renderTargetsSwapChain.clearTextures();
+				}
 				
 				if(System.in.available() > 0)
 					UserControls.readStdin();
 				
 				// -------- draw frame ---------
+
+				// render the actual frame
+				renderTargetsSwapChain.swap();
+				renderTargetsSwapChain.bind();
+				display.renderer.render();
+				renderTargetsSwapChain.blitToScreen();
+
+				// update time *after* having drawn the frame and *before* drawing controls
+				// that way time can be set by the controls and not be modified until next frame
+				long current = System.nanoTime();
+				Time.step((current - shaderLastNano)/(float)1E9);
+				shaderLastNano = current;
 				
 				// begin GUI
-				if(!options.noGui && !events.nextFrameIsScreenshot) {
+				if(!options.noGui) {
 					glfw.newFrame();
 					ImGui.newFrame();
 					ImGui.setNextWindowPos(0, 0, ImGuiCond.Once);
@@ -260,21 +279,17 @@ public class Main {
 					display.renderer.renderControls();
 					ImGui.end();
 					ImGui.render();
-				}
-				// render the actual frame
-				display.renderer.render();
-				// end GUI
-				if(!options.noGui && !events.nextFrameIsScreenshot)
 					gl3.renderDrawData(ImGui.getDrawData());
+				}
 				
 				// ---------/draw frame/---------
 				
 				glfwSwapBuffers(GLWindow.getWindow());
 				glfwPollEvents();
 				
-				if(events.nextFrameIsScreenshot) {
-					UserControls.takeScreenshot();
-					events.nextFrameIsScreenshot = false;
+				if(events.takeScreenshot) {
+					UserControls.takeScreenshot(renderTargetsSwapChain);
+					events.takeScreenshot = false;
 				}
 	
 				workTime += System.nanoTime() - current;
@@ -294,7 +309,10 @@ public class Main {
 			
 			GLWindow.dispose();
 		} catch (Throwable e) {
-			logger.err(e, "An error occured");
+			if(options.displayOptions.verbose)
+				logger.merr(e, "An error occured");
+			else
+				logger.err(e, "An error occured");
 		} finally {
 			exit();
 		}
@@ -322,9 +340,9 @@ public class Main {
 		// create display, load renderer etc
 		int w = options.displayOptions.winWidth, h = options.displayOptions.winHeight;
 		
-		Display display = initDisplayCapabilities(options.displayOptions, fragment, false, false);
+		Display display = createDisplay(options.displayOptions, fragment, false, false);
 		ShaderFiles shaderFiles = new ShaderFiles();
-		FrameBuffer fbo = new FrameBuffer(w, h);
+		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
 		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
 		int[] buffer = new int[w*h];
 		Logger logger = new SimpleLogger("ffmpeg");
@@ -335,7 +353,6 @@ public class Main {
 		} catch (IOException e) {
 			logger.err(e, "Could not load shaders");
 		}
-		fbo.bind();
 		
 		
 		Process ffmpegProcess;
@@ -367,9 +384,11 @@ public class Main {
 		try {
 			for(int f = firstFrame; f < lastFrame; f++) {
 				Time.setFrame(f);
+				renderTargetsSwapChain.swap();
+				renderTargetsSwapChain.bind();
 				display.renderer.render();
-				fbo.readColorAttachment(buffer);
-				frame.setRGB(0, 0, w, h, buffer, 0, w);
+				renderTargetsSwapChain.readColorAttachment(0, buffer);
+				frame.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 				ImageIO.write(frame, "jpeg", ffmpegStdin);
 				ProcessUtils.printProgressbar(f-firstFrame, lastFrame-firstFrame, "Writing frames");
 			}
@@ -388,7 +407,7 @@ public class Main {
 		exit();
 	}
 	
-	private static Display initDisplayCapabilities(DisplayOptions options, File fragment, boolean windowVisible, boolean useVSync) {
+	private static Display createDisplay(DisplayOptions options, File fragment, boolean windowVisible, boolean useVSync) {
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		

@@ -17,6 +17,7 @@ import imgui.ImGui;
 import imgui.flag.ImGuiTreeNodeFlags;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Texture;
+import wonder.shaderdisplay.TexturesSwapChain;
 import wonder.shaderdisplay.Time;
 
 public class UniformsContext {
@@ -56,7 +57,7 @@ public class UniformsContext {
 	
 	
 	
-	public void scan(int program, String code) {
+	public void rescan(int program, String code) {
 		Map<String, Uniform> oldUniforms = uniforms.stream().collect(Collectors.toMap(u->u.name, u->u));
 		uniforms = new ArrayList<>();
 		
@@ -74,13 +75,27 @@ public class UniformsContext {
 			Pattern texturePattern = Pattern.compile("\nuniform sampler2D (\\w+);\\s+//[ \t]*(.+)");
 			Matcher matcher = texturePattern.matcher(code);
 			
-			for(int i = 0; matcher.find(); i++) {
+			// the first N binding points are reserved for rendertargets, the remaining ones are standard textures
+			int nextTextureSlot = TexturesSwapChain.RENDER_TARGET_COUNT;
+			
+			while(matcher.find()) {
 				String name = matcher.group(1);
 				String path = matcher.group(2);
-				Texture texture = path.matches("\\d+") ?
-					Texture.loadTextureFromResources(Integer.parseInt(path)) :
-					Texture.loadTexture(path);
-				uniforms.add(new TextureUniform(program, i, name, texture, path));
+				
+				if(path.matches("target \\d+")) { // rendering target texture
+					int target = Integer.parseInt(path.substring("target ".length()));
+					if(target < 0 || target >= TexturesSwapChain.RENDER_TARGET_COUNT) {
+						Main.logger.err("Invalid render target '" + target + "' for uniform '" + name + "', available are 0.." + (TexturesSwapChain.RENDER_TARGET_COUNT-1));
+						target = 0;
+					}
+					uniforms.add(new TargetTextureUniform(program, target, name, target));
+				} else if(path.matches("\\d+")) { // default texture, loaded from resources
+					Texture texture = Texture.loadTextureFromResources(Integer.parseInt(path));
+					uniforms.add(new TextureUniform(program, nextTextureSlot++, name, texture, path));
+				} else { // normal texture, loaded from user files
+					Texture texture = Texture.loadTexture(path);
+					uniforms.add(new TextureUniform(program, nextTextureSlot++, name, texture, path));
+				}
 			}
 		}
 		

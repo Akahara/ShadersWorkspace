@@ -26,6 +26,9 @@ public class Texture {
 	private final int id;
 	private final int width, height;
 	
+	@SuppressWarnings("unused")
+	private static int aliveTextureCount = 0;
+	
 	public static Texture loadTexture(String path) {
 		return loadOrUseCachedTexture("file_" + path, () -> loadFromFiles(path));
 	}
@@ -121,9 +124,11 @@ public class Texture {
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
 		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		aliveTextureCount++;
 	}
 
-	public Texture(int width, int height, ByteBuffer buffer) {
+	public Texture(int width, int height, ByteBuffer rgba8Buffer) {
 		this.id = glGenTextures();
 		this.width = width;
 		this.height = height;
@@ -132,12 +137,20 @@ public class Texture {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba8Buffer);
 		glBindTexture(GL_TEXTURE_2D, 0);
+		
+		aliveTextureCount++;
+	}
+	
+	public Texture(int width, int height) {
+		this(width, height, null);
 	}
 	
 	public void dispose() {
 		glDeleteTextures(id);
+		
+		aliveTextureCount--;
 	}
 	
 	public void bind(int slot) {

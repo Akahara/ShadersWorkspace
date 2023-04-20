@@ -1,5 +1,6 @@
 package wonder.shaderdisplay;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -8,6 +9,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 
+import javax.imageio.ImageIO;
+
+import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.systems.argparser.ArgParser;
 import fr.wonder.commons.systems.argparser.InvalidDeclarationError;
 import fr.wonder.commons.systems.argparser.annotations.Argument;
@@ -33,19 +37,34 @@ public class UserControls {
 		
 		// screenshot
 		if(ImGui.button("Take screenshot"))
-			Main.events.nextFrameIsScreenshot = true;
+			Main.events.takeScreenshot = true;
 		
 		// window resize
 		if(ImGui.dragInt2("New window size", screenSizeBuffer, 10, 1, 15000))
 			GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
 	}
 	
-	public static void takeScreenshot() {
+	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain) {
 		SimpleDateFormat df = new SimpleDateFormat("MMdd_HHmmss");
 		String fileName = "screenshot_" + df.format(new Date()) + ".png";
 		File file = new File(fileName);
+		String format = FilesUtils.getFileExtension(file);
+		
+		if(format == null) {
+			format = "PNG";
+			file = new File(file.getParentFile(), file.getName() + ".png");
+		} else {
+			format = format.toUpperCase();
+		}
+		
+		int w = renderTargetsSwapChain.getDisplayWidth();
+		int h = renderTargetsSwapChain.getDisplayHeight();
+		int[] buffer = renderTargetsSwapChain.readColorAttachment(0, new int[w*h]);
+		BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+		image.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
+		
 		try {
-			GLWindow.saveScreenshot(file);
+			ImageIO.write(image, format, file);
 			Main.logger.info("Saved screenshot at " + file.getCanonicalPath());
 		} catch (IOException e) {
 			Main.logger.merr(e, "Could not save screenshot");

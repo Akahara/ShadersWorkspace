@@ -21,7 +21,7 @@ import wonder.shaderdisplay.uniforms.UniformsContext;
 
 public abstract class Renderer {
 	
-	protected UniformsContext standardShaderUniforms = new UniformsContext(), computeShaderUniforms = new UniformsContext();
+	protected final UniformsContext standardShaderUniforms = new UniformsContext(), computeShaderUniforms = new UniformsContext();
 	protected int standardShaderProgram, computeShaderProgram;
 	protected int vertexShader, geometryShader, fragmentShader, computeShader;
 	
@@ -88,10 +88,10 @@ public abstract class Renderer {
 			Texture.unloadTextures();
 		
 		String pseudoTotalSource = Resources.concatStandardShaderSource(shaders);
-		standardShaderUniforms.scan(newStandardProgram, pseudoTotalSource);
+		standardShaderUniforms.rescan(newStandardProgram, pseudoTotalSource);
 		
 		String pseudoComputeSource = Resources.concatComputeShaderSource(shaders);
-		computeShaderUniforms.scan(newComputeProgram, pseudoComputeSource);
+		computeShaderUniforms.rescan(newComputeProgram, pseudoComputeSource);
 		
 		return true;
 	}

@@ -1,55 +1,73 @@
 package wonder.shaderdisplay;
 
-import static org.lwjgl.opengl.GL11.GL_RGB;
-import static org.lwjgl.opengl.GL11.GL_RGBA;
+import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_NEAREST;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL12.GL_BGRA;
+import static org.lwjgl.opengl.GL20.glDrawBuffers;
 import static org.lwjgl.opengl.GL30.*;
 
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
 
-/** Minimal implementation */
 public class FrameBuffer {
 
 	private final int id;
-	private final Texture colorAttachment;
+	private final List<Texture> attachments = new ArrayList<>();
 	
-	public FrameBuffer(int width, int height) {
+	public FrameBuffer() {
 		this.id = glGenFramebuffers();
-		this.colorAttachment = new Texture(width, height, null);
-		bind();
-		colorAttachment.bind(0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorAttachment.getId(), 0);
+	}
+	
+	public void addAttachment(Texture texture) {
+		glBindFramebuffer(GL_FRAMEBUFFER, id);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachments.size(), GL_TEXTURE_2D, texture.getId(), 0);
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			throw new IllegalStateException("Incomplete frame buffer " + glCheckFramebufferStatus(GL_FRAMEBUFFER));
+		attachments.add(texture);
+	}
+	
+	public void clearAttachments() {
+		glBindFramebuffer(GL_FRAMEBUFFER, id);
+		for(int i = 0; i < attachments.size(); i++)
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachments.size(), GL_TEXTURE_2D, 0, 0);
+		attachments.clear();
 	}
 	
 	public void bind() {
 		glBindFramebuffer(GL_FRAMEBUFFER, id);
-		glViewport(0, 0, colorAttachment.getWidth(), colorAttachment.getHeight());
+		int w = attachments.stream().mapToInt(Texture::getWidth ).max().getAsInt();
+		int h = attachments.stream().mapToInt(Texture::getHeight).max().getAsInt();
+		int[] drawBuffers = IntStream.range(0, attachments.size()).map(i -> GL_COLOR_ATTACHMENT0+i).toArray();
+		glViewport(0, 0, w, h);
+		glDrawBuffers(drawBuffers);
 	}
 	
 	public void dispose() {
 		glDeleteFramebuffers(id);
 	}
 	
-	public void readColorAttachment(ByteBuffer buffer) {
-		int w = colorAttachment.getWidth();
-		int h = colorAttachment.getHeight();
-		if(buffer.remaining() != w*h*3*Float.BYTES)
-			throw new IllegalArgumentException("Invalid buffer size, got " + buffer.remaining() + " expected " + w*h*3*Float.BYTES);
-		glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+	public int[] readColorAttachment(int attachmentId, int[] outBuffer) {
+		int w = attachments.get(attachmentId).getWidth();
+		int h = attachments.get(attachmentId).getHeight();
+		if(outBuffer.length != w*h)
+			throw new IllegalArgumentException("Invalid buffer size, got " + outBuffer.length + " expected " + w*h);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
+		glReadPixels(0, 0, w, h, GL_BGRA, GL_UNSIGNED_BYTE, outBuffer);
+		return outBuffer;
 	}
-	
-	public void readColorAttachment(int[] buffer) {
-		int w = colorAttachment.getWidth();
-		int h = colorAttachment.getHeight();
-		if(buffer.length != w*h)
-			throw new IllegalArgumentException("Invalid buffer size, got " + buffer.length + " expected " + w*h);
-		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-//		glFinish();
+
+	public void blitToScreen() {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glBlitFramebuffer(
+				0, 0, attachments.get(0).getWidth(), attachments.get(0).getHeight(),
+				0, 0, GLWindow.getWinWidth(), GLWindow.getWinHeight(),
+				GL_COLOR_BUFFER_BIT, GL_NEAREST);
 	}
 	
 }

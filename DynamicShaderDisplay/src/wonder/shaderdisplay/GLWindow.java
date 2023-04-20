@@ -1,8 +1,13 @@
 package wonder.shaderdisplay;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL12.GL_BGRA;
+import static org.lwjgl.opengl.GL11.GL_VERSION;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glGetInteger;
+import static org.lwjgl.opengl.GL11.glGetString;
+import static org.lwjgl.opengl.GL11.glPointSize;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL20.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
@@ -12,15 +17,11 @@ import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.imageio.ImageIO;
 
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWErrorCallback;
@@ -28,15 +29,13 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
-import fr.wonder.commons.files.FilesUtils;
-
 public class GLWindow {
 	
 	private static long window;
-//	private static int bindableVAO;
 	public static int winWidth, winHeight;
 	
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
+	private static final List<BiConsumer<Integer, Integer>> resizeCallbacks = new ArrayList<>();
 
 	public static void createWindow(int width, int height, boolean visible, boolean vsync, String forcedGlVersion) {
 		winWidth = width;
@@ -81,6 +80,8 @@ public class GLWindow {
 			glViewport(0, 0, w, h);
 			winWidth = w;
 			winHeight = h;
+			for(BiConsumer<Integer, Integer> callback : resizeCallbacks)
+				callback.accept(w, h);
 		});
 		
 		glfwSetKeyCallback(window, (win, key, scanCode, action, mods) -> {
@@ -138,6 +139,7 @@ public class GLWindow {
 		System.out.println("GLFW:version               " + glfwGetVersionString());
 		System.out.println("OPENGL:version             " + glGetString(GL_VERSION));
 		System.out.println("OPENGL:glslversion         " + glGetString(GL_SHADING_LANGUAGE_VERSION));
+		System.out.println("GLSL:texturesBindingPoints " + glGetInteger(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS));
 		System.out.println("GLSL:computeMaxWorkGroup   (" +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1) + ", " +
@@ -149,27 +151,16 @@ public class GLWindow {
 		System.out.println("GLSL:computeMaxInvocations " + glGetInteger(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS));
 	}
 
-	public static File saveScreenshot(File file) throws IOException {
-		int[] pixels = new int[winWidth*winHeight];
-		glfwSwapBuffers(window);
-		
-		glReadPixels(0, 0, winWidth, winHeight, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
-		glfwSwapBuffers(window);
-		BufferedImage buf = new BufferedImage(winWidth, winHeight, BufferedImage.TYPE_INT_ARGB);
-		int[] newPixels = new int[winWidth*winHeight];
-		for(int x = 0; x < winWidth; x++)
-			for(int y = 0; y < winHeight; y++)
-				newPixels[y*winWidth+x] = pixels[(winHeight-1-y)*winWidth+x];
-		buf.setRGB(0, 0, winWidth, winHeight, newPixels, 0, winWidth);
-		String format = FilesUtils.getFileExtension(file);
-		if(format == null) {
-			format = "PNG";
-			file = new File(file.getParentFile(), file.getName() + ".png");
-		} else {
-			format = format.toUpperCase();
-		}
-		ImageIO.write(buf, format, file);
-		return file;
+	public static int getWinWidth() {
+		return winWidth;
+	}
+
+	public static int getWinHeight() {
+		return winHeight;
+	}
+
+	public static void addResizeListener(BiConsumer<Integer, Integer> callback) {
+		resizeCallbacks.add(callback);
 	}
 
 }

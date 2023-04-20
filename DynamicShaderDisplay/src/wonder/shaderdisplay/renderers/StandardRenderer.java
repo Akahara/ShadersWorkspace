@@ -72,8 +72,6 @@ public class StandardRenderer extends Renderer {
 	
 	@Override
 	public void render() {
-		
-		
 		if(computeShaderProgram > 0) {
 			glUseProgram(computeShaderProgram);
 			computeShaderUniforms.apply();
