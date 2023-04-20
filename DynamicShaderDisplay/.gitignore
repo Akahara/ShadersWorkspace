@@ -1,3 +1,8 @@
+hs_err_pid*
+.settings/
+.project
+.classpath
+bin/
 target/
 /*.fs
 /*.gs
@@ -6,3 +11,6 @@ target/
 /*.py
 /*.dll
 /*.png
+/*.mp4
+/*.avi
+imgui.ini

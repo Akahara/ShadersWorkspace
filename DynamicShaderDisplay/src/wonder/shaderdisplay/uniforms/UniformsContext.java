@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import org.lwjgl.opengl.GL40;
 
 import imgui.ImGui;
-import imgui.flag.ImGuiTreeNodeFlags;
+import imgui.flag.ImGuiCond;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Texture;
 import wonder.shaderdisplay.TexturesSwapChain;
@@ -89,8 +89,9 @@ public class UniformsContext {
 						target = 0;
 					}
 					uniforms.add(new TargetTextureUniform(program, target, name, target));
-				} else if(path.matches("\\d+")) { // default texture, loaded from resources
-					Texture texture = Texture.loadTextureFromResources(Integer.parseInt(path));
+				} else if(path.matches("builtin \\d+")) { // default texture, loaded from resources
+					int buitinId = Integer.parseInt(path.substring("builtin ".length()));
+					Texture texture = Texture.loadTextureFromResources(buitinId);
 					uniforms.add(new TextureUniform(program, nextTextureSlot++, name, texture, path));
 				} else { // normal texture, loaded from user files
 					Texture texture = Texture.loadTexture(path);
@@ -218,11 +219,13 @@ public class UniformsContext {
 	}
 	
 	public void renderControls(String name) {
-		if(!ImGui.collapsingHeader(name, ImGuiTreeNodeFlags.DefaultOpen))
-			return;
-		Time.renderControls();
-		for(Uniform u : uniforms)
-			u.renderControl();
+		ImGui.setNextWindowCollapsed(true, ImGuiCond.Once);
+		if(ImGui.begin(name)) {
+			Time.renderControls();
+			for(Uniform u : uniforms)
+				u.renderControl();
+		}
+		ImGui.end();
 	}
 	
 }

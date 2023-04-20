@@ -17,11 +17,16 @@ import fr.wonder.commons.systems.argparser.InvalidDeclarationError;
 import fr.wonder.commons.systems.argparser.annotations.Argument;
 import fr.wonder.commons.systems.argparser.annotations.EntryPoint;
 import fr.wonder.commons.systems.argparser.annotations.Option;
+import fr.wonder.commons.systems.argparser.annotations.OptionClass;
 import imgui.ImGui;
+import imgui.ImVec2;
+import imgui.flag.ImGuiStyleVar;
 import wonder.shaderdisplay.Resources.Snippet;
 
 public class UserControls {
 
+	public static final String RENDER_TARGETS_WINDOW = "Render targets";
+	
 	private static final int[] screenSizeBuffer = new int[2];
 	
 	private static StringBuilder stdinBuffer = new StringBuilder();
@@ -31,17 +36,31 @@ public class UserControls {
 		screenSizeBuffer[1] = GLWindow.winHeight;
 	}
 	
-	public static void renderControls() {
-		if(!ImGui.collapsingHeader("Controls"))
-			return;
-		
-		// screenshot
-		if(ImGui.button("Take screenshot"))
-			Main.events.takeScreenshot = true;
-		
-		// window resize
-		if(ImGui.dragInt2("New window size", screenSizeBuffer, 10, 1, 15000))
-			GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
+	public static void renderControls(TexturesSwapChain renderTargetsSwapChain) {
+		if(ImGui.begin("Controls")) {
+			// screenshot
+			if(ImGui.button("Take screenshot"))
+				Main.events.takeScreenshot = true;
+			
+			// window resize
+			if(ImGui.dragInt2("New window size", screenSizeBuffer, 10, 1, 15000))
+				GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
+		}
+		ImGui.end();
+
+		ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.f, 0.f);
+		if(ImGui.begin(RENDER_TARGETS_WINDOW)) {
+			ImVec2 winSize = ImGui.getWindowSize();
+			float imageW = winSize.x*.5f;
+			float imageH = (winSize.y-30)/(TexturesSwapChain.RENDER_TARGET_COUNT/2);
+			for(int i = 1; i < TexturesSwapChain.RENDER_TARGET_COUNT; i++) {
+				ImGui.image(renderTargetsSwapChain.getOffscreenTexture(i).getId(), imageW, imageH, 0, 1, 1, 0);
+				if(i%2==1)
+					ImGui.sameLine();
+			}
+		}
+		ImGui.popStyleVar();
+		ImGui.end();
 	}
 	
 	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain) {
@@ -92,6 +111,7 @@ public class UserControls {
 	
 	public static class UserCommands {
 		
+		@OptionClass
 		public static class SnippetsOptions {
 			
 			@Option(name = "--code", shorthand = "-c", desc = "Prints the snippets code instead of their names")
@@ -131,7 +151,7 @@ public class UserControls {
 					Main.logger.err(e, "Could not write snippets");
 				}
 			}
-			System.out.println("Found " + snippets.size() + " snippets");
+			System.out.println("Found " + snippets.size() + " snippets, use with -c to print their source codes");
 		}
 		
 	}

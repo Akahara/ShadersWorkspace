@@ -3,6 +3,7 @@ package wonder.shaderdisplay.uniforms;
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import imgui.ImGui;
+import wonder.shaderdisplay.UserControls;
 
 public class TargetTextureUniform extends Uniform {
 
@@ -26,7 +27,8 @@ public class TargetTextureUniform extends Uniform {
 	public void renderControl() {
 		ImGui.text(name);
 		ImGui.sameLine();
-		ImGui.button("Target" + target);
+		if(ImGui.button("Target" + target))
+			ImGui.setWindowFocus(UserControls.RENDER_TARGETS_WINDOW);
 	}
 	
 	public int getTextureIndex() {

@@ -65,5 +65,9 @@ public class TexturesSwapChain {
 	public void clearTextures() {
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
+
+	public Texture getOffscreenTexture(int renderTargetId) {
+		return textures[(currentSwap+1)%SWAP_COUNT][renderTargetId];
+	}
 	
 }

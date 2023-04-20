@@ -28,7 +28,7 @@ import fr.wonder.commons.systems.argparser.annotations.ProcessDoc;
 import fr.wonder.commons.systems.process.ProcessUtils;
 import fr.wonder.commons.utils.StringUtils;
 import imgui.ImGui;
-import imgui.flag.ImGuiCond;
+import imgui.flag.ImGuiConfigFlags;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.Resources.Snippet;
@@ -225,9 +225,9 @@ public class Main {
 			ImGuiImplGlfw glfw = null;
 			ImGuiImplGl3 gl3 = null;
 			if(!options.noGui) {
-				loadImguiDLL();
+				loadImguiFiles();
 				ImGui.createContext();
-				ImGui.getIO().setIniFilename(null); // remove the imgui.ini file
+				ImGui.getIO().addConfigFlags(ImGuiConfigFlags.DockingEnable);
 				glfw = new ImGuiImplGlfw();
 				gl3 = new ImGuiImplGl3();
 				glfw.init(GLWindow.getWindow(), true);
@@ -243,6 +243,7 @@ public class Main {
 			long workTime = 0;
 			
 			while (!GLWindow.shouldDispose()) {
+				// reload shaders if necessary
 				if(shaderFiles.needShaderRecompilation()) {
 					reloadShaders(shaderFiles, display.renderer);
 					if(options.resetTimeOnUpdate)
@@ -272,14 +273,12 @@ public class Main {
 				if(!options.noGui) {
 					glfw.newFrame();
 					ImGui.newFrame();
-					ImGui.setNextWindowPos(0, 0, ImGuiCond.Once);
-					ImGui.setNextWindowCollapsed(true, ImGuiCond.Once);
-					if(ImGui.begin("Shader controls"))
-						UserControls.renderControls();
+					UserControls.renderControls(renderTargetsSwapChain);
 					display.renderer.renderControls();
-					ImGui.end();
 					ImGui.render();
 					gl3.renderDrawData(ImGui.getDrawData());
+					ImGui.updatePlatformWindows();
+					ImGui.renderPlatformWindowsDefault();
 				}
 				
 				// ---------/draw frame/---------
@@ -464,13 +463,19 @@ public class Main {
 		return new StandardRenderer();
 	}
 	
-	private static void loadImguiDLL() throws IOException {
+	private static void loadImguiFiles() throws IOException {
 		File dllFile = new File("imgui-java64.dll");
 		if(!dllFile.exists()) {
 			logger.info("Extracting imgui dll to " + dllFile.getPath());
 			ProcessUtils.extractFileFromResources("/imgui-java64.dll", dllFile);
 		}
 		ProcessUtils.loadDLL(dllFile.getAbsolutePath()); // TODO make this work on linux/macos
+		
+		File iniFile = new File("imgui.ini");
+		if(!iniFile.exists()) {
+			logger.info("Extracting a default imgui.ini file to " + iniFile.getPath());
+			ProcessUtils.extractFileFromResources("/default_imgui.ini", iniFile);
+		}
 	}
 	
 	private static void fillInShaderFiles(ShaderFiles shaderFiles, File fragment, DisplayOptions options) throws IOException {
