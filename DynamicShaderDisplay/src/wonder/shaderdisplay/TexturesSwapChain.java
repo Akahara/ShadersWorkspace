@@ -5,6 +5,13 @@ import static org.lwjgl.opengl.GL11.glClear;
 
 public class TexturesSwapChain {
 	
+	/*
+	 * Texture slots, starting from 0:
+	 * - RENDER_TARGET_COUNT-1 are for render targets
+	 * - 1 is for the input texture if the process is run in image processing mode
+	 * - remaining slots are used for texture uniforms
+	 */
+	
 	public static final int RENDER_TARGET_COUNT = 5;
 	private static final int SWAP_COUNT = 2;
 	

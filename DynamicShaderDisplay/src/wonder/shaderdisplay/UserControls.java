@@ -43,7 +43,7 @@ public class UserControls {
 				Main.events.takeScreenshot = true;
 			
 			// window resize
-			if(ImGui.dragInt2("New window size", screenSizeBuffer, 10, 1, 15000))
+			if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
 				GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
 		}
 		ImGui.end();

@@ -77,10 +77,20 @@ public class UniformsContext {
 			
 			// the first N binding points are reserved for rendertargets, the remaining ones are standard textures
 			int nextTextureSlot = TexturesSwapChain.RENDER_TARGET_COUNT;
+			// the next slot is used for the input texture
+			if(Main.isImagePass) nextTextureSlot++;
 			
 			while(matcher.find()) {
 				String name = matcher.group(1);
 				String path = matcher.group(2);
+				
+				if(path.startsWith("input or ")) { // if in image processing mode, the input texture
+					if(Main.isImagePass) {
+						uniforms.add(new InputTextureUniform(program, name));
+						continue;
+					}
+					path = path.substring("input or ".length());
+				}
 				
 				if(path.matches("target \\d+")) { // rendering target texture
 					int target = Integer.parseInt(path.substring("target ".length()));

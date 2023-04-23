@@ -16,6 +16,7 @@ import java.util.regex.PatternSyntaxException;
 import javax.imageio.ImageIO;
 
 import fr.wonder.commons.exceptions.UnreachableException;
+import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
 import fr.wonder.commons.loggers.SimpleLogger;
 import fr.wonder.commons.systems.argparser.ArgParser;
@@ -38,6 +39,8 @@ import wonder.shaderdisplay.renderers.Renderer;
 import wonder.shaderdisplay.renderers.RestrictedRenderer;
 import wonder.shaderdisplay.renderers.ScriptRenderer;
 import wonder.shaderdisplay.renderers.StandardRenderer;
+import wonder.shaderdisplay.uniforms.InputTextureUniform;
+import wonder.shaderdisplay.uniforms.ResolutionUniform;
 
 @ProcessDoc(doc = "DSD - dynamic shader display.\nThis stand-alone is a wrapper for lwjgl and openGL shaders.\nRun with '?' to print help.")
 public class Main {
@@ -45,6 +48,8 @@ public class Main {
 	public static final Logger logger = new SimpleLogger("DSD");
 	
 	public static Events events = new Events();
+
+	public static boolean isImagePass = false; // true iff run with "image" (see #applyShaderToImages)
 	
 	public static void main(String[] args) {
 		if(args.length == 0) {
@@ -138,6 +143,20 @@ public class Main {
 		public String ffmpegOptions = "";
 		@Option(name = "--output", shorthand = "-o", valueName = "file", desc = "Output file path, defaults to \"video.mp4\"")
 		public File outputFile = new File("video.mp4");
+		
+	}
+	
+	@OptionClass
+	public static class ImagePassOptions {
+		
+		@InnerOptions
+		public DisplayOptions displayOptions;
+		@Option(name = "--output", shorthand = "-o", valueName = "file", desc = "Output file(s) path, defaults to \"out.png\"")
+		public String outputPath = "out.png";
+		@Option(name = "--overwrite", shorthand = "-r", desc = "Overwrite existing output files")
+		public boolean overwriteExistingFiles = false;
+		@Option(name = "--size-to-image", shorthand = "-s", desc = "Size the shader input to the input image instead of using a fixed size window")
+		public boolean sizeToImage = false;
 		
 	}
 	
@@ -406,6 +425,79 @@ public class Main {
 		exit();
 	}
 	
+	@Argument(name = "fragment", desc = "The fragment shader file")
+	@Argument(name = "file", desc = "One or more image files to apply the shader to")
+	@EntryPoint(path = "image", help = "Applies a shader to an image and saves the output")
+	public static void applyShaderToImages(ImagePassOptions options, File fragment, File... inputFiles) {
+		if(!options.outputPath.contains("{}") && !new File(options.outputPath).isDirectory() && inputFiles.length > 1) {
+			System.err.println("Output path is not a directory and multiple input files given, use -o <directory>");
+			return;
+		}
+		
+		logger.info("-- Running image shader pass --");
+		Main.isImagePass = true;
+		
+		// create display, load renderer etc
+		int w = options.displayOptions.winWidth, h = options.displayOptions.winHeight;
+		
+		Display display = createDisplay(options.displayOptions, fragment, false, false);
+		ShaderFiles shaderFiles = new ShaderFiles();
+		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
+		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
+		int[] buffer = new int[w*h];
+		
+		try {
+			fillInShaderFiles(shaderFiles, fragment, options.displayOptions);
+			reloadShaders(shaderFiles, display.renderer);
+		} catch (IOException e) {
+			logger.err(e, "Could not load shaders");
+		}
+
+		for(File inputFile : inputFiles) {
+			String outputPath = options.outputPath.replaceAll("\\{\\}", inputFile.getName());
+			File outputFile = new File(outputPath);
+			if(outputFile.isDirectory())
+				outputFile = new File(outputFile, inputFile.getName());
+			String imageFormat = FilesUtils.getFileExtension(outputFile).toUpperCase();
+			if(!options.overwriteExistingFiles && outputFile.exists()) {
+				logger.warn("File '" + outputFile.getPath() + "' already exists, add -r to overwrite it");
+				continue;
+			}
+			
+			Texture inputTexture;
+			try {
+				inputTexture = new Texture(ImageIO.read(inputFile));
+			} catch (IOException e) {
+				logger.err("Could not read file '" + inputFile.getPath() + "': " + e.getMessage());
+				continue;
+			}
+			
+			if(options.sizeToImage) {
+				w = inputTexture.getWidth();
+				h = inputTexture.getHeight();
+				ResolutionUniform.updateViewportSize(w, h);
+				renderTargetsSwapChain.resizeTextures(w, h);
+				frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
+				buffer = new int[w*h];
+			}
+				
+			renderTargetsSwapChain.swap();
+			renderTargetsSwapChain.bind();
+			inputTexture.bind(InputTextureUniform.INPUT_TEXTURE_SLOT);
+			display.renderer.render();
+			renderTargetsSwapChain.readColorAttachment(0, buffer);
+			frame.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
+			try {
+				ImageIO.write(frame, imageFormat, outputFile);
+				logger.info("Wrote '" + outputFile.getPath() + "'");
+			} catch (IOException e) {
+				logger.err("Could not write file '" + outputFile.getPath() + "': " + e.getMessage());
+			}
+			
+			inputTexture.dispose();
+		}
+	}
+	
 	private static Display createDisplay(DisplayOptions options, File fragment, boolean windowVisible, boolean useVSync) {
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
@@ -435,6 +527,7 @@ public class Main {
 
 		logger.info("Creating window");
 		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, useVSync, options.forcedGLVersion);
+		GLWindow.addResizeListener(ResolutionUniform::updateViewportSize);
 		Time.setFps(options.targetFPS);
 		
 		display.renderer.loadResources();

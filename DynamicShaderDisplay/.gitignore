@@ -4,6 +4,7 @@ hs_err_pid*
 .classpath
 bin/
 target/
+outdir/
 /*.fs
 /*.gs
 /*.vs
