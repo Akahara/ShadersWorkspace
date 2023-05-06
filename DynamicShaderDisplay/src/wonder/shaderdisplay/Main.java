@@ -160,6 +160,22 @@ public class Main {
 		
 	}
 	
+	@OptionClass
+	public static class ScreenshotPassOptions {
+		
+		public static final int NO_RUN_FROM_FRAME = -1;
+		
+		@InnerOptions
+		public DisplayOptions displayOptions;
+		@Option(name = "--run-from", valueName = "frame", desc = "Run the shader from <frame> up to the screenshot frame, useful when the shader uses rendertargets")
+		public int runFromFrame = NO_RUN_FROM_FRAME;
+		@Option(name = "--screenshot-frame", shorthand = "-f", valueName = "frame", desc = "Take the screenshot at frame <frame>, previous frames are not simulated if --run-from is not specified")
+		public int screenshotFrame;
+		@Option(name = "--overwrite", shorthand = "-r", desc = "Overwrite existing output files")
+		public boolean overwriteExistingFiles = false;
+		
+	}
+	
 	public static class Events {
 		
 		public boolean takeScreenshot = false;
@@ -452,7 +468,7 @@ public class Main {
 		} catch (IOException e) {
 			logger.err(e, "Could not load shaders");
 		}
-
+		
 		for(File inputFile : inputFiles) {
 			String outputPath = options.outputPath.replaceAll("\\{\\}", inputFile.getName());
 			File outputFile = new File(outputPath);
@@ -498,6 +514,63 @@ public class Main {
 		}
 	}
 	
+	@Argument(name = "fragment", desc = "The fragment shader file")
+	@Argument(name = "file", desc = "The output file")
+	@EntryPoint(path = "screenshot", help = "Runs the shader and saves a single frame to a file")
+	public static void applyShaderToImages(ScreenshotPassOptions options, File fragment, File outputFile) {
+		if(outputFile.isDirectory()) {
+			System.err.println(outputFile + " is a directory");
+			return;
+		} else if(outputFile.exists() && !options.overwriteExistingFiles) {
+			System.err.println(outputFile + " already exists, add -r to overwrite it");
+			return;
+		}
+		
+		logger.info("-- Running screenshot shader pass --");
+		Main.isImagePass = true;
+		
+		// create display, load renderer etc
+		int w = options.displayOptions.winWidth, h = options.displayOptions.winHeight;
+		
+		Display display = createDisplay(options.displayOptions, fragment, false, false);
+		ShaderFiles shaderFiles = new ShaderFiles();
+		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
+		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
+		int[] buffer = new int[w*h];
+		
+		try {
+			fillInShaderFiles(shaderFiles, fragment, options.displayOptions);
+			reloadShaders(shaderFiles, display.renderer);
+		} catch (IOException e) {
+			logger.err(e, "Could not load shaders");
+		}
+		
+		String imageFormat = FilesUtils.getFileExtension(outputFile).toUpperCase();
+		
+		if(options.runFromFrame != ScreenshotPassOptions.NO_RUN_FROM_FRAME) {
+			for(int i = options.runFromFrame; i < options.screenshotFrame; i++) {
+				Time.setFrame(i);
+				renderTargetsSwapChain.swap();
+				renderTargetsSwapChain.bind();
+				display.renderer.render();
+			}
+		}
+		
+		Time.setFrame(options.screenshotFrame);
+		
+		renderTargetsSwapChain.swap();
+		renderTargetsSwapChain.bind();
+		display.renderer.render();
+		renderTargetsSwapChain.readColorAttachment(0, buffer);
+		frame.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
+		try {
+			ImageIO.write(frame, imageFormat, outputFile);
+			logger.info("Wrote '" + outputFile.getPath() + "'");
+		} catch (IOException e) {
+			logger.err("Could not write file '" + outputFile.getPath() + "': " + e.getMessage());
+		}
+	}
+	
 	private static Display createDisplay(DisplayOptions options, File fragment, boolean windowVisible, boolean useVSync) {
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
@@ -528,6 +601,7 @@ public class Main {
 		logger.info("Creating window");
 		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, useVSync, options.forcedGLVersion);
 		GLWindow.addResizeListener(ResolutionUniform::updateViewportSize);
+		ResolutionUniform.updateViewportSize(options.winWidth, options.winHeight);
 		Time.setFps(options.targetFPS);
 		
 		display.renderer.loadResources();
