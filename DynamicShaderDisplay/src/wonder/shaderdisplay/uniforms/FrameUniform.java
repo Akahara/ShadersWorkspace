@@ -1,6 +1,6 @@
 package wonder.shaderdisplay.uniforms;
 
-import static org.lwjgl.opengl.GL20.glUniform1f;
+import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import wonder.shaderdisplay.Time;
 
@@ -16,7 +16,7 @@ class FrameUniform extends Uniform {
 	
 	@Override
 	public void apply() {
-		glUniform1f(location, Time.getFrame());
+		glUniform1i(location, Time.getFrame());
 	}
 	
 	@Override

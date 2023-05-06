@@ -65,8 +65,8 @@ public class UniformsContext {
 		if(code.contains("uniform float iTime;"))
 			uniforms.add(new TimeUniform(program));
 		// find iFrame
-		if(code.contains("uniform float iFrame;"))
-			uniforms.add(new FrameUniform(program)); // TODO implement int uniforms
+		if(code.contains("uniform int iFrame;"))
+			uniforms.add(new FrameUniform(program));
 		// find iResolution
 		if(code.contains("uniform vec2 iResolution;"))
 			uniforms.add(new ResolutionUniform(program));
