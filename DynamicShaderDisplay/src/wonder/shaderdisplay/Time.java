@@ -31,7 +31,7 @@ public class Time {
 	}
 	
 	public static void setFrame(int frame) {
-		time = frame / fps;
+		time = (frame+.5f) / fps;
 	}
 
 	public static void setFps(float fps) {
@@ -41,6 +41,11 @@ public class Time {
 	public static void step(float realDelta) {
 		if(!paused)
 			time += realDelta;
+	}
+
+	public static void stepFrame(int frameCount) {
+		if(!paused)
+			setFrame(getFrame()+frameCount);
 	}
 	
 	public static void renderTimeControls() {

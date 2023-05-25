@@ -123,6 +123,8 @@ public class Main {
 		public boolean resetTimeOnUpdate = false;
 		@Option(name = "--reset-render-targets-on-update", shorthand = "-t", desc = "Clears the render target textures when shaders are updated")
 		public boolean resetRenderTargetsOnUpdate = false;
+		@Option(name = "--frame-exact", shorthand = "-e", desc = "Forces iFrame to advance by 1 each frame, if not set iFrame will try to catch up if frames take longer than 1/fps")
+		public boolean frameExact = false;
 		
 	}
 	
@@ -301,7 +303,10 @@ public class Main {
 				// update time *after* having drawn the frame and *before* drawing controls
 				// that way time can be set by the controls and not be modified until next frame
 				long current = System.nanoTime();
-				Time.step((current - shaderLastNano)/(float)1E9);
+				if(options.frameExact)
+					Time.stepFrame(1);
+				else
+					Time.step((current - shaderLastNano)/(float)1E9);
 				shaderLastNano = current;
 				
 				// begin GUI
