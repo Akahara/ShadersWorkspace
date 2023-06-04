@@ -25,4 +25,9 @@ public class InputTextureUniform extends Uniform {
 		
 	}
 
+	@Override
+	public String toUniformString() {
+		return "uniform sampler2D " + name + ";";
+	}
+
 }

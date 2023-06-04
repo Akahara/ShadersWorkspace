@@ -10,5 +10,6 @@ abstract class Uniform {
 	
 	public abstract void apply();
 	public abstract void renderControl();
+	public abstract String toUniformString();
 	
 }

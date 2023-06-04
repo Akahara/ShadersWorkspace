@@ -22,4 +22,9 @@ class FrameUniform extends Uniform {
 	public void renderControl() {
 		Time.renderTimeControls();
 	}
+
+	@Override
+	public String toUniformString() {
+		return "uniform int " + name + ";";
+	}
 }

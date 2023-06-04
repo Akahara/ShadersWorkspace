@@ -35,4 +35,9 @@ public class TargetTextureUniform extends Uniform {
 		return textureIndex;
 	}
 
+	@Override
+	public String toUniformString() {
+		return "uniform sampler2D " + name + ";";
+	}
+
 }

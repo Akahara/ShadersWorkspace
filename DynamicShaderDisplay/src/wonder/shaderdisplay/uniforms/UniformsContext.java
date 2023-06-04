@@ -168,7 +168,8 @@ public class UniformsContext {
 					continue;
 				}
 				
-				ArbitraryUniform uniform = new ArbitraryUniform(program, u.name, uniformFunction,
+				ArbitraryUniform uniform = new ArbitraryUniform(
+						program, u.name, u.typeName, uniformFunction,
 						control, u.isArray, valueSize, initialValues);
 				uniform.copy(oldUniforms.get(u.name));
 				uniforms.add(uniform);
@@ -235,6 +236,14 @@ public class UniformsContext {
 	public void renderControls(String name) {
 		ImGui.setNextWindowCollapsed(true, ImGuiCond.Once);
 		if(ImGui.begin(name)) {
+			if(ImGui.button("copy all uniforms")) {
+				StringBuilder clipboardText = new StringBuilder();
+				for(Uniform u : uniforms) {
+					clipboardText.append(u.toUniformString());
+					clipboardText.append('\n');
+				}
+				ImGui.setClipboardText(clipboardText.toString());
+			}
 			Time.renderControls();
 			for(Uniform u : uniforms)
 				u.renderControl();

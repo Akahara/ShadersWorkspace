@@ -51,5 +51,10 @@ class TextureUniform extends Uniform {
 	        		+ "  uniform sampler2D u_texture; // input or builtin 0");
 		}
 	}
+
+	@Override
+	public String toUniformString() {
+		return "uniform sampler2D " + name + ";";
+	}
 	
 }

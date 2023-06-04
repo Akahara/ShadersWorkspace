@@ -36,5 +36,10 @@ public class ResolutionUniform extends Uniform {
 		viewportWidth = width;
 		viewportHeight = height;
 	}
+
+	@Override
+	public String toUniformString() {
+		return "uniform vec2 " + name + ";";
+	}
 	
 }
