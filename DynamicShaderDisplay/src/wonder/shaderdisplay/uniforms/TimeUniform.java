@@ -6,12 +6,11 @@ import wonder.shaderdisplay.Time;
 
 class TimeUniform extends Uniform {
 	
-	public static final String NAME = "iTime";
 	private final int location;
 	
-	TimeUniform(int program) {
-		super(NAME);
-		this.location = new ValueLocationCache(program, NAME).getLocation(0);
+	TimeUniform(String name, int program) {
+		super(name);
+		this.location = new ValueLocationCache(program, name).getLocation(0);
 	}
 	
 	@Override

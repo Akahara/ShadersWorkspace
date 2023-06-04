@@ -4,15 +4,17 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ShaderFiles {
 
 	protected final Path[] shaderFiles = new Path[Resources.SHADERS_COUNT];
 	protected final String[] shaderSources = new String[Resources.SHADERS_COUNT];
-	protected File scriptFile;
+	protected final List<Path> additionalFiles = new ArrayList<>();
 	
-	public void setScriptFile(File scriptFile) {
-		this.scriptFile = scriptFile;
+	public void addDummyFile(File file) {
+		additionalFiles.add(file.toPath());
 	}
 	
 	public void addShaderFile(File file, int type) throws IOException {
@@ -37,8 +39,4 @@ public class ShaderFiles {
 		return shaderSources;
 	}
 
-	public File getScriptFile() {
-		return scriptFile;
-	}
-	
 }

@@ -50,6 +50,14 @@ public class UniformsContext {
 			"mat4", (loc, value) -> GL40.glUniformMatrix4fv(loc, false, value)
 	);
 
+	private static final List<RawBuiltinUniform> BUILTIN_UNIFORMS = List.of(
+			new RawBuiltinUniform("float", "iTime",        TimeUniform::new      ),
+			new RawBuiltinUniform("float", "u_time",       TimeUniform::new      ),
+			new RawBuiltinUniform("int",   "iFrame",       FrameUniform::new     ),
+			new RawBuiltinUniform("int",   "u_frame",      FrameUniform::new     ),
+			new RawBuiltinUniform("vec2",  "iResolution",  ResolutionUniform::new),
+			new RawBuiltinUniform("vec2",  "u_resolution", ResolutionUniform::new)
+	);
 	
 	private List<Uniform> uniforms = new ArrayList<>();
 	
@@ -61,15 +69,11 @@ public class UniformsContext {
 		Map<String, Uniform> oldUniforms = uniforms.stream().collect(Collectors.toMap(u->u.name, u->u));
 		uniforms = new ArrayList<>();
 		
-		// find iTime
-		if(code.contains("uniform float iTime;"))
-			uniforms.add(new TimeUniform(program));
-		// find iFrame
-		if(code.contains("uniform int iFrame;"))
-			uniforms.add(new FrameUniform(program));
-		// find iResolution
-		if(code.contains("uniform vec2 iResolution;"))
-			uniforms.add(new ResolutionUniform(program));
+		// find built-in uniforms (iTime/iFrame...)
+		for(RawBuiltinUniform builtin : BUILTIN_UNIFORMS) {
+			if(code.contains(String.format("uniform %s %s", builtin.type, builtin.name)))
+				uniforms.add(builtin.generator.create(builtin.name, program));
+		}
 		
 		{ // find textures
 			Pattern texturePattern = Pattern.compile("\nuniform sampler2D (\\w+);\\s+//[ \t]*(.+)");
@@ -237,6 +241,26 @@ public class UniformsContext {
 		}
 		ImGui.end();
 	}
+	
+}
+
+class RawBuiltinUniform {
+	
+	public final String type, name;
+	public final BuiltinUniformGenerator generator;
+	
+	public RawBuiltinUniform(String type, String name, BuiltinUniformGenerator generator) {
+		this.type = type;
+		this.name = name;
+		this.generator = generator;
+	}
+	
+}
+
+@FunctionalInterface
+interface BuiltinUniformGenerator {
+	
+	Uniform create(String name, int program);
 	
 }
 

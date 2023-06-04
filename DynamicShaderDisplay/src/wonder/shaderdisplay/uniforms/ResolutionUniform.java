@@ -7,14 +7,13 @@ import imgui.ImGui;
 public class ResolutionUniform extends Uniform {
 	
 	private static int viewportWidth, viewportHeight;
-	public static final String NAME = "iResolution";
 	
 	private final int location;
 	private int w, h;
 	
-	public ResolutionUniform(int program) {
-		super(NAME);
-		this.location = new ValueLocationCache(program, NAME).getLocation(0);
+	public ResolutionUniform(String name, int program) {
+		super(name);
+		this.location = new ValueLocationCache(program, name).getLocation(0);
 	}
 	
 	@Override

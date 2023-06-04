@@ -20,8 +20,8 @@ public class ShaderFileWatcher extends ShaderFiles {
 		List<Path> paths = new ArrayList<>();
 		for(Path f : shaderFiles)
 			addWatchedPath(paths, f);
-		if(scriptFile != null)
-			addWatchedPath(paths, scriptFile.toPath());
+		for(Path f : additionalFiles)
+			addWatchedPath(paths, f);
 		logWarningIfTooManySubDirs(paths);
 		DirectoryWatcher watcher = DirectoryWatcher
 				.builder()
@@ -45,9 +45,9 @@ public class ShaderFileWatcher extends ShaderFiles {
 								Main.exit();
 							}
 						}
-						if(ev.path().equals(scriptFile.toPath())) {
+						if(additionalFiles.contains(ev.path())) {
 							needShaderRecompilation = true;
-							Main.logger.debug("Reloading script " + scriptFile);
+							Main.logger.debug("Reloading file " + ev.path());
 						}
 					}
 				}).build();

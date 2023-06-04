@@ -6,12 +6,11 @@ import wonder.shaderdisplay.Time;
 
 class FrameUniform extends Uniform {
 	
-	public static final String NAME = "iFrame";
 	private final int location;
 	
-	FrameUniform(int program) {
-		super(NAME);
-		this.location = new ValueLocationCache(program, NAME).getLocation(0);
+	FrameUniform(String name, int program) {
+		super(name);
+		this.location = new ValueLocationCache(program, name).getLocation(0);
 	}
 	
 	@Override

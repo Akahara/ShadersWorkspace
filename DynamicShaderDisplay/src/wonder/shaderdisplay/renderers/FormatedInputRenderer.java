@@ -1,12 +1,6 @@
 package wonder.shaderdisplay.renderers;
 
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_FLOAT;
-import static org.lwjgl.opengl.GL11.GL_LINES;
-import static org.lwjgl.opengl.GL11.GL_POINTS;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_INT;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glDrawElements;
+import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
 import static org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER;
@@ -75,13 +69,17 @@ public abstract class FormatedInputRenderer extends Renderer {
 		int geometrySize; // number of points per geometry fragment
 		
 		switch(parts[0]) {
+		case "points":
+			drawMode = GL_POINTS;
+			geometrySize = 1;
+			break;
 		case "lines":
 			drawMode = GL_LINES;
 			geometrySize = 2;
 			break;
-		case "points":
-			drawMode = GL_POINTS;
-			geometrySize = 1;
+		case "triangles":
+			drawMode = GL_TRIANGLES;
+			geometrySize = 3;
 			break;
 		default:
 			Main.logger.err("Invalid draw mode: " + parts[0]);

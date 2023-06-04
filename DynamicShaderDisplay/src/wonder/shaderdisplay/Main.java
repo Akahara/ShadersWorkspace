@@ -29,7 +29,6 @@ import fr.wonder.commons.systems.argparser.annotations.ProcessDoc;
 import fr.wonder.commons.systems.process.ProcessUtils;
 import fr.wonder.commons.utils.StringUtils;
 import imgui.ImGui;
-import imgui.flag.ImGuiConfigFlags;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.Resources.Snippet;
@@ -264,7 +263,6 @@ public class Main {
 			if(!options.noGui) {
 				loadImguiFiles();
 				ImGui.createContext();
-				ImGui.getIO().addConfigFlags(ImGuiConfigFlags.DockingEnable);
 				glfw = new ImGuiImplGlfw();
 				gl3 = new ImGuiImplGl3();
 				glfw.init(GLWindow.getWindow(), true);
@@ -659,7 +657,9 @@ public class Main {
 		if(options.computeShaderFile != null)
 			shaderFiles.addShaderFile(options.computeShaderFile, Resources.TYPE_COMPUTE);
 		if(options.scriptFile != null)
-			shaderFiles.setScriptFile(options.scriptFile);
+			shaderFiles.addDummyFile(options.scriptFile);
+		if(options.inputFile != null)
+			shaderFiles.addDummyFile(options.inputFile);
 		shaderFiles.completeWithDefaultSources();
 	}
 	
