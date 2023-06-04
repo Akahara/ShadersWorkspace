@@ -1,17 +1,16 @@
 package wonder.shaderdisplay.uniforms;
 
-import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL20.glGetUniformfv;
+import static org.lwjgl.opengl.GL11.GL_FLOAT;
+import static org.lwjgl.opengl.GL11.GL_INT;
+import static org.lwjgl.opengl.GL20.*;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
-import org.lwjgl.opengl.GL40;
 
 import imgui.ImGui;
 import imgui.flag.ImGuiCond;
@@ -22,210 +21,168 @@ import wonder.shaderdisplay.Time;
 
 public class UniformsContext {
 	
-	private static final Map<String, Integer> TYPE_SIZES = Map.of(
-			"float", 1, "vec2", 2, "vec3", 3, "vec4", 4,
-			"mat2", 4, "mat3", 9, "mat4", 16);
-	
-	private static final Map<String, UniformControl> COLOR_CONTROLS = Map.of(
-			"vec3", new ControlColorN(3),
-			"vec4", new ControlColorN(4));
-	
-	private static final Map<String, UniformControl> STANDARD_CONTROLS = Map.of(
-			"float", new ControlVecN(1),
-			"vec2", new ControlVecN(2),
-			"vec3", new ControlVecN(3),
-			"vec4", new ControlVecN(4),
-			"mat2", new ControlMatN(2),
-			"mat3", new ControlMatN(3),
-			"mat4", new ControlMatN(4)
-	);
-	
-	private static final Map<String, GlUniformFloatFunction> UNIFORM_FUNCTIONS = Map.of(
-			"float", GL40::glUniform1fv,
-			"vec2", GL40::glUniform2fv,
-			"vec3", GL40::glUniform3fv,
-			"vec4", GL40::glUniform4fv,
-			"mat2", (loc, value) -> GL40.glUniformMatrix2fv(loc, false, value),
-			"mat3", (loc, value) -> GL40.glUniformMatrix3fv(loc, false, value),
-			"mat4", (loc, value) -> GL40.glUniformMatrix4fv(loc, false, value)
-	);
-
 	private static final List<RawBuiltinUniform> BUILTIN_UNIFORMS = List.of(
-			new RawBuiltinUniform("float", "iTime",        TimeUniform::new      ),
-			new RawBuiltinUniform("float", "u_time",       TimeUniform::new      ),
-			new RawBuiltinUniform("int",   "iFrame",       FrameUniform::new     ),
-			new RawBuiltinUniform("int",   "u_frame",      FrameUniform::new     ),
-			new RawBuiltinUniform("vec2",  "iResolution",  ResolutionUniform::new),
-			new RawBuiltinUniform("vec2",  "u_resolution", ResolutionUniform::new)
+			new RawBuiltinUniform(GLUniformType.FLOAT, "iTime",        TimeUniform::new      ),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_time",       TimeUniform::new      ),
+			new RawBuiltinUniform(GLUniformType.INT,   "iFrame",       FrameUniform::new     ),
+			new RawBuiltinUniform(GLUniformType.INT,   "u_frame",      FrameUniform::new     ),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  ResolutionUniform::new),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", ResolutionUniform::new)
 	);
 	
 	private List<Uniform> uniforms = new ArrayList<>();
+	// uniforms that had values at some point, values are kept in memory
+	// to be able to be retrieved later (opengl gets rid of uniforms that
+	// are not used in code)
+	private Map<String, Uniform> oldUniforms = new HashMap<>();
 	
 	public UniformsContext() {}
 	
 	
-	
 	public void rescan(int program, String code) {
-		Map<String, Uniform> oldUniforms = uniforms.stream().collect(Collectors.toMap(u->u.name, u->u));
 		uniforms = new ArrayList<>();
 		
-		// find built-in uniforms (iTime/iFrame...)
-		for(RawBuiltinUniform builtin : BUILTIN_UNIFORMS) {
-			if(code.contains(String.format("uniform %s %s", builtin.type, builtin.name)))
-				uniforms.add(builtin.generator.create(builtin.name, program));
-		}
+		List<RawUniform> newUniforms = scanForUniforms(program, code);
 		
-		{ // find textures
-			Pattern texturePattern = Pattern.compile("\nuniform sampler2D (\\w+);\\s+//[ \t]*(.+)");
-			Matcher matcher = texturePattern.matcher(code);
-			
-			// the first N binding points are reserved for rendertargets, the remaining ones are standard textures
-			int nextTextureSlot = TexturesSwapChain.RENDER_TARGET_COUNT;
-			// the next slot is used for the input texture
-			if(Main.isImagePass) nextTextureSlot++;
-			
-			while(matcher.find()) {
-				String name = matcher.group(1);
-				String path = matcher.group(2);
-				
-				if(path.startsWith("input or ")) { // if in image processing mode, the input texture
-					if(Main.isImagePass) {
-						uniforms.add(new InputTextureUniform(program, name));
-						continue;
-					}
-					path = path.substring("input or ".length());
-				}
-				
-				if(path.matches("target \\d+")) { // rendering target texture
-					int target = Integer.parseInt(path.substring("target ".length()));
-					if(target < 0 || target >= TexturesSwapChain.RENDER_TARGET_COUNT) {
-						Main.logger.err("Invalid render target '" + target + "' for uniform '" + name + "', available are 0.." + (TexturesSwapChain.RENDER_TARGET_COUNT-1));
-						target = 0;
-					}
-					uniforms.add(new TargetTextureUniform(program, target, name, target));
-				} else if(path.matches("builtin \\d+")) { // default texture, loaded from resources
-					int buitinId = Integer.parseInt(path.substring("builtin ".length()));
-					Texture texture = Texture.loadTextureFromResources(buitinId);
-					uniforms.add(new TextureUniform(program, nextTextureSlot++, name, texture, path));
-				} else { // normal texture, loaded from user files
-					Texture texture = Texture.loadTexture(path);
-					uniforms.add(new TextureUniform(program, nextTextureSlot++, name, texture, path));
-				}
+		// the first N binding points are reserved for rendertargets, the remaining ones are standard textures
+		IntRef nextTextureSlot = new IntRef(TexturesSwapChain.RENDER_TARGET_COUNT);
+		// the next slot is used for the input texture
+		if(Main.isImagePass) nextTextureSlot.value++;
+		
+		for(RawUniform u : newUniforms) {
+			// find built-in uniforms (iTime/iFrame...)
+			Uniform uniformAsBuiltin = tryGetBuiltinUniform(program, u);
+			if(uniformAsBuiltin != null) {
+				uniforms.add(uniformAsBuiltin);
+				continue;
 			}
-		}
-		
-		List<RawUniform> foundUniforms = new ArrayList<>();
-		{ // find other uniforms
-			Pattern uniformPattern = Pattern.compile("\nuniform (float|vec[234]|mat[234])(\\[\\d*\\])? ([^;]+);");
-			Pattern declarationPattern = Pattern.compile("([a-zA-Z_0-9]+)\\s*(?:=([^;]*))?");
-			Matcher matcher = uniformPattern.matcher(code);
-			while(matcher.find()) {
-				String type = matcher.group(1);
-				String arrayMarker = matcher.group(2);
-				String declarations = matcher.group(3);
-				
-				int arrayLength = arrayMarker != null && arrayMarker.length() > 2 ?
-						Integer.parseInt(arrayMarker.substring(1, arrayMarker.length()-1)) : -1;
-				
-				List<String> declaredVariables = parseDeclaredVariables(declarations);
-				for(String decl : declaredVariables) {
-					Matcher declMatcher = declarationPattern.matcher(decl);
-					if(!declMatcher.find()) {
-						Main.logger.err("Could not read uniform '" + decl + "'");
-						continue;
-					}
-					String name = declMatcher.group(1).strip();
-					String defaultValue = declMatcher.group(2);
-					defaultValue = defaultValue == null ? null : defaultValue.strip();
-					
-					RawUniform uniform = new RawUniform();
-					uniform.name = name;
-					uniform.typeName = type;
-					uniform.defaultValue = defaultValue;
-					uniform.isArray = arrayMarker != null;
-					uniform.arrayLength = arrayLength;
-					foundUniforms.add(uniform);
-				}
+			
+			// handle textures
+			if(u.type == GLUniformType.SAMPLER2D) {
+				Uniform uniformAsTexture = tryGetTextureUniform(program, code, u, nextTextureSlot);
+				if(uniformAsTexture != null)
+					uniforms.add(uniformAsTexture);
+				continue;
 			}
-		}
-		
-		{ // find other uniforms
-			for(RawUniform u : foundUniforms) {
-				if(getUniform(u.name) != null)
-					continue; // skip built-in uniforms (iTime...)
-				if(u.isArray && u.arrayLength <= 0) {
-					Main.logger.warn("Size of uniform '" + u.name + "' is unspecified, cannot create a control for it");
-					continue;
-				}
-				String type = u.typeName;
-				int valueSize = TYPE_SIZES.getOrDefault(type, -1);
-				GlUniformFloatFunction uniformFunction = UNIFORM_FUNCTIONS.get(type);
-				UniformControl control = (u.name.startsWith("c_") ? COLOR_CONTROLS : STANDARD_CONTROLS).get(type);
-				List<float[]> initialValues = getUniformValues(program, u, valueSize);
-				
-				if(valueSize == -1 || control == null || uniformFunction == null) {
-					Main.logger.err("Could not create a control for uniform '" + u.name + "' with type '" + u.typeName + "'");
-					continue;
-				}
+			
+			// handle normal uniforms
+			if(u.type.isStandardFloatType()) {
+				UniformControl control = null;
+				if(u.name.startsWith("c_"))
+					control = GLUniformType.COLOR_CONTROLS.get(u.type);
+				if(control == null)
+					control = GLUniformType.STANDARD_CONTROLS.get(u.type);
+				float[][] initialValues = getUniformValues(program, u);
 				
 				ArbitraryUniform uniform = new ArbitraryUniform(
-						program, u.name, u.typeName, uniformFunction,
-						control, u.isArray, valueSize, initialValues);
+						program, u.name, u.type,
+						control, initialValues);
 				uniform.copy(oldUniforms.get(u.name));
 				uniforms.add(uniform);
+				continue;
 			}
+			
+			Main.logger.warn("Could not create control for uniform '" + u.name + "'");
 		}
+		
+		for(Uniform u : uniforms)
+			oldUniforms.put(u.name, u);
 		
 		if(!uniforms.isEmpty()) {
-			Iterable<String> iter = () -> uniforms.stream().map(u -> u.name).iterator();
-			Main.logger.debug("Bound uniforms: " + String.join(" ", iter));
+			Iterable<String> boundNames = () -> uniforms.stream().map(u -> u.name).iterator();
+			Main.logger.debug("Bound uniforms: " + String.join(" ", boundNames));
 		}
 	}
 	
-	private List<float[]> getUniformValues(int program, RawUniform uniform, int valueSize) {
-		if(!uniform.isArray) {
-			float[] value = new float[valueSize];
-			glGetUniformfv(program, glGetUniformLocation(program, uniform.name), value);
-			return new ArrayList<>(Arrays.asList(value));
+	private static Uniform tryGetBuiltinUniform(int program, RawUniform u) {
+		for(RawBuiltinUniform builtin : BUILTIN_UNIFORMS) {
+			if(u.type == builtin.type && u.name.equals(builtin.name))
+				return builtin.generator.create(builtin.name, program);
 		}
-		
-		if(uniform.arrayLength > 0) {
-			List<float[]> values = new ArrayList<>();
-			for(int i = 0; i < uniform.arrayLength; i++) {
-				float[] value = new float[valueSize];
-				glGetUniformfv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), value);
-				values.add(value);
-			}
-			return values;
-		}
-		
-		return new ArrayList<>();
-	}
-
-	private static List<String> parseDeclaredVariables(String declarations) {
-		List<String> splits = new ArrayList<>();
-		int lastSplit = 0, openedParentheses = 0;
-		for(int i = 0; i < declarations.length(); i++) {
-			char c = declarations.charAt(i);
-			if(c == ',' && openedParentheses == 0) {
-				splits.add(declarations.substring(lastSplit, i));
-				lastSplit = i+1;
-			} else if(c == '(') {
-				openedParentheses++;
-			} else if(c == ')') {
-				openedParentheses--;
-			}
-		}
-		if(lastSplit != declarations.length())
-			splits.add(declarations.substring(lastSplit));
-		return splits;
-	}
-	
-	private Uniform getUniform(String name) {
-		for(Uniform u : uniforms)
-			if(u.name.equals(name))
-				return u;
 		return null;
+	}
+	
+	private static Uniform tryGetTextureUniform(int program, String code, RawUniform u, IntRef nextTextureSlot) {
+		Pattern texturePattern = Pattern.compile("\nuniform sampler2D " + Pattern.quote(u.name) + ";\\s+//[ \t]*(.+)");
+		Matcher matcher = texturePattern.matcher(code);
+		
+		if(!matcher.find()) {
+			Main.logger.warn("Unset texture uniform '" + u.name + "'");
+			return null;
+		}
+		
+		String path = matcher.group(1);
+		
+		if(path.startsWith("input or ")) { // if in image processing mode, the input texture
+			if(Main.isImagePass)
+				return new InputTextureUniform(program, u.name);
+			path = path.substring("input or ".length());
+		}
+		
+		if(path.matches("target \\d+")) { // rendering target texture
+			int target = Integer.parseInt(path.substring("target ".length()));
+			if(target < 0 || target >= TexturesSwapChain.RENDER_TARGET_COUNT) {
+				Main.logger.err("Invalid render target '" + target + "' for uniform '" + u.name + "', available are 0.." + (TexturesSwapChain.RENDER_TARGET_COUNT-1));
+				target = 0;
+			}
+			return new TargetTextureUniform(program, target, u.name, target);
+		} else if(path.matches("builtin \\d+")) { // default texture, loaded from resources
+			int buitinId = Integer.parseInt(path.substring("builtin ".length()));
+			Texture texture = Texture.loadTextureFromResources(buitinId);
+			return new TextureUniform(program, nextTextureSlot.value++, u.name, texture, path);
+		} else { // normal texture, loaded from user files
+			Texture texture = Texture.loadTexture(path);
+			return new TextureUniform(program, nextTextureSlot.value++, u.name, texture, path);
+		}
+	}
+	
+	private static List<RawUniform> scanForUniforms(int program, String code) {
+		int uniformCount = glGetProgrami(program, GL_ACTIVE_UNIFORMS);
+		List<RawUniform> uniforms = new ArrayList<>();
+		Map<RawUniform, Integer> firstOccurences = new HashMap<>();
+		int[] _nameLength = new int[1],
+				_size = new int[1],
+				_type = new int[1];
+		ByteBuffer _name = ByteBuffer.allocateDirect(128);
+		byte[] nameBytes = new byte[_name.capacity()];
+		for(int i = 0; i < uniformCount; i++) {
+			glGetActiveUniform(program, i, _nameLength, _size, _type, _name);
+			int nameLength = _nameLength[0];
+			int size = _size[0];
+			int type = _type[0];
+			_name.get(nameBytes, 0, nameLength);
+			_name.position(0);
+			String name = new String(nameBytes, 0, nameLength);
+			if(name.endsWith("[0]")) name = name.substring(0, name.length()-3);
+			RawUniform u = new RawUniform();
+			u.arrayLength = size;
+			u.name = name;
+			switch(type) {
+			case GL_FLOAT:      u.type = GLUniformType.FLOAT; break;
+			case GL_FLOAT_VEC2: u.type = GLUniformType.VEC2;  break;
+			case GL_FLOAT_VEC3: u.type = GLUniformType.VEC3;  break;
+			case GL_FLOAT_VEC4: u.type = GLUniformType.VEC4;  break;
+			case GL_FLOAT_MAT2: u.type = GLUniformType.MAT2;  break;
+			case GL_FLOAT_MAT3: u.type = GLUniformType.MAT3;  break;
+			case GL_FLOAT_MAT4: u.type = GLUniformType.MAT4;  break;
+			case GL_INT:        u.type = GLUniformType.INT;   break;
+			case GL_SAMPLER_2D: u.type = GLUniformType.SAMPLER2D; break;
+			default: Main.logger.warn("Unsupported uniform type for '" + name + "'"); continue;
+			}
+			uniforms.add(u);
+			Pattern namePattern = Pattern.compile(Pattern.quote(name) + "\\W");
+			Matcher nameMatcher = namePattern.matcher(code);
+			firstOccurences.put(u, nameMatcher.find() ? nameMatcher.start() : code.length());
+		}
+		uniforms.sort((u1, u2) -> firstOccurences.get(u1)-firstOccurences.get(u2));
+		return uniforms;
+	}
+	
+	private float[][] getUniformValues(int program, RawUniform uniform) {
+		float[][] values = new float[uniform.arrayLength][uniform.type.typeSize];
+		for(int i = 0; i < uniform.arrayLength; i++)
+			glGetUniformfv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		return values;
 	}
 	
 	public void apply() {
@@ -253,12 +210,22 @@ public class UniformsContext {
 	
 }
 
+class IntRef {
+	
+	public int value;
+	
+	IntRef(int value) {
+		this.value = value;
+	}
+}
+
 class RawBuiltinUniform {
 	
-	public final String type, name;
+	public final GLUniformType type;
+	public final String name;
 	public final BuiltinUniformGenerator generator;
 	
-	public RawBuiltinUniform(String type, String name, BuiltinUniformGenerator generator) {
+	public RawBuiltinUniform(GLUniformType type, String name, BuiltinUniformGenerator generator) {
 		this.type = type;
 		this.name = name;
 		this.generator = generator;
@@ -275,15 +242,13 @@ interface BuiltinUniformGenerator {
 
 class RawUniform {
 	
-	String typeName;
+	GLUniformType type;
 	String name;
-	String defaultValue;
-	boolean isArray;
 	int arrayLength; // -1 for non-arrays and undefined-length arrays
 	
 	@Override
 	public String toString() {
 		return String.format("%s%s %s = %s",
-				typeName, isArray?"["+arrayLength+"]":"", name, defaultValue);
+				type.name, (arrayLength > 1) ? "["+arrayLength+"]":"", name);
 	}
 }

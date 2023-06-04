@@ -90,8 +90,10 @@ public abstract class Renderer {
 		String pseudoTotalSource = Resources.concatStandardShaderSource(shaders);
 		standardShaderUniforms.rescan(newStandardProgram, pseudoTotalSource);
 		
-		String pseudoComputeSource = Resources.concatComputeShaderSource(shaders);
-		computeShaderUniforms.rescan(newComputeProgram, pseudoComputeSource);
+		if(newComputeProgram != 0) {
+			String pseudoComputeSource = Resources.concatComputeShaderSource(shaders);
+			computeShaderUniforms.rescan(newComputeProgram, pseudoComputeSource);
+		}
 		
 		return true;
 	}
