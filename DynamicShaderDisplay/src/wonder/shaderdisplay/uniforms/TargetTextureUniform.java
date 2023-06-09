@@ -37,7 +37,7 @@ public class TargetTextureUniform extends Uniform {
 
 	@Override
 	public String toUniformString() {
-		return "uniform sampler2D " + name + ";";
+		return "uniform sampler2D " + name + "; // target " + target;
 	}
 
 }

@@ -3,8 +3,10 @@ package wonder.shaderdisplay.uniforms;
 import java.util.Arrays;
 
 import imgui.ImGui;
+import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 
-class ControlMatN implements UniformControl {
+class ControlMatN implements FloatUniformControl {
 	
 	private final int matrixSize;
 	
@@ -15,10 +17,8 @@ class ControlMatN implements UniformControl {
 	@Override
 	public void renderControl(String name, float[] value) {
 		float[] p = new float[1];
-		if(ImGui.button("C##" + name))
-			ImGui.setClipboardText("mat" + matrixSize + Arrays.toString(value).replace('[', '(').replace(']', ')'));
-		if(ImGui.isItemHovered())
-			ImGui.setTooltip("Copy to clipboard");
+		UserControls.copyToClipboardBtn(name, () ->
+			"mat" + matrixSize + Arrays.toString(value).replace('[', '(').replace(']', ')'));
 		ImGui.sameLine();
 		ImGui.text(name);
 		ImGui.beginTable("#a", matrixSize);

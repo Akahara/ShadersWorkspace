@@ -229,7 +229,7 @@ public class Main {
 	
 	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
 	public static void systemInformation() {
-		GLWindow.createWindow(1, 1, false, false, null);
+		GLWindow.createWindow(1, 1, false, null);
 		GLWindow.printSystemInformation();
 		GLWindow.dispose();
 	}
@@ -602,7 +602,9 @@ public class Main {
 		}
 
 		logger.info("Creating window");
-		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, useVSync, options.forcedGLVersion);
+		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, options.forcedGLVersion);
+		GLWindow.setVSync(useVSync);
+		GLWindow.setTaskBarIcon("/icon.png");
 		GLWindow.addResizeListener(ResolutionUniform::updateViewportSize);
 		ResolutionUniform.updateViewportSize(options.winWidth, options.winHeight);
 		Time.setFps(options.targetFPS);

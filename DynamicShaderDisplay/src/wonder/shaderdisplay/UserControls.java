@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.regex.PatternSyntaxException;
 
 import javax.imageio.ImageIO;
@@ -61,6 +62,13 @@ public class UserControls {
 		}
 		ImGui.popStyleVar();
 		ImGui.end();
+	}
+	
+	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
+		if(ImGui.button("C##" + name))
+			ImGui.setClipboardText(copiedText.get());
+		if(ImGui.isItemHovered())
+			ImGui.setTooltip("Copy to clipboard");
 	}
 	
 	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain) {

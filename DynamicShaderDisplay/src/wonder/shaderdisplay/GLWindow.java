@@ -17,14 +17,21 @@ import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
+
 import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
@@ -37,7 +44,7 @@ public class GLWindow {
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
 	private static final List<BiConsumer<Integer, Integer>> resizeCallbacks = new ArrayList<>();
 
-	public static void createWindow(int width, int height, boolean visible, boolean vsync, String forcedGlVersion) {
+	public static void createWindow(int width, int height, boolean visible, String forcedGlVersion) {
 		winWidth = width;
 		winHeight = height;
 
@@ -58,7 +65,6 @@ public class GLWindow {
 			throw new IllegalStateException("Unable to create a window !");
 
 		glfwMakeContextCurrent(window);
-		glfwSwapInterval(vsync ? 1 : 0);
 		if(visible) {
 			glfwShowWindow(window);
 			glfwFocusWindow(window);
@@ -105,6 +111,10 @@ public class GLWindow {
 		}
 	}
 	
+	public static void setVSync(boolean enableVSync) {
+		glfwSwapInterval(enableVSync ? 1 : 0);
+	}
+	
 	public static long getWindow() {
 		return window;
 	}
@@ -133,6 +143,25 @@ public class GLWindow {
 		winWidth = width <= 0 ? winWidth : width;
 		winHeight = height <= 0 ? winHeight : height;
 		glfwSetWindowSize(window, winWidth, winHeight);
+	}
+	
+	public static void setTaskBarIcon(String resourcePath) {
+		GLFWImage.Buffer iconImageBuffer = GLFWImage.malloc(1);
+		GLFWImage icon = GLFWImage.malloc();
+		BufferedImage iconImage;
+		try {
+			iconImage = ImageIO.read(GLWindow.class.getResourceAsStream(resourcePath));
+		} catch (IOException e) {
+			Main.logger.err(e, "Could not load taskbar icon");
+			return;
+		}
+		int w = iconImage.getWidth(), h = iconImage.getHeight();
+		int[] rgbArray = Texture.loadTextureData(iconImage, true);
+		ByteBuffer iconBytes = ByteBuffer.allocateDirect(w*h*4).order(ByteOrder.LITTLE_ENDIAN);
+		iconBytes.asIntBuffer().put(rgbArray);
+		icon.set(w, h, iconBytes);
+		iconImageBuffer.put(0, icon);
+		glfwSetWindowIcon(window, iconImageBuffer);
 	}
 	
 	public static void printSystemInformation() {

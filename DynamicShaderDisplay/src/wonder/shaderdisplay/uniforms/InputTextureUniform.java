@@ -27,6 +27,8 @@ public class InputTextureUniform extends Uniform {
 
 	@Override
 	public String toUniformString() {
+		// no read need for this impl. because InputTextUniform only appears in non-interactive contexts
+		// and this method is only used when the user wants to copy the uniform to their clipboard
 		return "uniform sampler2D " + name + ";";
 	}
 

@@ -94,39 +94,18 @@ public class Texture {
 		this.width = image.getWidth();
 		this.height = image.getHeight();
 		
-		int size = width*height;
-		int[] data = new int[size];
-		
-		image.getRGB(0, 0, width, height, data, 0, width);
-		
-		int[] px = new int[size];
-		for(int i = 0; i < height; i++) {
-			for(int j = 0; j < width; j++) {
-				int pos = i*width+j;
-				int a = (data[pos] & 0xff000000) >> 24;
-				int r = (data[pos] & 0x00ff0000) >> 16;
-				int g = (data[pos] & 0x0000ff00) >> 8;
-				int b = (data[pos] & 0x000000ff);
-				px[(height-1-i)*width+j] =
-						a << 24 |
-						b << 16 |
-						g << 8 |
-						r;
-			}
-		}
-		
 		this.id = glGenTextures();
 		glBindTexture(GL_TEXTURE_2D, id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, loadTextureData(image, false));
 		glBindTexture(GL_TEXTURE_2D, 0);
 		
 		aliveTextureCount++;
 	}
-
+	
 	public Texture(int width, int height, ByteBuffer rgba8Buffer) {
 		this.id = glGenTextures();
 		this.width = width;
@@ -144,6 +123,36 @@ public class Texture {
 	
 	public Texture(int width, int height) {
 		this(width, height, null);
+	}
+	
+	public static int[] loadTextureData(BufferedImage image, boolean flipVertically) {
+		int width = image.getWidth();
+		int height = image.getHeight();
+		
+		int[] data = new int[width*height];
+		
+		if(flipVertically)
+			image.getRGB(0, 0, width, height, data, 0, width);
+		else
+			image.getRGB(0, 0, width, height, data, width*(height-1), -width);
+		
+		int[] pixelsData = new int[width*height];
+		for(int i = 0; i < height; i++) {
+			for(int j = 0; j < width; j++) {
+				int pos = i*width+j;
+				int a = (data[pos] & 0xff000000) >> 24;
+				int r = (data[pos] & 0x00ff0000) >> 16;
+				int g = (data[pos] & 0x0000ff00) >> 8;
+				int b = (data[pos] & 0x000000ff);
+				pixelsData[i*width+j] =
+						a << 24 |
+						b << 16 |
+						g << 8 |
+						r;
+			}
+		}
+		
+		return pixelsData;
 	}
 	
 	public void dispose() {

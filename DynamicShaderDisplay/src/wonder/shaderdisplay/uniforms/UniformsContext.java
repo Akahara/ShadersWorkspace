@@ -1,8 +1,11 @@
 package wonder.shaderdisplay.uniforms;
 
-import static org.lwjgl.opengl.GL11.GL_FLOAT;
-import static org.lwjgl.opengl.GL11.GL_INT;
-import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL20.GL_ACTIVE_UNIFORMS;
+import static org.lwjgl.opengl.GL20.glGetActiveUniform;
+import static org.lwjgl.opengl.GL20.glGetProgrami;
+import static org.lwjgl.opengl.GL20.glGetUniformLocation;
+import static org.lwjgl.opengl.GL20.glGetUniformfv;
+import static org.lwjgl.opengl.GL20.glGetUniformiv;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -18,6 +21,8 @@ import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Texture;
 import wonder.shaderdisplay.TexturesSwapChain;
 import wonder.shaderdisplay.Time;
+import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
+import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
 public class UniformsContext {
 	
@@ -34,7 +39,7 @@ public class UniformsContext {
 	// uniforms that had values at some point, values are kept in memory
 	// to be able to be retrieved later (opengl gets rid of uniforms that
 	// are not used in code)
-	private Map<String, Uniform> oldUniforms = new HashMap<>();
+	private Map<String, ArbitraryUniform> oldArbitraryUniforms = new HashMap<>();
 	
 	public UniformsContext() {}
 	
@@ -62,36 +67,65 @@ public class UniformsContext {
 				Uniform uniformAsTexture = tryGetTextureUniform(program, code, u, nextTextureSlot);
 				if(uniformAsTexture != null)
 					uniforms.add(uniformAsTexture);
+				oldArbitraryUniforms.remove(u.name);
 				continue;
 			}
 			
-			// handle normal uniforms
+			// handle normal float uniforms
 			if(u.type.isStandardFloatType()) {
-				UniformControl control = null;
+				FloatUniformControl control = null;
 				if(u.name.startsWith("c_"))
 					control = GLUniformType.COLOR_CONTROLS.get(u.type);
 				if(control == null)
-					control = GLUniformType.STANDARD_CONTROLS.get(u.type);
-				float[][] initialValues = getUniformValues(program, u);
+					control = GLUniformType.STANDARD_FLOAT_CONTROLS.get(u.type);
+				float[][] initialValues = getUniformFloatValues(program, u);
 				
-				ArbitraryUniform uniform = new ArbitraryUniform(
+				ArbitraryFloatUniform uniform = new ArbitraryFloatUniform(
 						program, u.name, u.type,
 						control, initialValues);
-				uniform.copy(oldUniforms.get(u.name));
+				tryRestorePreviousUniformValues(u.name, uniform);
 				uniforms.add(uniform);
+				oldArbitraryUniforms.put(u.name, uniform);
+				continue;
+			}
+			
+			// handle normal int uniforms
+			if(u.type.isStandardIntType()) {
+				IntUniformControl control = GLUniformType.STANDARD_INT_CONTROLS.get(u.type);
+				int[][] initialValues = getUniformIntValues(program, u);
+				
+				ArbitraryIntUniform uniform = new ArbitraryIntUniform(
+						program, u.name, u.type,
+						control, initialValues);
+				tryRestorePreviousUniformValues(u.name, uniform);
+				uniforms.add(uniform);
+				oldArbitraryUniforms.put(u.name, uniform);
+				continue;
+			}
+			
+			// handle normal bool uniforms
+			if(u.type == GLUniformType.BOOL) {
+				boolean[] initialValues = getUniformBoolValues(program, u);
+				ArbitraryBoolUniform uniform = new ArbitraryBoolUniform(program, u.name, initialValues);
+				tryRestorePreviousUniformValues(u.name, uniform);
+				uniforms.add(uniform);
+				oldArbitraryUniforms.put(u.name, uniform);
 				continue;
 			}
 			
 			Main.logger.warn("Could not create control for uniform '" + u.name + "'");
 		}
 		
-		for(Uniform u : uniforms)
-			oldUniforms.put(u.name, u);
-		
 		if(!uniforms.isEmpty()) {
 			Iterable<String> boundNames = () -> uniforms.stream().map(u -> u.name).iterator();
 			Main.logger.debug("Bound uniforms: " + String.join(" ", boundNames));
 		}
+	}
+	
+	private void tryRestorePreviousUniformValues(String name, ArbitraryUniform currentUniform) {
+		ArbitraryUniform oldUniform = oldArbitraryUniforms.get(name);
+		if(oldUniform != null)
+			currentUniform.copy(oldUniform);
 	}
 	
 	private static Uniform tryGetBuiltinUniform(int program, RawUniform u) {
@@ -157,17 +191,10 @@ public class UniformsContext {
 			RawUniform u = new RawUniform();
 			u.arrayLength = size;
 			u.name = name;
-			switch(type) {
-			case GL_FLOAT:      u.type = GLUniformType.FLOAT; break;
-			case GL_FLOAT_VEC2: u.type = GLUniformType.VEC2;  break;
-			case GL_FLOAT_VEC3: u.type = GLUniformType.VEC3;  break;
-			case GL_FLOAT_VEC4: u.type = GLUniformType.VEC4;  break;
-			case GL_FLOAT_MAT2: u.type = GLUniformType.MAT2;  break;
-			case GL_FLOAT_MAT3: u.type = GLUniformType.MAT3;  break;
-			case GL_FLOAT_MAT4: u.type = GLUniformType.MAT4;  break;
-			case GL_INT:        u.type = GLUniformType.INT;   break;
-			case GL_SAMPLER_2D: u.type = GLUniformType.SAMPLER2D; break;
-			default: Main.logger.warn("Unsupported uniform type for '" + name + "'"); continue;
+			u.type = GLUniformType.getFromGLTypeId(type);
+			if(u.type == null) {
+				Main.logger.warn("Unsupported uniform type for '" + name + "'");
+				continue;
 			}
 			uniforms.add(u);
 			Pattern namePattern = Pattern.compile(Pattern.quote(name) + "\\W");
@@ -178,10 +205,27 @@ public class UniformsContext {
 		return uniforms;
 	}
 	
-	private float[][] getUniformValues(int program, RawUniform uniform) {
+	private float[][] getUniformFloatValues(int program, RawUniform uniform) {
 		float[][] values = new float[uniform.arrayLength][uniform.type.typeSize];
 		for(int i = 0; i < uniform.arrayLength; i++)
 			glGetUniformfv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		return values;
+	}
+	
+	private int[][] getUniformIntValues(int program, RawUniform uniform) {
+		int[][] values = new int[uniform.arrayLength][uniform.type.typeSize];
+		for(int i = 0; i < uniform.arrayLength; i++)
+			glGetUniformiv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		return values;
+	}
+	
+	private boolean[] getUniformBoolValues(int program, RawUniform uniform) {
+		boolean[] values = new boolean[uniform.arrayLength];
+		int[] cache = new int[1];
+		for(int i = 0; i < uniform.arrayLength; i++) {
+			glGetUniformiv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), cache);
+			values[i] = cache[0] != 0;
+		}
 		return values;
 	}
 	
@@ -201,6 +245,8 @@ public class UniformsContext {
 				}
 				ImGui.setClipboardText(clipboardText.toString());
 			}
+			if(ImGui.isItemHovered())
+				ImGui.setTooltip("copy to clipboard\nnote that unused uniforms will be discarded");
 			Time.renderControls();
 			for(Uniform u : uniforms)
 				u.renderControl();
