@@ -1,6 +1,7 @@
 package wonder.shaderdisplay.uniforms;
 
 import static org.lwjgl.opengl.GL20.glUniform2f;
+import static org.lwjgl.opengl.GL20.glUniform2i;
 
 import imgui.ImGui;
 
@@ -9,17 +10,22 @@ public class ResolutionUniform extends Uniform {
 	private static int viewportWidth, viewportHeight;
 	
 	private final int location;
+	private final boolean isFloat;
 	private int w, h;
 	
-	public ResolutionUniform(String name, int program) {
+	public ResolutionUniform(String name, int program, boolean isFloat) {
 		super(name);
-		this.location = new ValueLocationCache(program, name).getLocation(0);
+		this.location = ValueLocationCache.getLocation(program, name);
+		this.isFloat = isFloat;
 	}
 	
 	@Override
 	public void apply() {
 		if(w != viewportWidth || h != viewportHeight) {
-			glUniform2f(location, viewportWidth, viewportHeight);
+			if(isFloat)
+				glUniform2f(location, viewportWidth, viewportHeight);
+			else
+				glUniform2i(location, viewportWidth, viewportHeight);
 			w = viewportWidth;
 			h = viewportHeight;
 		}
@@ -39,7 +45,7 @@ public class ResolutionUniform extends Uniform {
 
 	@Override
 	public String toUniformString() {
-		return "uniform vec2 " + name + ";";
+		return "uniform " + (isFloat?"vec2 ":"ivec2 ") + name + ";";
 	}
 	
 }

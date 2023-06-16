@@ -43,8 +43,7 @@ class ArbitraryFloatUniform extends Uniform implements ArbitraryUniform {
 	}
 	
 	@Override
-	public ArbitraryFloatUniform copy(ArbitraryUniform old) {
-		Number[][] oldValues = old.getValues();
+	public ArbitraryFloatUniform copy(Number[][] oldValues) {
 		int copyRows = Math.min(oldValues.length, values.length);
 		int copyCols = copyRows == 0 ? 0 : Math.min(oldValues[0].length, values[0].length);
 		for(int i = 0; i < copyRows; i++)

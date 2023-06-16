@@ -48,8 +48,7 @@ public class ArbitraryBoolUniform extends Uniform implements ArbitraryUniform {
 	}
 	
 	@Override
-	public ArbitraryBoolUniform copy(ArbitraryUniform old) {
-		Number[][] oldValues = old.getValues();
+	public ArbitraryBoolUniform copy(Number[][] oldValues) {
 		int copyRows = Math.min(oldValues.length, values.length);
 		for(int i = 0; i < copyRows; i++) {
 			values[i] = false;

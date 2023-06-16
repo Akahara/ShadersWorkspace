@@ -1,5 +1,6 @@
 package wonder.shaderdisplay.uniforms;
 
+import static org.lwjgl.opengl.GL20.glUniform1f;
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import wonder.shaderdisplay.Time;
@@ -7,15 +8,20 @@ import wonder.shaderdisplay.Time;
 class FrameUniform extends Uniform {
 	
 	private final int location;
+	private final boolean isFloat;
 	
-	FrameUniform(String name, int program) {
+	FrameUniform(String name, int program, boolean isFloat) {
 		super(name);
-		this.location = new ValueLocationCache(program, name).getLocation(0);
+		this.location = ValueLocationCache.getLocation(program, name);
+		this.isFloat = isFloat;
 	}
 	
 	@Override
 	public void apply() {
-		glUniform1i(location, Time.getFrame());
+		if(isFloat)
+			glUniform1f(location, Time.getFrame());
+		else
+			glUniform1i(location, Time.getFrame());
 	}
 	
 	@Override
@@ -25,6 +31,6 @@ class FrameUniform extends Uniform {
 
 	@Override
 	public String toUniformString() {
-		return "uniform int " + name + ";";
+		return "uniform " + (isFloat?"float ":"int ") + name + ";";
 	}
 }

@@ -10,7 +10,7 @@ class TimeUniform extends Uniform {
 	
 	TimeUniform(String name, int program) {
 		super(name);
-		this.location = new ValueLocationCache(program, name).getLocation(0);
+		this.location = ValueLocationCache.getLocation(program, name);
 	}
 	
 	@Override

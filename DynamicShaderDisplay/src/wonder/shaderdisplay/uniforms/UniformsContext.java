@@ -27,12 +27,16 @@ import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 public class UniformsContext {
 	
 	private static final List<RawBuiltinUniform> BUILTIN_UNIFORMS = List.of(
-			new RawBuiltinUniform(GLUniformType.FLOAT, "iTime",        TimeUniform::new      ),
-			new RawBuiltinUniform(GLUniformType.FLOAT, "u_time",       TimeUniform::new      ),
-			new RawBuiltinUniform(GLUniformType.INT,   "iFrame",       FrameUniform::new     ),
-			new RawBuiltinUniform(GLUniformType.INT,   "u_frame",      FrameUniform::new     ),
-			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  ResolutionUniform::new),
-			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", ResolutionUniform::new)
+			new RawBuiltinUniform(GLUniformType.FLOAT, "iTime",        TimeUniform::new),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_time",       TimeUniform::new),
+			new RawBuiltinUniform(GLUniformType.INT,   "iFrame",       (p,n) -> new FrameUniform(p,n,false)),
+			new RawBuiltinUniform(GLUniformType.INT,   "u_frame",      (p,n) -> new FrameUniform(p,n,false)),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "iFrame",       (p,n) -> new FrameUniform(p,n,true)),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_frame",      (p,n) -> new FrameUniform(p,n,true)),
+			new RawBuiltinUniform(GLUniformType.IVEC2, "iResolution",  (p,n) -> new ResolutionUniform(p,n,false)),
+			new RawBuiltinUniform(GLUniformType.IVEC2, "u_resolution", (p,n) -> new ResolutionUniform(p,n,false)),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  (p,n) -> new ResolutionUniform(p,n,true)),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", (p,n) -> new ResolutionUniform(p,n,true))
 	);
 	
 	private List<Uniform> uniforms = new ArrayList<>();
@@ -40,19 +44,21 @@ public class UniformsContext {
 	// to be able to be retrieved later (opengl gets rid of uniforms that
 	// are not used in code)
 	private Map<String, ArbitraryUniform> oldArbitraryUniforms = new HashMap<>();
+	private Map<String, Number[][]> originalUniformValues = new HashMap<>();
 	
 	public UniformsContext() {}
 	
 	
 	public void rescan(int program, String code) {
 		uniforms = new ArrayList<>();
+		originalUniformValues.clear();
 		
 		List<RawUniform> newUniforms = scanForUniforms(program, code);
 		
 		// the first N binding points are reserved for rendertargets, the remaining ones are standard textures
-		IntRef nextTextureSlot = new IntRef(TexturesSwapChain.RENDER_TARGET_COUNT);
+		TexturesContext nextTextureSlot = new TexturesContext(TexturesSwapChain.RENDER_TARGET_COUNT);
 		// the next slot is used for the input texture
-		if(Main.isImagePass) nextTextureSlot.value++;
+		if(Main.isImagePass) nextTextureSlot.nextTextureSlot++;
 		
 		for(RawUniform u : newUniforms) {
 			// find built-in uniforms (iTime/iFrame...)
@@ -83,8 +89,9 @@ public class UniformsContext {
 				ArbitraryFloatUniform uniform = new ArbitraryFloatUniform(
 						program, u.name, u.type,
 						control, initialValues);
-				tryRestorePreviousUniformValues(u.name, uniform);
 				uniforms.add(uniform);
+				originalUniformValues.put(u.name, uniform.getValues());
+				tryRestorePreviousUniformValues(u.name, uniform);
 				oldArbitraryUniforms.put(u.name, uniform);
 				continue;
 			}
@@ -97,8 +104,9 @@ public class UniformsContext {
 				ArbitraryIntUniform uniform = new ArbitraryIntUniform(
 						program, u.name, u.type,
 						control, initialValues);
-				tryRestorePreviousUniformValues(u.name, uniform);
 				uniforms.add(uniform);
+				originalUniformValues.put(u.name, uniform.getValues());
+				tryRestorePreviousUniformValues(u.name, uniform);
 				oldArbitraryUniforms.put(u.name, uniform);
 				continue;
 			}
@@ -107,8 +115,9 @@ public class UniformsContext {
 			if(u.type == GLUniformType.BOOL) {
 				boolean[] initialValues = getUniformBoolValues(program, u);
 				ArbitraryBoolUniform uniform = new ArbitraryBoolUniform(program, u.name, initialValues);
-				tryRestorePreviousUniformValues(u.name, uniform);
 				uniforms.add(uniform);
+				originalUniformValues.put(u.name, uniform.getValues());
+				tryRestorePreviousUniformValues(u.name, uniform);
 				oldArbitraryUniforms.put(u.name, uniform);
 				continue;
 			}
@@ -125,7 +134,7 @@ public class UniformsContext {
 	private void tryRestorePreviousUniformValues(String name, ArbitraryUniform currentUniform) {
 		ArbitraryUniform oldUniform = oldArbitraryUniforms.get(name);
 		if(oldUniform != null)
-			currentUniform.copy(oldUniform);
+			currentUniform.copy(oldUniform.getValues());
 	}
 	
 	private static Uniform tryGetBuiltinUniform(int program, RawUniform u) {
@@ -136,7 +145,7 @@ public class UniformsContext {
 		return null;
 	}
 	
-	private static Uniform tryGetTextureUniform(int program, String code, RawUniform u, IntRef nextTextureSlot) {
+	private static Uniform tryGetTextureUniform(int program, String code, RawUniform u, TexturesContext nextTextureSlot) {
 		Pattern texturePattern = Pattern.compile("\nuniform sampler2D " + Pattern.quote(u.name) + ";\\s+//[ \t]*(.+)");
 		Matcher matcher = texturePattern.matcher(code);
 		
@@ -163,10 +172,10 @@ public class UniformsContext {
 		} else if(path.matches("builtin \\d+")) { // default texture, loaded from resources
 			int buitinId = Integer.parseInt(path.substring("builtin ".length()));
 			Texture texture = Texture.loadTextureFromResources(buitinId);
-			return new TextureUniform(program, nextTextureSlot.value++, u.name, texture, path);
+			return new TextureUniform(program, nextTextureSlot.nextTextureSlot++, u.name, texture, path);
 		} else { // normal texture, loaded from user files
 			Texture texture = Texture.loadTexture(path);
-			return new TextureUniform(program, nextTextureSlot.value++, u.name, texture, path);
+			return new TextureUniform(program, nextTextureSlot.nextTextureSlot++, u.name, texture, path);
 		}
 	}
 	
@@ -246,7 +255,14 @@ public class UniformsContext {
 				ImGui.setClipboardText(clipboardText.toString());
 			}
 			if(ImGui.isItemHovered())
-				ImGui.setTooltip("copy to clipboard\nnote that unused uniforms will be discarded");
+				ImGui.setTooltip("Copy all uniforms to clipboard, unused uniforms will be discarded");
+			ImGui.sameLine();
+			if(ImGui.button("reset uniforms")) {
+				for(Uniform u : uniforms) {
+					if(u instanceof ArbitraryUniform)
+						((ArbitraryUniform) u).copy(originalUniformValues.get(u.name));
+				}
+			}
 			Time.renderControls();
 			for(Uniform u : uniforms)
 				u.renderControl();
@@ -256,12 +272,12 @@ public class UniformsContext {
 	
 }
 
-class IntRef {
+class TexturesContext {
 	
-	public int value;
+	public int nextTextureSlot;
 	
-	IntRef(int value) {
-		this.value = value;
+	TexturesContext(int firstTextureSlot) {
+		this.nextTextureSlot = firstTextureSlot;
 	}
 }
 
