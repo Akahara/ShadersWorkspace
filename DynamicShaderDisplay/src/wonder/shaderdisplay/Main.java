@@ -46,7 +46,7 @@ public class Main {
 
 	public static final Logger logger = new SimpleLogger("DSD");
 	
-	public static Events events = new Events();
+	public static ActiveUserControls activeUserControls = new ActiveUserControls();
 
 	public static boolean isImagePass = false; // true iff run with "image" (see #applyShaderToImages)
 	
@@ -68,10 +68,12 @@ public class Main {
 	@OptionClass
 	public static class SnippetsOptions {
 
-		@Option(name = "--verbose", desc = "Verbose output")
+		@Option(name = "--verbose", desc = "verbose output")
 		public boolean verbose;
 		@Option(name = "--filter", desc = "snippet filter (regex)")
-		public String filter;
+		public String filter = ".*";
+		@Option(name = "--code", desc = "print the snippets' codes instead of their names")
+		public boolean printCode;
 		
 	}
 	
@@ -177,9 +179,10 @@ public class Main {
 		
 	}
 	
-	public static class Events {
+	public static class ActiveUserControls {
 		
 		public boolean takeScreenshot = false;
+		public boolean drawBackground = true;
 		
 	}
 	
@@ -189,12 +192,8 @@ public class Main {
 		
 	}
 	
-	@EntryPoint(path = "snippets", help = "Prints a list of snippets to standard output. Snippets can be filtered with --filter")
+	@EntryPoint(path = "snippets", help = "Prints a set of useful glsl snippets, filter with -f and print code with -c")
 	public static void writeSnippets(SnippetsOptions options) {
-		if(options.filter == null) {
-			System.out.println("No filter given, did you forget --filter ?");
-			return;
-		}
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		Resources.scanForAndLoadSnippets();
 		List<Snippet> snippets;
@@ -204,29 +203,21 @@ public class Main {
 			Main.logger.err(e, "Invalid filter");
 			return;
 		}
-		if(snippets.isEmpty())
+		if(snippets.isEmpty()) {
 			System.err.println("No matching snippets");
-		for(Snippet s : snippets)
-			System.out.println(s.code);
-	}
-
-	@EntryPoint(path = "snippets-list", help = "List known snippets. Snippets can be filtered with --filter")
-	public static void listSnippets(SnippetsOptions options) {
-		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
-		Resources.scanForAndLoadSnippets();
-		List<Snippet> snippets;
-		try {
-			snippets = options.filter == null ? Resources.SNIPPETS : Resources.filterSnippets(options.filter);
-		} catch (PatternSyntaxException e) {
-			Main.logger.err(e, "Invalid filter");
 			return;
 		}
-		if(snippets.isEmpty())
-			System.out.println("No matching snippets");
-		for(Snippet s : snippets)
-			System.out.println("- " + s.name);
+		for(Snippet s : snippets) {
+			if(options.printCode)
+				System.out.println(s.code);
+			else
+				System.out.println(s.name);
+		}
+		if(!options.printCode) {
+			System.out.println("Found " + snippets.size() + " snippets, run with -c to print their codes");
+		}
 	}
-	
+
 	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
 	public static void systemInformation() {
 		GLWindow.createWindow(1, 1, false, null);
@@ -324,9 +315,9 @@ public class Main {
 				glfwSwapBuffers(GLWindow.getWindow());
 				glfwPollEvents();
 				
-				if(events.takeScreenshot) {
+				if(activeUserControls.takeScreenshot) {
 					UserControls.takeScreenshot(renderTargetsSwapChain);
-					events.takeScreenshot = false;
+					activeUserControls.takeScreenshot = false;
 				}
 	
 				workTime += System.nanoTime() - current;

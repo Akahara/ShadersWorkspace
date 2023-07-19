@@ -1,7 +1,26 @@
 package wonder.shaderdisplay;
 
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_FALSE;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_INT;
 import static org.lwjgl.opengl.GL11.glClear;
+import static org.lwjgl.opengl.GL11.glDrawElements;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+import static org.lwjgl.opengl.GL15.glBindBuffer;
+import static org.lwjgl.opengl.GL15.glBufferData;
+import static org.lwjgl.opengl.GL15.glGenBuffers;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.GL_DRAW_FRAMEBUFFER;
+import static org.lwjgl.opengl.GL30.glBindFramebuffer;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+
+import java.io.IOException;
+
+import wonder.shaderdisplay.renderers.Renderer;
 
 public class TexturesSwapChain {
 	
@@ -42,7 +61,7 @@ public class TexturesSwapChain {
 	}
 	
 	public void blitToScreen() {
-		fbos[currentSwap].blitToScreen();
+		WindowBlit.blitToScreen(textures[currentSwap][0]);
 	}
 
 	public int getDisplayWidth() {
@@ -75,6 +94,50 @@ public class TexturesSwapChain {
 
 	public Texture getOffscreenTexture(int renderTargetId) {
 		return textures[(currentSwap+1)%SWAP_COUNT][renderTargetId];
+	}
+	
+}
+
+class WindowBlit {
+	
+	private static final int shader;
+	private static final int vao;
+	
+	static {
+		try {
+			vao = glGenVertexArrays();
+			glBindVertexArray(vao);
+			int vbo = glGenBuffers();
+			int ibo = glGenBuffers();
+			int[] indices = { 0,1,2, 2,3,0 };
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
+			glBindVertexArray(0);
+			
+			shader = glCreateProgram();
+			int vertex = Renderer.buildShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
+			int fragment = Renderer.buildShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
+			glAttachShader(shader, vertex);
+			glAttachShader(shader, fragment);
+			glLinkProgram(shader);
+			glValidateProgram(shader);
+			if(glGetProgrami(shader, GL_LINK_STATUS) == GL_FALSE || glGetProgrami(shader, GL_VALIDATE_STATUS) == GL_FALSE)
+				throw new RuntimeException("Failed to build the blit shader");
+		} catch (IOException e) {
+			throw new RuntimeException("Could not initialize the blit shader", e);
+		}
+	}
+	
+	public static void blitToScreen(Texture source) {
+		source.bind(0);
+		glBindVertexArray(vao);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glUseProgram(shader);
+		glUniform1i(glGetUniformLocation(shader, "u_background"), Main.activeUserControls.drawBackground ? 1 : 0);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
 	}
 	
 }

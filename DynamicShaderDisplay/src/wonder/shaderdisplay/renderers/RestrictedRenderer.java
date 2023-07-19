@@ -14,14 +14,21 @@ import static org.lwjgl.opengl.GL15.glBufferData;
 import static org.lwjgl.opengl.GL15.glGenBuffers;
 import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.nio.ByteBuffer;
 
 public class RestrictedRenderer extends Renderer {
+	
+	private int vao;
 
 	@Override
 	public void loadResources() {
+		vao = glGenVertexArrays();
+		glBindVertexArray(vao);
+		
 		float[] vertices = {
 				-1, -1, 0, 1,
 				 1, -1, 0, 1,
@@ -43,6 +50,8 @@ public class RestrictedRenderer extends Renderer {
 		
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, NULL);
+		
+		glBindVertexArray(0);
 	}
 
 	@Override
@@ -50,8 +59,10 @@ public class RestrictedRenderer extends Renderer {
 		glClear(GL_COLOR_BUFFER_BIT);
 		
 		if(standardShaderProgram > 0) {
+			glBindVertexArray(vao);
 			standardShaderUniforms.apply();
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
 		}
 	}
 	

@@ -38,7 +38,7 @@ public class Resources {
 	
 	public static final List<Snippet> SNIPPETS = new ArrayList<>();
 	
-	private static String readResource(String path) throws IOException {
+	public static String readResource(String path) throws IOException {
 		try (InputStream is = ShaderFileWatcher.class.getResourceAsStream(path)) {
 			if(is == null)
 				throw new IOException("Resource " + path + " does not exist");

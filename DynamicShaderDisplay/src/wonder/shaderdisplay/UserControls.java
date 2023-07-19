@@ -40,12 +40,16 @@ public class UserControls {
 	public static void renderControls(TexturesSwapChain renderTargetsSwapChain) {
 		if(ImGui.begin("Controls")) {
 			// screenshot
-			if(ImGui.button("Take screenshot"))
-				Main.events.takeScreenshot = true;
+			if(tooltipButton("Take screenshot", "Beware of transparency!"))
+				Main.activeUserControls.takeScreenshot = true;
 			
 			// window resize
 			if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
 				GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
+			
+			if(ImGui.checkbox("Draw background", Main.activeUserControls.drawBackground))
+				Main.activeUserControls.drawBackground = !Main.activeUserControls.drawBackground;
+			showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
 		}
 		ImGui.end();
 
@@ -65,10 +69,19 @@ public class UserControls {
 	}
 	
 	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
-		if(ImGui.button("C##" + name))
+		if(tooltipButton("C##" + name, "Copy to clipboard"))
 			ImGui.setClipboardText(copiedText.get());
+	}
+	
+	public static boolean tooltipButton(String name, String tooltip) {
+		boolean pressed = ImGui.button(name);
+		showTooltipOnHover(tooltip);
+		return pressed;
+	}
+	
+	public static void showTooltipOnHover(String tooltip) {
 		if(ImGui.isItemHovered())
-			ImGui.setTooltip("Copy to clipboard");
+			ImGui.setTooltip(tooltip);
 	}
 	
 	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain) {

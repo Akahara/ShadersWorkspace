@@ -127,7 +127,7 @@ public abstract class Renderer {
 		return String.format("%02d:%02d:%02d.%03d", hour, minute, second, millis);
 	}
 	
-	private static int buildShader(String source, int glType) {
+	public static int buildShader(String source, int glType) {
 		int id = glCreateShader(glType);
 		glShaderSource(id, source);
 		glCompileShader(id);

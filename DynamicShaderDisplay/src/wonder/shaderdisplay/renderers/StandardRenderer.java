@@ -18,6 +18,8 @@ import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20.glUseProgram;
 import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL30.glBindBufferBase;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL43.GL_SHADER_STORAGE_BUFFER;
 import static org.lwjgl.opengl.GL43.glDispatchCompute;
 import static org.lwjgl.system.MemoryUtil.NULL;
@@ -30,14 +32,21 @@ public class StandardRenderer extends Renderer {
 	
 	private static final int SHADER_STORAGE_DATA_SIZE = 128;
 	
+	private int vao;
+	
 	@Override
 	public void loadResources() {
+		vao = glGenVertexArrays();
+		glBindVertexArray(vao);
+		
 		float[] vertices = {
 				-1, -1, 0, 1,
 				 1, -1, 0, 1,
 				 1,  1, 0, 1,
 				-1,  1, 0, 1,
-				};
+		};
+		// the first element is the number of drawn vertices,
+		// it can be modified by a compute shader
 		int[] indices = { 6, 0, 1, 2, 2, 3, 0 };
 		
 		ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(SHADER_STORAGE_DATA_SIZE, vertices);
@@ -60,6 +69,8 @@ public class StandardRenderer extends Renderer {
 		
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, NULL);
+		
+		glBindVertexArray(0);
 	}
 	
 	@Override
@@ -72,6 +83,8 @@ public class StandardRenderer extends Renderer {
 	
 	@Override
 	public void render() {
+		glBindVertexArray(vao);
+		
 		if(computeShaderProgram > 0) {
 			glUseProgram(computeShaderProgram);
 			computeShaderUniforms.apply();
@@ -87,6 +100,8 @@ public class StandardRenderer extends Renderer {
 			int triangleCount = BufferUtils.readBufferInt(GL_SHADER_STORAGE_BUFFER, 0);
 			glDrawElements(GL_TRIANGLES, 3*triangleCount, GL_UNSIGNED_INT, 4);
 		}
+		
+		glBindVertexArray(0);
 	}
 	
 	@Override

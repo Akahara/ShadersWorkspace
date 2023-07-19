@@ -12,6 +12,8 @@ import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20.glUseProgram;
 import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL30.glBindBufferBase;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL43.GL_SHADER_STORAGE_BUFFER;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
@@ -22,11 +24,15 @@ import wonder.shaderdisplay.Resources;
 
 public abstract class FormatedInputRenderer extends Renderer {
 	
+	private int vao;
 	private int shaderStorageVertices, shaderStorageIndices;
 	private int verticesDrawCount = 0, drawMode = GL_LINES;
 
 	@Override
 	public void loadResources() {
+		vao = glGenVertexArrays();
+		glBindVertexArray(vao);
+		
 		ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(0, new float[0]);
 		ByteBuffer shaderStorageIndicesData = BufferUtils.fromInts(0, new int[0]);
 		
@@ -46,6 +52,8 @@ public abstract class FormatedInputRenderer extends Renderer {
 		
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, NULL);
+		
+		glBindVertexArray(0);
 	}
 	
 	/** Called before {@link #compileShaders(String[])}, will likely call {@link #rebuildBuffersInput(String)} */
@@ -125,9 +133,11 @@ public abstract class FormatedInputRenderer extends Renderer {
 		glClear(GL_COLOR_BUFFER_BIT);
 		
 		if(standardShaderProgram > 0) {
+			glBindVertexArray(vao);
 			glUseProgram(standardShaderProgram);
 			standardShaderUniforms.apply();
 			glDrawElements(drawMode, verticesDrawCount, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
 		}
 	}
 	
