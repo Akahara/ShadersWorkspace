@@ -77,7 +77,7 @@ public class GLWindow {
 			closeableCallbacks.add(errorCallback);
 		
 		glViewport(0, 0, width, height);
-		glClearColor(0, 0, 0, 1);
+		glClearColor(0, 0, 0, 0);
 		glPointSize(3);
 		
 		glBindVertexArray(glGenVertexArrays());

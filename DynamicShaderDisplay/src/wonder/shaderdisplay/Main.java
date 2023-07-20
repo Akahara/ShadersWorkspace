@@ -104,6 +104,14 @@ public class Main {
 		public int winWidth = 500;
 		@Option(name = "--height", shorthand = "-h", desc = "Sets the initial window height")
 		public int winHeight = 500;
+		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
+		public BackgroundType background = BackgroundType.NORMAL;
+		
+		public static enum BackgroundType {
+			NORMAL,
+			NO_ALPHA,
+			BLACK,
+		}
 		
 	}
 	
@@ -316,7 +324,7 @@ public class Main {
 				glfwPollEvents();
 				
 				if(activeUserControls.takeScreenshot) {
-					UserControls.takeScreenshot(renderTargetsSwapChain);
+					UserControls.takeScreenshot(renderTargetsSwapChain, options.displayOptions);
 					activeUserControls.takeScreenshot = false;
 				}
 	
@@ -415,7 +423,7 @@ public class Main {
 				renderTargetsSwapChain.swap();
 				renderTargetsSwapChain.bind();
 				display.renderer.render();
-				renderTargetsSwapChain.readColorAttachment(0, buffer);
+				renderTargetsSwapChain.readColorAttachment(0, buffer, options.displayOptions.background);
 				frame.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 				ImageIO.write(frame, "jpeg", ffmpegStdin);
 				ProcessUtils.printProgressbar(f-firstFrame, lastFrame-firstFrame, "Writing frames");
@@ -495,7 +503,7 @@ public class Main {
 			renderTargetsSwapChain.bind();
 			inputTexture.bind(InputTextureUniform.INPUT_TEXTURE_SLOT);
 			display.renderer.render();
-			renderTargetsSwapChain.readColorAttachment(0, buffer);
+			renderTargetsSwapChain.readColorAttachment(0, buffer, options.displayOptions.background);
 			frame.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 			try {
 				ImageIO.write(frame, imageFormat, outputFile);
@@ -529,7 +537,7 @@ public class Main {
 		Display display = createDisplay(options.displayOptions, fragment, false, false);
 		ShaderFiles shaderFiles = new ShaderFiles();
 		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
-		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
+		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
 		int[] buffer = new int[w*h];
 		
 		try {
@@ -555,7 +563,7 @@ public class Main {
 		renderTargetsSwapChain.swap();
 		renderTargetsSwapChain.bind();
 		display.renderer.render();
-		renderTargetsSwapChain.readColorAttachment(0, buffer);
+		renderTargetsSwapChain.readColorAttachment(0, buffer, options.displayOptions.background);
 		frame.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 		try {
 			ImageIO.write(frame, imageFormat, outputFile);

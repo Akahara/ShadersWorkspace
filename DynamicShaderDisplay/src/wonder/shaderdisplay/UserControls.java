@@ -22,6 +22,7 @@ import fr.wonder.commons.systems.argparser.annotations.OptionClass;
 import imgui.ImGui;
 import imgui.ImVec2;
 import imgui.flag.ImGuiStyleVar;
+import wonder.shaderdisplay.Main.DisplayOptions;
 import wonder.shaderdisplay.Resources.Snippet;
 
 public class UserControls {
@@ -84,7 +85,7 @@ public class UserControls {
 			ImGui.setTooltip(tooltip);
 	}
 	
-	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain) {
+	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain, DisplayOptions options) {
 		SimpleDateFormat df = new SimpleDateFormat("MMdd_HHmmss");
 		String fileName = "screenshot_" + df.format(new Date()) + ".png";
 		File file = new File(fileName);
@@ -99,7 +100,7 @@ public class UserControls {
 		
 		int w = renderTargetsSwapChain.getDisplayWidth();
 		int h = renderTargetsSwapChain.getDisplayHeight();
-		int[] buffer = renderTargetsSwapChain.readColorAttachment(0, new int[w*h]);
+		int[] buffer = renderTargetsSwapChain.readColorAttachment(0, new int[w*h], options.background);
 		BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
 		image.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 		

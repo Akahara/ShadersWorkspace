@@ -20,6 +20,7 @@ import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 import java.io.IOException;
 
+import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
 import wonder.shaderdisplay.renderers.Renderer;
 
 public class TexturesSwapChain {
@@ -72,8 +73,30 @@ public class TexturesSwapChain {
 		return textures[0][0].getHeight();
 	}
 	
-	public int[] readColorAttachment(int attachmentId, int[] outBuffer) {
-		return fbos[currentSwap].readColorAttachment(attachmentId, outBuffer);
+	public int[] readColorAttachment(int attachmentId, int[] outBuffer, BackgroundType background) {
+		int[] pixels = fbos[currentSwap].readColorAttachment(attachmentId, outBuffer);
+		switch(background) {
+		case NORMAL:
+			break;
+		case NO_ALPHA:
+			for(int i = 0; i < pixels.length; i++)
+				pixels[i] |= 0xff << 24;
+			break;
+		case BLACK:
+			for(int i = 0; i < pixels.length; i++) {
+				float r = ((pixels[i] >> 0) & 0xff) / (float)0xff;
+				float g = ((pixels[i] >> 8) & 0xff) / (float)0xff;
+				float b = ((pixels[i] >> 16) & 0xff) / (float)0xff;
+				float a = ((pixels[i] >> 24) & 0xff) / (float)0xff;
+				pixels[i] =
+						((int)(r*a*0xff) << 0) |
+						((int)(g*a*0xff) << 8) |
+						((int)(b*a*0xff) << 16) |
+						(0xff << 24);
+			}
+			break;
+		}
+		return pixels;
 	}
 
 	public void resizeTextures(int w, int h) {
