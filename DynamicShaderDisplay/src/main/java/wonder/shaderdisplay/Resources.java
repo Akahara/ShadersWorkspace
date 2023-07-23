@@ -25,10 +25,10 @@ public class Resources {
 	public static final int SHADERS_COUNT = 4;
 	
 	private static final String[] DEFAULT_SOURCES = {
-			"/defaultVertex.vs",
-			"/defaultGeometry.gs",
-			"/defaultFragment.fs",
-			"/defaultCompute.cs",
+            "/defaultVertex.vs",
+            "/defaultGeometry.gs",
+            "/defaultFragment.fs",
+            "/defaultCompute.cs",
 	};
 	
 	public static final boolean[] REQUIRED_SHADERS = { true, false, true, false };

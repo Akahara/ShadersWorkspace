@@ -635,18 +635,18 @@ public class Main {
 	}
 	
 	private static void loadImguiFiles() throws IOException {
-		File dllFile = new File("imgui-java64.dll");
-		if(!dllFile.exists()) {
-			logger.info("Extracting imgui dll to " + dllFile.getPath());
-			ProcessUtils.extractFileFromResources("/imgui-java64.dll", dllFile);
-		}
-		ProcessUtils.loadDLL(dllFile.getAbsolutePath()); // TODO make this work on linux/macos
-		
-		File iniFile = new File("imgui.ini");
-		if(!iniFile.exists()) {
-			logger.info("Extracting a default imgui.ini file to " + iniFile.getPath());
-			ProcessUtils.extractFileFromResources("/default_imgui.ini", iniFile);
-		}
+//		File dllFile = new File("imgui-java64.dll");
+//		if(!dllFile.exists()) {
+//			logger.info("Extracting imgui dll to " + dllFile.getPath());
+//			ProcessUtils.extractFileFromResources("/imgui-java64.dll", dllFile);
+//		}
+//		ProcessUtils.loadDLL(dllFile.getAbsolutePath()); // TODO make this work on linux/macos
+//
+//		File iniFile = new File("imgui.ini");
+//		if(!iniFile.exists()) {
+//			logger.info("Extracting a default imgui.ini file to " + iniFile.getPath());
+//			ProcessUtils.extractFileFromResources("/default_imgui.ini", iniFile);
+//		}
 	}
 	
 	private static void fillInShaderFiles(ShaderFiles shaderFiles, File fragment, DisplayOptions options) throws IOException {

@@ -42,8 +42,11 @@ java -jar dsd.jar --help <command>
 ```
 
 Note that on Mac OS X you will need to add `-XstartOnFirstThread` before `-jar`, otherwise you might get unexpected crashes.
-Java 13 is needed in order to run dsd. If you build it yourself you should be able to downgrade JRE compliance by removing unecessary libraries.
-dsd has been tested on Windows 10, it should also work on OSX/linux but no garanties are made (if you encounter crashes with ImGui add `--no-gui`).
+Also you may need to specify the version of OpenGL using `--force-gl-version <version>` because Metal is not supported.
+
+Java 13+ is needed in order to run dsd.
+
+DSD has been tested on Windows 10, it should also work on OSX/linux but no garanties are made (if you encounter crashes with ImGui add `--no-gui`).
 
 ### Using uniforms
 
@@ -201,6 +204,4 @@ for i in range(100):
 
 ## Build instructions:
 
-Most build dependencies are located in `dsd/lib`, you'll have to add lwjgl dependecies by yourself from [here](https://www.lwjgl.org/customize) (only glfw and OpenGL).
-This project was successfully built using the Eclipse IDE, it was stripped of its project files.
-
+Install dependencies using Maven, [`fr.wonder.commons(.systems)`](https://github.com/Akahara/fr.wonder.commons.systems) are not avaible on maven and must be included from `/lib`

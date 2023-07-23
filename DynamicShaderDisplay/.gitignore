@@ -2,6 +2,8 @@ hs_err_pid*
 .settings/
 .project
 .classpath
+.idea/
+*.iml
 bin/
 target/
 outdir/
