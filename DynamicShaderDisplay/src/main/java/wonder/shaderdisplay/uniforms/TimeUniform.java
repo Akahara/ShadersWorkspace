@@ -20,7 +20,7 @@ class TimeUniform extends Uniform {
 	
 	@Override
 	public void renderControl() {
-		Time.renderTimeControls();
+		Time.renderTimeControls(name);
 	}
 
 	@Override

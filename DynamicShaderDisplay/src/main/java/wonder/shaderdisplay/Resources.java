@@ -6,11 +6,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.utils.ArrayOperator;
@@ -81,7 +83,7 @@ public class Resources {
 	private static void loadSnippets(List<Snippet> snippets) {
 		for(Snippet s : snippets) {
 			if(SNIPPETS.contains(s)) {
-				Main.logger.warn("Dupplicate snippet found: '" + s.name + "'");
+				Main.logger.warn("Duplicate snippet found: '" + s.name + "'");
 				continue;
 			}
 			SNIPPETS.add(s);
@@ -94,18 +96,20 @@ public class Resources {
 			
 			File currentDir = new File(".");
 			Main.logger.debug("Searching for snippets file from '" + currentDir.getCanonicalPath() + "'");
-			for(File file : Files.walk(currentDir.toPath(), 2).map(Path::toFile).collect(Collectors.toList())) {
-				if(SNIPPET_FILE_EXTENSION.equals(FilesUtils.getFileExtension(file))) {
-					Main.logger.debug("Found snippets file '" + file.getCanonicalPath() + "'");
-					loadSnippets(readSnippets(FilesUtils.read(file)));
+			try (Stream<Path> paths = Files.walk(currentDir.toPath(), 2)) {
+				for(File file : paths.map(Path::toFile).collect(Collectors.toList())) {
+					if(SNIPPET_FILE_EXTENSION.equals(FilesUtils.getFileExtension(file))) {
+						Main.logger.debug("Found snippets file '" + file.getCanonicalPath() + "'");
+						loadSnippets(readSnippets(FilesUtils.read(file)));
+					}
 				}
 			}
-			
+
 			Main.logger.debug("Loaded " + SNIPPETS.size() + " snippets");
 		} catch (IOException e) {
 			Main.logger.err(e, "Could not load all snippets");
 		} finally {
-			SNIPPETS.sort((s1,s2) -> s1.name.compareTo(s2.name));
+			SNIPPETS.sort(Comparator.comparing(s -> s.name));
 		}
 	}
 	

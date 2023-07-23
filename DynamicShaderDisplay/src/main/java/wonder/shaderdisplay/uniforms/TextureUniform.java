@@ -38,17 +38,17 @@ class TextureUniform extends Uniform {
 		ImGui.endDisabled();
 		if (ImGui.isItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) {
 	        ImGui.setTooltip(
-	        		  "You can specify the texture path as such:\n"
-	        		+ "  uniform sampler2D u_texture; // texturepath.png\n"
-	        		+ "Or use one of the built-in textures by giving its id:\n"
-	        		+ "  uniform sampler2D u_texture; // builtin 0\n"
-	        		+ "Or use render targets:\n"
-	        		+ "  uniform sampler2D u_texture; // target 0\n"
-	        		+ "  where 0 is the previous frame and 1+ are targets you can fill by adding\n"
-	        		+ "  layout(location=1) out vec4 target1;"
-	        		+ "  and writing to target1 each frame.\n"
-	        		+ "Additionally you can add \"input or \" to use the input texture first when running with \"dsd image\"\n"
-	        		+ "  uniform sampler2D u_texture; // input or builtin 0");
+					"""
+							You can specify the texture path as such:
+							  uniform sampler2D u_texture; // texturepath.png
+							Or use one of the built-in textures by giving its id:
+							  uniform sampler2D u_texture; // builtin 0
+							Or use render targets:
+							  uniform sampler2D u_texture; // target 0
+							  where 0 is the previous frame and 1+ are targets you can fill by adding
+							  layout(location=1) out vec4 target1;  and writing to target1 each frame.
+							Additionally you can add "input or " to use the input texture first when running with "dsd image"
+							  uniform sampler2D u_texture; // input or builtin 0""");
 		}
 	}
 

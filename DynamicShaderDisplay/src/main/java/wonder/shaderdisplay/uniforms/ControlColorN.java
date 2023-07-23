@@ -20,9 +20,9 @@ class ControlColorN implements FloatUniformControl {
 	public void renderControl(String name, float[] value) {
 		UserControls.copyToClipboardBtn(name, () -> "vec" + size + Arrays.toString(value).replace('[', '(').replace(']', ')'));
 		ImGui.sameLine();
-		switch(size) {
-		case 3: ImGui.colorEdit3(name, value); break;
-		case 4: ImGui.colorEdit4(name, value); break;
+		switch (size) {
+		case 3 -> ImGui.colorEdit3(name, value);
+		case 4 -> ImGui.colorEdit4(name, value);
 		}
 	}
 }

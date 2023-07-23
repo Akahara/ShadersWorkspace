@@ -8,11 +8,15 @@ A collection of shaders and a tool for real-time rendering and developping for s
 |-|-|
 | ![could not load image](screens/summer_butterfly.png) | ![could not load image](screens/flows.png) |
 
+![could not load image](screens/environment.png)
+
 These are animated when run.
 
 ## DSD
 
 The DSD (dynamic shader display) tool is a renderer for fragment shaders, you can use it to run any shader in this repository.
+
+It supports OpenGL shaders like you would find on [shadertoy](https://shadertoy.com). *DSD is not an editor*, you may use any text or shader editor, Using VSCode + a glsl extension works great for me.
 
 To run dsd, first download or build the .jar file, then use one of the following commands:
 
@@ -41,12 +45,11 @@ java -jar dsd.jar -c compute.cs -g geometry.gs -v vertex.gs fragment.fs
 java -jar dsd.jar --help <command>
 ```
 
-Note that on Mac OS X you will need to add `-XstartOnFirstThread` before `-jar`, otherwise you might get unexpected crashes.
-Also you may need to specify the version of OpenGL using `--force-gl-version <version>` because Metal is not supported.
+Java 16+ is needed in order to run dsd.
 
-Java 13+ is needed in order to run dsd.
+DSD has been tested on Windows 10, it should also work on OSX/linux but no guaranties are made (if you encounter crashes with ImGui add `--no-gui`).
 
-DSD has been tested on Windows 10, it should also work on OSX/linux but no garanties are made (if you encounter crashes with ImGui add `--no-gui`).
+Note that on Mac OS X you will need to add `-XstartOnFirstThread` before `-jar`, also you may need to specify the version of OpenGL using `--force-gl-version <version>` because Metal is not supported.
 
 ### Using uniforms
 
@@ -204,4 +207,4 @@ for i in range(100):
 
 ## Build instructions:
 
-Install dependencies using Maven, [`fr.wonder.commons(.systems)`](https://github.com/Akahara/fr.wonder.commons.systems) are not avaible on maven and must be included from `/lib`
+Install dependencies using Maven, [`fr.wonder.commons(.systems)`](https://github.com/Akahara/fr.wonder.commons.systems) are not avaible on maven and must be included from `/lib` or built from source.

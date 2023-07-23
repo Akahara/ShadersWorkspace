@@ -10,7 +10,7 @@ class ArbitraryFloatUniform extends Uniform implements ArbitraryUniform {
 	private final GLUniformType type;
 	private final FloatUniformControl control;
 	
-	private float[][] values;
+	private final float[][] values;
 	
 	public ArbitraryFloatUniform(int program, String name,
 			GLUniformType type,
@@ -32,7 +32,7 @@ class ArbitraryFloatUniform extends Uniform implements ArbitraryUniform {
 	@Override
 	public void renderControl() {
 		if(values.length > 1) {
-			UserControls.copyToClipboardBtn(name+"_all", () -> getValueAsGLSLString());
+			UserControls.copyToClipboardBtn(name+"_all", this::getValueAsGLSLString);
 			ImGui.sameLine();
 			ImGui.text(name);
 			for(int i = 0; i < values.length; i++)
@@ -57,7 +57,7 @@ class ArbitraryFloatUniform extends Uniform implements ArbitraryUniform {
 		Number[][] packedValues = new Number[values.length][values[0].length];
 		for(int i = 0; i < values.length; i++) {
 			for(int j = 0; j < values[i].length; j++)
-				packedValues[i][j] = Float.valueOf(values[i][j]);
+				packedValues[i][j] = values[i][j];
 		}
 		return packedValues;
 	}
@@ -70,7 +70,7 @@ class ArbitraryFloatUniform extends Uniform implements ArbitraryUniform {
 		sb.append(type.name);
 		sb.append(' ');
 		sb.append(name);
-		if(isArray) sb.append("[" + values.length + "]");
+		if(isArray) sb.append("[").append(values.length).append("]");
 		sb.append(" = ");
 		sb.append(getValueAsGLSLString());
 		sb.append(';');
@@ -81,7 +81,7 @@ class ArbitraryFloatUniform extends Uniform implements ArbitraryUniform {
 		int valueSize = values[0].length;
 		boolean isArray = values.length > 1;
 		StringBuilder sb = new StringBuilder();
-		if(isArray) sb.append(type.name + "[](");
+		if(isArray) sb.append(type.name).append("[](");
 		for(int i = 0; i < values.length; i++) {
 			if(valueSize == 1) {
 				sb.append(values[i][0]);

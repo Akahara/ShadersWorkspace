@@ -31,7 +31,7 @@ public class UserControls {
 	
 	private static final int[] screenSizeBuffer = new int[2];
 	
-	private static StringBuilder stdinBuffer = new StringBuilder();
+	private static final StringBuilder stdinBuffer = new StringBuilder();
 	
 	public static void init() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
@@ -58,7 +58,7 @@ public class UserControls {
 		if(ImGui.begin(RENDER_TARGETS_WINDOW)) {
 			ImVec2 winSize = ImGui.getWindowSize();
 			float imageW = winSize.x*.5f;
-			float imageH = (winSize.y-30)/(TexturesSwapChain.RENDER_TARGET_COUNT/2);
+			float imageH = (winSize.y-30)/(TexturesSwapChain.RENDER_TARGET_COUNT/2f);
 			for(int i = 1; i < TexturesSwapChain.RENDER_TARGET_COUNT; i++) {
 				ImGui.image(renderTargetsSwapChain.getOffscreenTexture(i).getId(), imageW, imageH, 0, 1, 1, 0);
 				if(i%2==1)

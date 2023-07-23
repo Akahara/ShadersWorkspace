@@ -44,12 +44,12 @@ public class GLWindow {
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
 	private static final List<BiConsumer<Integer, Integer>> resizeCallbacks = new ArrayList<>();
 
-	public static void createWindow(int width, int height, boolean visible, String forcedGlVersion) {
+	public static void createWindow(int width, int height, boolean visible, String forcedGlVersion, boolean verboseGLFW) {
 		winWidth = width;
 		winHeight = height;
 
 		GLFWErrorCallback.createPrint(System.err).set();
-		
+
 		if (!glfwInit())
 			throw new IllegalStateException("Unable to initialize GLFW !");
 
@@ -71,11 +71,13 @@ public class GLWindow {
 		}
 
 		GL.createCapabilities();
-		
-		Callback errorCallback = GLUtil.setupDebugMessageCallback(System.err);
-		if(errorCallback != null)
-			closeableCallbacks.add(errorCallback);
-		
+
+		if(verboseGLFW) {
+			Callback errorCallback = GLUtil.setupDebugMessageCallback(System.err);
+			if(errorCallback != null)
+				closeableCallbacks.add(errorCallback);
+		}
+
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 0);
 		glPointSize(3);
@@ -102,13 +104,13 @@ public class GLWindow {
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 			return;
-		} else {
-			Matcher m = Pattern.compile("(\\d+)\\.(\\d+)").matcher(forcedGLVersion);
-			if(!m.find())
-				throw new IllegalArgumentException("Invalid gl version, got '" + forcedGLVersion + "', expected something like 4.3");
-			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, Integer.parseInt(m.group(1)));
-			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, Integer.parseInt(m.group(2)));
 		}
+
+		Matcher m = Pattern.compile("(\\d+)\\.(\\d+)").matcher(forcedGLVersion);
+		if(!m.find())
+			throw new IllegalArgumentException("Invalid gl version, got '" + forcedGLVersion + "', expected something like 4.3");
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, Integer.parseInt(m.group(1)));
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, Integer.parseInt(m.group(2)));
 	}
 	
 	public static void setVSync(boolean enableVSync) {
@@ -151,7 +153,7 @@ public class GLWindow {
 		BufferedImage iconImage;
 		try {
 			iconImage = ImageIO.read(GLWindow.class.getResourceAsStream(resourcePath));
-		} catch (IOException e) {
+		} catch (IOException | NullPointerException e) {
 			Main.logger.err(e, "Could not load taskbar icon");
 			return;
 		}

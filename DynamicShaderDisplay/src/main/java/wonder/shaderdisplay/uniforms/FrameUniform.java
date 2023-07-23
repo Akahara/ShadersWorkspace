@@ -26,7 +26,7 @@ class FrameUniform extends Uniform {
 	
 	@Override
 	public void renderControl() {
-		Time.renderTimeControls();
+		Time.renderFrameControls(name);
 	}
 
 	@Override

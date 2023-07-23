@@ -23,11 +23,11 @@ class ControlFloatVecN implements FloatUniformControl {
 			"vec" + size + Arrays.toString(value).replace('[', '(').replace(']', ')')
 		);
 		ImGui.sameLine();
-		switch(size) {
-		case 1: ImGui.dragFloat (name, value, .01f); break;
-		case 2: ImGui.dragFloat2(name, value, .01f); break;
-		case 3: ImGui.dragFloat3(name, value, .01f); break;
-		case 4: ImGui.dragFloat4(name, value, .01f); break;
+		switch (size) {
+		case 1 -> ImGui.dragFloat(name, value, .01f);
+		case 2 -> ImGui.dragFloat2(name, value, .01f);
+		case 3 -> ImGui.dragFloat3(name, value, .01f);
+		case 4 -> ImGui.dragFloat4(name, value, .01f);
 		}
 	}
 	

@@ -27,14 +27,8 @@ public class BufferUtils {
 	
 	public static int readBufferInt(int target, int byteOffset) {
 		int[] data = new int[1];
-		glGetBufferSubData(target, 0, data);
+		glGetBufferSubData(target, byteOffset, data);
 		return data[0];
-	}
-	
-	public static int[] readBufferInts(int target, int count) {
-		int[] data = new int[count];
-		glGetBufferSubData(target, 0, data);
-		return data;
 	}
 	
 }

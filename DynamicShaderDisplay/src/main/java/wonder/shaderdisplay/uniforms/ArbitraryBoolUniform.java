@@ -10,7 +10,7 @@ import wonder.shaderdisplay.UserControls;
 public class ArbitraryBoolUniform extends Uniform implements ArbitraryUniform {
 
 	private final UniformLocationCache locationCache;
-	private boolean[] values;
+	private final boolean[] values;
 	
 	public ArbitraryBoolUniform(int program, String name, boolean[] initialValues) {
 		super(name);
@@ -66,7 +66,7 @@ public class ArbitraryBoolUniform extends Uniform implements ArbitraryUniform {
 	public Number[][] getValues() {
 		Number[][] packed = new Number[values.length][1];
 		for(int i = 0; i < values.length; i++)
-			packed[i][0] = Integer.valueOf(values[i]?1:0);
+			packed[i][0] = values[i] ? 1 : 0;
 		return packed;
 	}
 
@@ -74,9 +74,9 @@ public class ArbitraryBoolUniform extends Uniform implements ArbitraryUniform {
 	public String toUniformString() {
 		boolean isArray = values.length > 1;
 		StringBuilder sb = new StringBuilder();
-		sb.append("uniform bool " + name);
+		sb.append("uniform bool ").append(name);
 		if(isArray)
-			sb.append("[" + values.length + "] = bool[](");
+			sb.append("[").append(values.length).append("] = bool[](");
 		else
 			sb.append(" = ");
 		for(int i = 0; i < values.length; i++) {

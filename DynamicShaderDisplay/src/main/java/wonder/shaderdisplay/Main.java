@@ -107,7 +107,7 @@ public class Main {
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
 		public BackgroundType background = BackgroundType.NORMAL;
 		
-		public static enum BackgroundType {
+		public enum BackgroundType {
 			NORMAL,
 			NO_ALPHA,
 			BLACK,
@@ -124,7 +124,7 @@ public class Main {
 		public boolean noTextureCache;
 		@Option(name = "--hard-reload", desc = "Reload every shader file every time a change is detected\n in one of their folders (may be required with some configurations)")
 		public boolean hardReload;
-		@Option(name = "--vsync", desc = "Enables vsync, when used the informations given in the window title may be inaccurate")
+		@Option(name = "--vsync", desc = "Enables vsync, when used the info given in the window title may be inaccurate")
 		public boolean vsync;
 		@Option(name = "--nogui", desc = "Removes the uniforms gui")
 		public boolean noGui = false;
@@ -228,7 +228,7 @@ public class Main {
 
 	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
 	public static void systemInformation() {
-		GLWindow.createWindow(1, 1, false, null);
+		GLWindow.createWindow(1, 1, false, null, true);
 		GLWindow.printSystemInformation();
 		GLWindow.dispose();
 	}
@@ -239,11 +239,8 @@ public class Main {
 		logger.info("-- Running display --");
 		
 		// create display, load renderer etc
-		Display display = createDisplay(options.displayOptions, fragment, true, options.vsync);
+		Display display = createDisplay(options.displayOptions, true, options.vsync);
 		Texture.setUseCache(!options.noTextureCache);
-		
-		if(display == null)
-			exit(); // early exit
 		
 		try {
 			TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
@@ -252,7 +249,7 @@ public class Main {
 			shaderFiles.startWatching(options.hardReload);
 			Resources.scanForAndLoadSnippets();
 			UserControls.init();
-			GLWindow.addResizeListener((w, h) -> renderTargetsSwapChain.resizeTextures(w, h));
+			GLWindow.addResizeListener(renderTargetsSwapChain::resizeTextures);
 	
 			reloadShaders(shaderFiles, display.renderer);
 		
@@ -260,7 +257,6 @@ public class Main {
 			ImGuiImplGlfw glfw = null;
 			ImGuiImplGl3 gl3 = null;
 			if(!options.noGui) {
-				loadImguiFiles();
 				ImGui.createContext();
 				glfw = new ImGuiImplGlfw();
 				gl3 = new ImGuiImplGl3();
@@ -294,7 +290,8 @@ public class Main {
 				// render the actual frame
 				renderTargetsSwapChain.swap();
 				renderTargetsSwapChain.bind();
-				display.renderer.render();
+				if(!Time.isPaused() || Time.justChanged())
+					display.renderer.render();
 				renderTargetsSwapChain.blitToScreen();
 
 				// update time *after* having drawn the frame and *before* drawing controls
@@ -346,9 +343,9 @@ public class Main {
 			GLWindow.dispose();
 		} catch (Throwable e) {
 			if(options.displayOptions.verbose)
-				logger.merr(e, "An error occured");
+				logger.merr(e, "An error occurred");
 			else
-				logger.err(e, "An error occured");
+				logger.err(e, "An error occurred");
 		} finally {
 			exit();
 		}
@@ -376,7 +373,7 @@ public class Main {
 		// create display, load renderer etc
 		int w = options.displayOptions.winWidth, h = options.displayOptions.winHeight;
 		
-		Display display = createDisplay(options.displayOptions, fragment, false, false);
+		Display display = createDisplay(options.displayOptions, false, false);
 		ShaderFiles shaderFiles = new ShaderFiles();
 		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
 		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
@@ -399,7 +396,7 @@ public class Main {
 				command.addAll(Arrays.asList(StringUtils.splitCLIArgs(options.ffmpegOptions)));
 			command.addAll(Arrays.asList(
 					"-y",               // overwrite existing output file
-					"-f", "image2pipe", // pipe images instead of transfering files
+					"-f", "image2pipe", // pipe images instead of transferring files
 					"-codec", "mjpeg",  // using jpeg compression
 					"-framerate", ""+options.displayOptions.targetFPS,
 					"-i", "pipe:0",     // which pipe to use (stdin)
@@ -458,7 +455,7 @@ public class Main {
 		// create display, load renderer etc
 		int w = options.displayOptions.winWidth, h = options.displayOptions.winHeight;
 		
-		Display display = createDisplay(options.displayOptions, fragment, false, false);
+		Display display = createDisplay(options.displayOptions, false, false);
 		ShaderFiles shaderFiles = new ShaderFiles();
 		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
 		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
@@ -472,7 +469,7 @@ public class Main {
 		}
 		
 		for(File inputFile : inputFiles) {
-			String outputPath = options.outputPath.replaceAll("\\{\\}", inputFile.getName());
+			String outputPath = options.outputPath.replaceAll("\\{}", inputFile.getName());
 			File outputFile = new File(outputPath);
 			if(outputFile.isDirectory())
 				outputFile = new File(outputFile, inputFile.getName());
@@ -534,7 +531,7 @@ public class Main {
 		// create display, load renderer etc
 		int w = options.displayOptions.winWidth, h = options.displayOptions.winHeight;
 		
-		Display display = createDisplay(options.displayOptions, fragment, false, false);
+		Display display = createDisplay(options.displayOptions, false, false);
 		ShaderFiles shaderFiles = new ShaderFiles();
 		TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(w, h);
 		BufferedImage frame = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
@@ -573,7 +570,7 @@ public class Main {
 		}
 	}
 	
-	private static Display createDisplay(DisplayOptions options, File fragment, boolean windowVisible, boolean useVSync) {
+	private static Display createDisplay(DisplayOptions options, boolean windowVisible, boolean useVSync) {
 		logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		ScriptRenderer.scriptLogger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
 		
@@ -584,24 +581,24 @@ public class Main {
 			options.scriptLogLength = Integer.MAX_VALUE;
 		} else if(options.scriptLogLength < 0) {
 			logger.err("Invalid script log length: " + options.scriptLogLength);
-			return null;
+			System.exit(1);
 		}
 		if(options.targetFPS <= 0) {
 			logger.err("Invalid fps: " + options.targetFPS);
-			return null;
+			System.exit(1);
 		}
-		
+
 		// loading resources
 		try {
 			display.renderer = getSuitableRenderer(options);
 			logger.debug("Using renderer: " + display.renderer.getClass().getSimpleName());
 		} catch (IllegalArgumentException e) {
 			logger.err(e.getMessage());
-			return null;
+			System.exit(1);
 		}
 
 		logger.info("Creating window");
-		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, options.forcedGLVersion);
+		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, options.forcedGLVersion, options.verbose);
 		GLWindow.setVSync(useVSync);
 		GLWindow.setTaskBarIcon("/icon.png");
 		GLWindow.addResizeListener(ResolutionUniform::updateViewportSize);
@@ -632,21 +629,6 @@ public class Main {
 			return new RestrictedRenderer();
 		
 		return new StandardRenderer();
-	}
-	
-	private static void loadImguiFiles() throws IOException {
-//		File dllFile = new File("imgui-java64.dll");
-//		if(!dllFile.exists()) {
-//			logger.info("Extracting imgui dll to " + dllFile.getPath());
-//			ProcessUtils.extractFileFromResources("/imgui-java64.dll", dllFile);
-//		}
-//		ProcessUtils.loadDLL(dllFile.getAbsolutePath()); // TODO make this work on linux/macos
-//
-//		File iniFile = new File("imgui.ini");
-//		if(!iniFile.exists()) {
-//			logger.info("Extracting a default imgui.ini file to " + iniFile.getPath());
-//			ProcessUtils.extractFileFromResources("/default_imgui.ini", iniFile);
-//		}
 	}
 	
 	private static void fillInShaderFiles(ShaderFiles shaderFiles, File fragment, DisplayOptions options) throws IOException {

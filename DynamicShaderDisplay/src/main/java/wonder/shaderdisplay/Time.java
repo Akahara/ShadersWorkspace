@@ -7,6 +7,9 @@ public class Time {
 	private static float fps;
 	private static float time;
 	private static boolean paused;
+	private static boolean justChanged;
+
+	private static String frameUniformName, timeUniformName;
 	
 	private static boolean shouldRenderTime, shouldRenderFrames;
 	
@@ -17,15 +20,15 @@ public class Time {
 	public static int getFrame() {
 		return (int) (time * fps);
 	}
-	
-	public static void setPaused(boolean paused) {
-		Time.paused = paused;
-	}
-	
+
 	public static boolean isPaused() {
 		return paused;
 	}
-	
+
+	public static boolean justChanged() {
+		return justChanged;
+	}
+
 	public static void setTime(float time) {
 		Time.time = time;
 	}
@@ -48,15 +51,18 @@ public class Time {
 			setFrame(getFrame()+frameCount);
 	}
 	
-	public static void renderTimeControls() {
+	public static void renderTimeControls(String uniformName) {
 		shouldRenderTime = true;
+		timeUniformName = uniformName;
 	}
 	
-	public static void renderFrameControls() {
+	public static void renderFrameControls(String uniformName) {
 		shouldRenderFrames = true;
+		frameUniformName = uniformName;
 	}
 
 	public static void renderControls() {
+		justChanged = false;
 		if(!shouldRenderFrames && !shouldRenderTime)
 			return;
 		
@@ -70,17 +76,21 @@ public class Time {
 		
 		if(shouldRenderTime) {
 			float[] ptr = { time };
-			ImGui.dragFloat("iTime", ptr, .01f);
-			time = ptr[0];
 			shouldRenderTime = false;
+			if(ImGui.dragFloat(timeUniformName, ptr, .01f)) {
+				setTime(ptr[0]);
+				justChanged = true;
+			}
 		}
 		if(shouldRenderFrames) {
 			int[] ptr = { getFrame() };
-			ImGui.dragInt("iFrame", ptr);
-			setFrame(getFrame());
 			shouldRenderFrames = false;
+			if(ImGui.dragInt(frameUniformName, ptr)) {
+				setFrame(ptr[0]);
+				justChanged = true;
+			}
 		}
-		
+
 		if(!paused) ImGui.endDisabled();
 	}
 

@@ -23,11 +23,11 @@ class ControlIntVecN implements IntUniformControl {
 			"ivec" + size + Arrays.toString(value).replace('[', '(').replace(']', ')')
 		);
 		ImGui.sameLine();
-		switch(size) {
-		case 1: ImGui.dragInt (name, value); break;
-		case 2: ImGui.dragInt2(name, value); break;
-		case 3: ImGui.dragInt3(name, value); break;
-		case 4: ImGui.dragInt4(name, value); break;
+		switch (size) {
+		case 1 -> ImGui.dragInt(name, value);
+		case 2 -> ImGui.dragInt2(name, value);
+		case 3 -> ImGui.dragInt3(name, value);
+		case 4 -> ImGui.dragInt4(name, value);
 		}
 	}
 }

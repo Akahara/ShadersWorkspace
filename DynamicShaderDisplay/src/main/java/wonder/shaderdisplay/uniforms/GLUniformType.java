@@ -46,7 +46,7 @@ public enum GLUniformType {
 	
 	private static final GLUniformType[] ALL_TYPES = values();
 	
-	private GLUniformType(int glType, String typeName, int typeSize) {
+	GLUniformType(int glType, String typeName, int typeSize) {
 		this.glType = glType;
 		this.name = typeName;
 		this.typeSize = typeSize;
@@ -89,19 +89,19 @@ public enum GLUniformType {
 			IVEC4, new ControlIntVecN(4)
 	);
 	
-	public static interface FloatUniformControl {
+	public interface FloatUniformControl {
 		void renderControl(String name, float[] value);
 	}
 	
-	public static interface IntUniformControl {
+	public interface IntUniformControl {
 		void renderControl(String name, int[] value);
 	}
 	
-	public static interface GlUniformFloatFunction {
+	public interface GlUniformFloatFunction {
 		void setUniform(int location, float[] value);
 	}
 	
-	public static interface GlUniformIntFunction {
+	public interface GlUniformIntFunction {
 		void setUniform(int location, int[] value);
 	}
 	

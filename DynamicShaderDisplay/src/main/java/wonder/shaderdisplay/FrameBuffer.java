@@ -61,13 +61,4 @@ public class FrameBuffer {
 		return outBuffer;
 	}
 
-	public void blitToScreen() {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glBlitFramebuffer(
-				0, 0, attachments.get(0).getWidth(), attachments.get(0).getHeight(),
-				0, 0, GLWindow.getWinWidth(), GLWindow.getWinHeight(),
-				GL_COLOR_BUFFER_BIT, GL_NEAREST);
-	}
-	
 }

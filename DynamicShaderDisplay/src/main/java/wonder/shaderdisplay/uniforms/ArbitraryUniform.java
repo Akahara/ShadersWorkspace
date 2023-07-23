@@ -2,7 +2,7 @@ package wonder.shaderdisplay.uniforms;
 
 public interface ArbitraryUniform {
 	
-	public Number[][] getValues();
-	public ArbitraryUniform copy(Number[][] copied);
+	Number[][] getValues();
+	ArbitraryUniform copy(Number[][] copied);
 	
 }

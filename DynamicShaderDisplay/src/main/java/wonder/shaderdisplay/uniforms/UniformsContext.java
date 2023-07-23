@@ -8,10 +8,7 @@ import static org.lwjgl.opengl.GL20.glGetUniformfv;
 import static org.lwjgl.opengl.GL20.glGetUniformiv;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,8 +40,8 @@ public class UniformsContext {
 	// uniforms that had values at some point, values are kept in memory
 	// to be able to be retrieved later (opengl gets rid of uniforms that
 	// are not used in code)
-	private Map<String, ArbitraryUniform> oldArbitraryUniforms = new HashMap<>();
-	private Map<String, Number[][]> originalUniformValues = new HashMap<>();
+	private final Map<String, ArbitraryUniform> oldArbitraryUniforms = new HashMap<>();
+	private final Map<String, Number[][]> originalUniformValues = new HashMap<>();
 	
 	public UniformsContext() {}
 	
@@ -139,8 +136,8 @@ public class UniformsContext {
 	
 	private static Uniform tryGetBuiltinUniform(int program, RawUniform u) {
 		for(RawBuiltinUniform builtin : BUILTIN_UNIFORMS) {
-			if(u.type == builtin.type && u.name.equals(builtin.name))
-				return builtin.generator.create(builtin.name, program);
+			if(u.type == builtin.type() && u.name.equals(builtin.name()))
+				return builtin.generator().create(builtin.name(), program);
 		}
 		return null;
 	}
@@ -191,16 +188,13 @@ public class UniformsContext {
 		for(int i = 0; i < uniformCount; i++) {
 			glGetActiveUniform(program, i, _nameLength, _size, _type, _name);
 			int nameLength = _nameLength[0];
-			int size = _size[0];
+			int arrayLength = _size[0];
 			int type = _type[0];
 			_name.get(nameBytes, 0, nameLength);
 			_name.position(0);
 			String name = new String(nameBytes, 0, nameLength);
 			if(name.endsWith("[0]")) name = name.substring(0, name.length()-3);
-			RawUniform u = new RawUniform();
-			u.arrayLength = size;
-			u.name = name;
-			u.type = GLUniformType.getFromGLTypeId(type);
+			RawUniform u = new RawUniform(GLUniformType.getFromGLTypeId(type), name, arrayLength);
 			if(u.type == null) {
 				Main.logger.warn("Unsupported uniform type for '" + name + "'");
 				continue;
@@ -210,7 +204,7 @@ public class UniformsContext {
 			Matcher nameMatcher = namePattern.matcher(code);
 			firstOccurences.put(u, nameMatcher.find() ? nameMatcher.start() : code.length());
 		}
-		uniforms.sort((u1, u2) -> firstOccurences.get(u1)-firstOccurences.get(u2));
+		uniforms.sort(Comparator.comparingInt(firstOccurences::get));
 		return uniforms;
 	}
 	
@@ -281,18 +275,8 @@ class TexturesContext {
 	}
 }
 
-class RawBuiltinUniform {
-	
-	public final GLUniformType type;
-	public final String name;
-	public final BuiltinUniformGenerator generator;
-	
-	public RawBuiltinUniform(GLUniformType type, String name, BuiltinUniformGenerator generator) {
-		this.type = type;
-		this.name = name;
-		this.generator = generator;
-	}
-	
+record RawBuiltinUniform(GLUniformType type, String name, BuiltinUniformGenerator generator) {
+
 }
 
 @FunctionalInterface
@@ -303,14 +287,15 @@ interface BuiltinUniformGenerator {
 }
 
 class RawUniform {
-	
-	GLUniformType type;
-	String name;
-	int arrayLength; // -1 for non-arrays and undefined-length arrays
-	
-	@Override
-	public String toString() {
-		return String.format("%s%s %s = %s",
-				type.name, (arrayLength > 1) ? "["+arrayLength+"]":"", name);
+
+	RawUniform(GLUniformType type, String name, int arrayLength) {
+		this.type = type;
+		this.name = name;
+		this.arrayLength = arrayLength;
 	}
+
+	final GLUniformType type;
+	final String name;
+	final int arrayLength; // -1 for non-arrays and undefined-length arrays
+
 }

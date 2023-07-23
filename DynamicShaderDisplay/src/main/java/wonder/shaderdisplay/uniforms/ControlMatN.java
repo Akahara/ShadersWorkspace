@@ -27,7 +27,7 @@ class ControlMatN implements FloatUniformControl {
 			for(int j = 0; j < matrixSize; j++) {
 				p[0] = value[i*matrixSize+j];
 				ImGui.tableNextColumn();
-				ImGui.dragFloat("##"+value+","+i+","+j, p, .1f);
+				ImGui.dragFloat("##"+name+","+i+","+j, p, .1f);
 				value[i*matrixSize+j] = p[0];
 			}
 		}
