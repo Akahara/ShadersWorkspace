@@ -1,7 +1,5 @@
 package wonder.shaderdisplay;
 
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_NEAREST;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glReadPixels;

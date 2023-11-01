@@ -600,7 +600,8 @@ public class Main {
 		logger.info("Creating window");
 		GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, options.forcedGLVersion, options.verbose);
 		GLWindow.setVSync(useVSync);
-		GLWindow.setTaskBarIcon("/icon.png");
+		if(options.forcedGLVersion == null)
+			GLWindow.setTaskBarIcon("/icon.png");
 		GLWindow.addResizeListener(ResolutionUniform::updateViewportSize);
 		ResolutionUniform.updateViewportSize(options.winWidth, options.winHeight);
 		Time.setFps(options.targetFPS);
