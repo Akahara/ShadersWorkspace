@@ -292,9 +292,6 @@ public class Main {
 						renderTargetsSwapChain.clearTextures();
 				}
 				
-				if(System.in.available() > 0)
-					UserControls.readStdin();
-				
 				// -------- draw frame ---------
 
 				// render the actual frame

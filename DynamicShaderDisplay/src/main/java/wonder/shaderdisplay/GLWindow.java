@@ -153,7 +153,7 @@ public class GLWindow {
 		BufferedImage iconImage;
 		try {
 			iconImage = ImageIO.read(GLWindow.class.getResourceAsStream(resourcePath));
-		} catch (IOException | NullPointerException e) {
+		} catch (IOException | IllegalArgumentException e) {
 			Main.logger.err(e, "Could not load taskbar icon");
 			return;
 		}

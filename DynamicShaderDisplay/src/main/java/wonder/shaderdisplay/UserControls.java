@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Scanner;
 import java.util.function.Supplier;
 import java.util.regex.PatternSyntaxException;
 
@@ -31,11 +32,16 @@ public class UserControls {
 	
 	private static final int[] screenSizeBuffer = new int[2];
 	
-	private static final StringBuilder stdinBuffer = new StringBuilder();
-	
 	public static void init() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
 		screenSizeBuffer[1] = GLWindow.winHeight;
+		
+		new Thread(() -> {
+			try (Scanner sc = new Scanner(System.in)) {
+				while(true)
+					interpretCommand(sc.nextLine().trim());
+			} catch (IllegalStateException x) {}
+		}, "stdin-interpreter").start();
 	}
 	
 	public static void renderControls(TexturesSwapChain renderTargetsSwapChain) {
@@ -117,17 +123,6 @@ public class UserControls {
 			new ArgParser("", UserCommands.class).run(command);
 		} catch (InvalidDeclarationError e) {
 			Main.logger.merr(e);
-		}
-	}
-
-	public static void readStdin() throws IOException {
-		while(System.in.available() > 0) {
-			char c = (char)System.in.read();
-			if(c == '\n') {
-				interpretCommand(stdinBuffer.toString().trim());
-				stdinBuffer.setLength(0);
-			}
-			stdinBuffer.append(c);
 		}
 	}
 	
