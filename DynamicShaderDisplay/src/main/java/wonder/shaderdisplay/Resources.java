@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 
 import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.utils.ArrayOperator;
+import wonder.shaderdisplay.Main.RunOptions.FragmentTemplate;
 
 public class Resources {
 	
@@ -27,10 +28,10 @@ public class Resources {
 	public static final int SHADERS_COUNT = 4;
 	
 	private static final String[] DEFAULT_SOURCES = {
-            "/defaultVertex.vs",
-            "/defaultGeometry.gs",
-            "/defaultFragment.fs",
-            "/defaultCompute.cs",
+            "/default_vertex.vs",
+            "/default_geometry.gs",
+            "/default_fragment.fs",
+            "/default_compute.cs",
 	};
 	
 	public static final boolean[] REQUIRED_SHADERS = { true, false, true, false };
@@ -48,6 +49,15 @@ public class Resources {
 		}
 	}
 
+	public static void setDefaultFragmentTemplate(FragmentTemplate template) {
+		switch(template) {
+		case FRAMEBUFFERS: DEFAULT_SOURCES[TYPE_FRAGMENT] = "default_fragment_framebuffers.fs"; break;
+		case RAYCASTING:   DEFAULT_SOURCES[TYPE_FRAGMENT] = "default_fragment_raycasting.fs";   break;
+		case SHADERTOY:    DEFAULT_SOURCES[TYPE_FRAGMENT] = "default_fragment_shadertoy.fs";    break;
+		case STANDARD:     DEFAULT_SOURCES[TYPE_FRAGMENT] = "default_fragment_standard.fs";     break;
+		}
+	}
+	
 	public static String readDefaultSource(int type) throws IOException {
 		return readResource(DEFAULT_SOURCES[type]);
 	}
