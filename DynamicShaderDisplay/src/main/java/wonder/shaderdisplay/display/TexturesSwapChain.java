@@ -1,27 +1,16 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.display;
 
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_FALSE;
-import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_INT;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glDrawElements;
-import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_ELEMENT_ARRAY_BUFFER;
-import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
-import static org.lwjgl.opengl.GL15.glBindBuffer;
-import static org.lwjgl.opengl.GL15.glBufferData;
-import static org.lwjgl.opengl.GL15.glGenBuffers;
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL30.GL_DRAW_FRAMEBUFFER;
-import static org.lwjgl.opengl.GL30.glBindFramebuffer;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
+import wonder.shaderdisplay.Resources;
+import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.renderers.Renderer;
 
 import java.io.IOException;
 
-import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
-import wonder.shaderdisplay.renderers.Renderer;
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
 
 public class TexturesSwapChain {
 	
@@ -139,8 +128,8 @@ class WindowBlit {
 			glBindVertexArray(0);
 			
 			shader = glCreateProgram();
-			int vertex = Renderer.buildShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
-			int fragment = Renderer.buildShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
+			int vertex = Renderer.buildShader("default-blit.vs", Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
+			int fragment = Renderer.buildShader("default-blit.fs", Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
 			glAttachShader(shader, vertex);
 			glAttachShader(shader, fragment);
 			glLinkProgram(shader);
@@ -158,7 +147,7 @@ class WindowBlit {
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glUseProgram(shader);
-		glUniform1i(glGetUniformLocation(shader, "u_background"), Main.activeUserControls.drawBackground ? 1 : 0);
+		glUniform1i(glGetUniformLocation(shader, "u_background"), UserControls.activeUserControls.drawBackground ? 1 : 0);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}

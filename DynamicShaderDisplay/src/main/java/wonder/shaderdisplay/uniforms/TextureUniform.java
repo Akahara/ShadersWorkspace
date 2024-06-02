@@ -5,7 +5,7 @@ import static org.lwjgl.opengl.GL20.glUniform1i;
 import imgui.ImGui;
 import imgui.flag.ImGuiHoveredFlags;
 import imgui.type.ImString;
-import wonder.shaderdisplay.Texture;
+import wonder.shaderdisplay.display.Texture;
 
 class TextureUniform extends Uniform {
 

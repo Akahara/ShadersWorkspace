@@ -16,4 +16,6 @@ outdir/
 /*.png
 /*.mp4
 /*.avi
+/*.json
+/*.scene
 imgui.ini

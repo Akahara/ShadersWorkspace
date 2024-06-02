@@ -2,7 +2,7 @@ package wonder.shaderdisplay.uniforms;
 
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
-import wonder.shaderdisplay.TexturesSwapChain;
+import wonder.shaderdisplay.display.TexturesSwapChain;
 
 public class InputTextureUniform extends Uniform {
 	

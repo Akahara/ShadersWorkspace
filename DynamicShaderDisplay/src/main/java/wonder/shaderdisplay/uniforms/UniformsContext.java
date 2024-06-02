@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
 import imgui.ImGui;
 import imgui.flag.ImGuiCond;
 import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.Texture;
-import wonder.shaderdisplay.TexturesSwapChain;
+import wonder.shaderdisplay.display.Texture;
+import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
@@ -237,31 +237,26 @@ public class UniformsContext {
 			u.apply();
 	}
 	
-	public void renderControls(String name) {
-		ImGui.setNextWindowCollapsed(true, ImGuiCond.Once);
-		if(ImGui.begin(name)) {
-			if(ImGui.button("copy all uniforms")) {
-				StringBuilder clipboardText = new StringBuilder();
-				for(Uniform u : uniforms) {
-					clipboardText.append(u.toUniformString());
-					clipboardText.append('\n');
-				}
-				ImGui.setClipboardText(clipboardText.toString());
+	public void renderControls() {
+		if(ImGui.button("Copy")) {
+			StringBuilder clipboardText = new StringBuilder();
+			for(Uniform u : uniforms) {
+				clipboardText.append(u.toUniformString());
+				clipboardText.append('\n');
 			}
-			if(ImGui.isItemHovered())
-				ImGui.setTooltip("Copy all uniforms to clipboard, unused uniforms will be discarded");
-			ImGui.sameLine();
-			if(ImGui.button("reset uniforms")) {
-				for(Uniform u : uniforms) {
-					if(u instanceof ArbitraryUniform)
-						((ArbitraryUniform) u).copy(originalUniformValues.get(u.name));
-				}
-			}
-			Time.renderControls();
-			for(Uniform u : uniforms)
-				u.renderControl();
+			ImGui.setClipboardText(clipboardText.toString());
 		}
-		ImGui.end();
+		if(ImGui.isItemHovered())
+			ImGui.setTooltip("Copy all uniforms to clipboard, unused uniforms will be discarded");
+		ImGui.sameLine();
+		if(ImGui.button("Reset")) {
+			for(Uniform u : uniforms) {
+				if(u instanceof ArbitraryUniform)
+					((ArbitraryUniform) u).copy(originalUniformValues.get(u.name));
+			}
+		}
+		for(Uniform u : uniforms)
+			u.renderControl();
 	}
 	
 }

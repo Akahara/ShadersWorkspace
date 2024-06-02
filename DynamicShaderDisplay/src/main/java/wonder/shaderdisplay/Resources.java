@@ -1,30 +1,23 @@
 package wonder.shaderdisplay;
 
+import fr.wonder.commons.files.FilesUtils;
+import wonder.shaderdisplay.display.ShaderType;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import fr.wonder.commons.files.FilesUtils;
-import fr.wonder.commons.utils.ArrayOperator;
-
 public class Resources {
-	
-	public static final int TYPE_VERTEX = 0;
-	public static final int TYPE_GEOMETRY = 1;
-	public static final int TYPE_FRAGMENT = 2;
-	public static final int TYPE_COMPUTE = 3;
-	
-	public static final int SHADERS_COUNT = 4;
 	
 	private static final String[] DEFAULT_SOURCES = {
             "/defaultVertex.vs",
@@ -32,24 +25,33 @@ public class Resources {
             "/defaultFragment.fs",
             "/defaultCompute.cs",
 	};
-	
-	public static final boolean[] REQUIRED_SHADERS = { true, false, true, false };
-	
+
 	private static final String SNIPPET_FILE_EXTENSION = "snippets";
 	private static final String SNIPPETS_FILE = "/snippets.snippets";
 	
-	public static final List<Snippet> SNIPPETS = new ArrayList<>();
-	
+	public static final List<Snippet> snippets = new ArrayList<>();
+	private static String[] defaultShaderSources;
+
 	public static String readResource(String path) throws IOException {
-		try (InputStream is = ShaderFileWatcher.class.getResourceAsStream(path)) {
+		try (InputStream is = FileWatcher.class.getResourceAsStream(path)) {
 			if(is == null)
 				throw new IOException("Resource " + path + " does not exist");
 			return new String(is.readAllBytes());
 		}
 	}
 
-	public static String readDefaultSource(int type) throws IOException {
-		return readResource(DEFAULT_SOURCES[type]);
+	public static String[] getDefaultShaderSources() {
+		if (defaultShaderSources == null) {
+			try {
+				defaultShaderSources = new String[ShaderType.values().length];
+				for (ShaderType type : ShaderType.values()) {
+					defaultShaderSources[type.ordinal()] = readResource(DEFAULT_SOURCES[type.ordinal()]);
+				}
+			} catch (IOException e) {
+				throw new IllegalStateException("Could not read a default shader", e);
+			}
+		}
+		return Arrays.copyOf(defaultShaderSources, defaultShaderSources.length);
 	}
 	
 	private static List<Snippet> readSnippets(String source) throws IOException {
@@ -77,16 +79,16 @@ public class Resources {
 	
 	public static List<Snippet> filterSnippets(String filter) throws PatternSyntaxException {
 		Pattern p = Pattern.compile(filter, Pattern.CASE_INSENSITIVE);
-		return SNIPPETS.stream().filter(s -> p.matcher(s.name).find()).collect(Collectors.toList());
+		return snippets.stream().filter(s -> p.matcher(s.name).find()).collect(Collectors.toList());
 	}
 	
 	private static void loadSnippets(List<Snippet> snippets) {
 		for(Snippet s : snippets) {
-			if(SNIPPETS.contains(s)) {
+			if(Resources.snippets.contains(s)) {
 				Main.logger.warn("Duplicate snippet found: '" + s.name + "'");
 				continue;
 			}
-			SNIPPETS.add(s);
+			Resources.snippets.add(s);
 		}
 	}
 	
@@ -97,7 +99,7 @@ public class Resources {
 			File currentDir = new File(".");
 			Main.logger.debug("Searching for snippets file from '" + currentDir.getCanonicalPath() + "'");
 			try (Stream<Path> paths = Files.walk(currentDir.toPath(), 2)) {
-				for(File file : paths.map(Path::toFile).collect(Collectors.toList())) {
+				for(File file : paths.map(Path::toFile).toList()) {
 					if(SNIPPET_FILE_EXTENSION.equals(FilesUtils.getFileExtension(file))) {
 						Main.logger.debug("Found snippets file '" + file.getCanonicalPath() + "'");
 						loadSnippets(readSnippets(FilesUtils.read(file)));
@@ -105,14 +107,14 @@ public class Resources {
 				}
 			}
 
-			Main.logger.debug("Loaded " + SNIPPETS.size() + " snippets");
+			Main.logger.debug("Loaded " + snippets.size() + " snippets");
 		} catch (IOException e) {
 			Main.logger.err(e, "Could not load all snippets");
 		} finally {
-			SNIPPETS.sort(Comparator.comparing(s -> s.name));
+			snippets.sort(Comparator.comparing(s -> s.name));
 		}
 	}
-	
+
 	public static class Snippet {
 		
 		public final String name;
@@ -133,20 +135,6 @@ public class Resources {
 			return name.hashCode();
 		}
 		
-	}
-
-	public static String concatStandardShaderSource(String[] shaders) {
-		return String.join("\n", ArrayOperator.filter(new String[] {
-				shaders[TYPE_VERTEX  ],
-				shaders[TYPE_FRAGMENT],
-				shaders[TYPE_GEOMETRY], },
-				Objects::nonNull));
-	}
-
-	public static String concatComputeShaderSource(String[] shaders) {
-		return String.join("\n", ArrayOperator.filter(new String[] {
-				shaders[TYPE_COMPUTE ], },
-				Objects::nonNull));
 	}
 	
 }

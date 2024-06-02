@@ -1,4 +1,4 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.display;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.GL_VERSION;
@@ -35,6 +35,7 @@ import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
+import wonder.shaderdisplay.Main;
 
 public class GLWindow {
 	

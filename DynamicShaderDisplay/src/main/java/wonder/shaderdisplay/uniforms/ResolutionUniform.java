@@ -3,8 +3,6 @@ package wonder.shaderdisplay.uniforms;
 import static org.lwjgl.opengl.GL20.glUniform2f;
 import static org.lwjgl.opengl.GL20.glUniform2i;
 
-import imgui.ImGui;
-
 public class ResolutionUniform extends Uniform {
 	
 	private static int viewportWidth, viewportHeight;
@@ -32,11 +30,7 @@ public class ResolutionUniform extends Uniform {
 	}
 	
 	@Override
-	public void renderControl() {
-		ImGui.beginDisabled();
-		ImGui.dragFloat2(name, new float[] { viewportWidth, viewportHeight });
-		ImGui.endDisabled();
-	}
+	public void renderControl() {}
 	
 	public static void updateViewportSize(int width, int height) {
 		viewportWidth = width;

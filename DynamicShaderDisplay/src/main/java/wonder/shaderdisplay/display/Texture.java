@@ -1,4 +1,6 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.display;
+
+import wonder.shaderdisplay.Main;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;

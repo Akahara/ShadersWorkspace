@@ -24,13 +24,15 @@ import imgui.ImVec2;
 import imgui.flag.ImGuiStyleVar;
 import wonder.shaderdisplay.Main.DisplayOptions;
 import wonder.shaderdisplay.Resources.Snippet;
+import wonder.shaderdisplay.display.GLWindow;
+import wonder.shaderdisplay.display.TexturesSwapChain;
 
 public class UserControls {
 
 	public static final String RENDER_TARGETS_WINDOW = "Render targets";
-	
+	public static ActiveUserControls activeUserControls = new ActiveUserControls();
+
 	private static final int[] screenSizeBuffer = new int[2];
-	
 	private static final StringBuilder stdinBuffer = new StringBuilder();
 	
 	public static void init() {
@@ -42,14 +44,14 @@ public class UserControls {
 		if(ImGui.begin("Controls")) {
 			// screenshot
 			if(tooltipButton("Take screenshot", "Beware of transparency!"))
-				Main.activeUserControls.takeScreenshot = true;
+				activeUserControls.takeScreenshot = true;
 			
 			// window resize
 			if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
 				GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
 			
-			if(ImGui.checkbox("Draw background", Main.activeUserControls.drawBackground))
-				Main.activeUserControls.drawBackground = !Main.activeUserControls.drawBackground;
+			if(ImGui.checkbox("Draw background", activeUserControls.drawBackground))
+				activeUserControls.drawBackground = !activeUserControls.drawBackground;
 			showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
 		}
 		ImGui.end();
@@ -177,5 +179,21 @@ public class UserControls {
 		}
 		
 	}
-	
+
+	public static class ActiveUserControls {
+
+		private boolean takeScreenshot = false;
+		public boolean drawBackground = true;
+
+		public void setShouldTakeScreenshot() {
+			takeScreenshot = true;
+		}
+
+        public boolean poolShouldTakeScreenshot() {
+			boolean val = takeScreenshot;
+			takeScreenshot = false;
+			return val;
+        }
+
+    }
 }
