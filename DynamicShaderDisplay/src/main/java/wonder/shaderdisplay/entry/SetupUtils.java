@@ -1,10 +1,11 @@
 package wonder.shaderdisplay.entry;
 
+import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.*;
-import wonder.shaderdisplay.renderers.*;
 import wonder.shaderdisplay.scene.Macro;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
@@ -26,37 +27,6 @@ public class SetupUtils {
         Main.logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
     }
 
-    protected static void loadCommonOptions(Main.RunOptions options) throws BadInitException {
-        loadCommonOptions(options.displayOptions);
-
-        if(options.targetFPS <= 0) {
-            throw new BadInitException("Invalid fps: " + options.targetFPS);
-        }
-
-        Texture.setUseCache(!options.noTextureCache);
-        Time.setFps(options.targetFPS);
-    }
-
-    protected static void loadCommonOptions(Main.ImagePassOptions options) throws BadInitException {
-        loadCommonOptions(options.displayOptions);
-
-        Main.isImagePass = true;
-    }
-
-    protected static void loadCommonOptions(Main.VideoOptions options) throws BadInitException {
-        loadCommonOptions(options.displayOptions);
-
-        if (options.framerate <= 0)
-            throw new BadInitException("The framerate must be >0");
-        if (options.lastFrame <= 0 && options.videoDuration <= 0)
-            throw new BadInitException("Video duration not specified, run with -l <last frame> or -d <duration in seconds>");
-        if (options.lastFrame != 0 && options.videoDuration != 0)
-            throw new BadInitException("Both 'last frame' and 'duration' cannot be specified at the same time");
-        options.lastFrame = options.lastFrame <= 0 ? (int) (options.videoDuration * options.framerate) : options.lastFrame;
-        if (options.lastFrame <= options.firstFrame)
-            throw new BadInitException("Last frame cannot be less than or equal to the first frame");
-    }
-
     protected static Display createDisplay(Main.DisplayOptions options, boolean windowVisible, boolean useVSync) {
         Display display = new Display();
 
@@ -74,6 +44,21 @@ public class SetupUtils {
 
     protected static Scene createScene(Main.DisplayOptions options, File sceneFile) throws BadInitException {
         Scene scene;
+
+        if (sceneFile.isDirectory())
+            sceneFile = new File(sceneFile, "scene.json");
+        if (!sceneFile.isFile()) {
+            try {
+                if (sceneFile.getName().endsWith(".fs"))
+                    FilesUtils.write(sceneFile, Resources.getDefaultShaderSources()[ShaderType.FRAGMENT.ordinal()]);
+                else if (sceneFile.getName().endsWith(".json") || sceneFile.getName().endsWith(".scene"))
+                    Resources.initializeSceneFiles(sceneFile);
+            } catch (IOException e) {
+                throw new BadInitException(sceneFile + " does not exist and could not be created");
+            }
+
+        }
+
         if (sceneFile.getName().endsWith(".fs"))
             scene = createSimpleScene(options, sceneFile);
         else if (sceneFile.getName().endsWith(".json") || sceneFile.getName().endsWith(".scene"))

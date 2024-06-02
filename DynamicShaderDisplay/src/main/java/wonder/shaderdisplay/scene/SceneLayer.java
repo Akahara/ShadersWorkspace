@@ -2,7 +2,7 @@ package wonder.shaderdisplay.scene;
 
 import wonder.shaderdisplay.display.Mesh;
 import wonder.shaderdisplay.display.ShaderFileSet;
-import wonder.shaderdisplay.renderers.Renderer;
+import wonder.shaderdisplay.display.Renderer;
 import wonder.shaderdisplay.uniforms.UniformsContext;
 
 import java.util.Objects;

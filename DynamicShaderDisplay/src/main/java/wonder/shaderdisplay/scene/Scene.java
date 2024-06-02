@@ -3,6 +3,7 @@ package wonder.shaderdisplay.scene;
 import imgui.ImGui;
 import wonder.shaderdisplay.Time;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +11,15 @@ public class Scene {
 
     public final List<SceneLayer> layers = new ArrayList<>();
     public final List<Macro> macros = new ArrayList<>();
+    public final File sourceFile;
+
+    public Scene(File sourceFile) {
+        this.sourceFile = sourceFile;
+    }
+
+    public Scene() {
+        this(null);
+    }
 
     public void dispose() {
         for (SceneLayer layer : layers) {

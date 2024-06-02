@@ -3,7 +3,7 @@ package wonder.shaderdisplay;
 import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryWatcher;
 import wonder.shaderdisplay.display.ShaderType;
-import wonder.shaderdisplay.renderers.Renderer;
+import wonder.shaderdisplay.display.Renderer;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
 
@@ -33,8 +33,11 @@ public class FileWatcher {
 	}
 	
 	public void startWatching() throws IOException {
+		if (scene.sourceFile != null)
+			addWatchedPath(scene.sourceFile, new WatchableSceneFile());
+
 		for (SceneLayer layer : scene.layers) {
-			for (ShaderType type : ShaderType.values()) {
+			for (ShaderType type : ShaderType.TYPES) {
 				File shaderFile = layer.fileSet.getFile(type);
 				if (shaderFile != null)
 					addWatchedPath(shaderFile, new WatchableShaderFiles(layer));
@@ -150,6 +153,8 @@ public class FileWatcher {
 				Main.logger.err("Could not recompile a shader: " + e.getMessage());
 			}
 		}
+
+		pendingShaderRecompilations.clear();
 
 		return true;
 	}

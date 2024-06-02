@@ -1,4 +1,4 @@
-package wonder.shaderdisplay.renderers;
+package wonder.shaderdisplay.display;
 
 import fr.wonder.commons.exceptions.GenerationException;
 import wonder.shaderdisplay.Main;

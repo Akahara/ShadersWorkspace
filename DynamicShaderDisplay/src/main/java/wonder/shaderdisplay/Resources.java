@@ -18,19 +18,24 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Resources {
-	
-	private static final String[] DEFAULT_SOURCES = {
-            "/defaultVertex.vs",
-            "/defaultGeometry.gs",
-            "/defaultFragment.fs",
-            "/defaultCompute.cs",
-	};
+
+	private static final String[] DEFAULT_SHADER_SOURCES;
 
 	private static final String SNIPPET_FILE_EXTENSION = "snippets";
 	private static final String SNIPPETS_FILE = "/snippets.snippets";
-	
+
 	public static final List<Snippet> snippets = new ArrayList<>();
-	private static String[] defaultShaderSources;
+
+	static {
+		try {
+			DEFAULT_SHADER_SOURCES = new String[ShaderType.COUNT];
+			for (ShaderType type : ShaderType.TYPES) {
+				DEFAULT_SHADER_SOURCES[type.ordinal()] = readResource(type.defaultSourcePath);
+			}
+		} catch (IOException e) {
+			throw new RuntimeException("Could not read a default shader", e);
+		}
+	}
 
 	public static String readResource(String path) throws IOException {
 		try (InputStream is = FileWatcher.class.getResourceAsStream(path)) {
@@ -41,17 +46,7 @@ public class Resources {
 	}
 
 	public static String[] getDefaultShaderSources() {
-		if (defaultShaderSources == null) {
-			try {
-				defaultShaderSources = new String[ShaderType.values().length];
-				for (ShaderType type : ShaderType.values()) {
-					defaultShaderSources[type.ordinal()] = readResource(DEFAULT_SOURCES[type.ordinal()]);
-				}
-			} catch (IOException e) {
-				throw new IllegalStateException("Could not read a default shader", e);
-			}
-		}
-		return Arrays.copyOf(defaultShaderSources, defaultShaderSources.length);
+		return Arrays.copyOf(DEFAULT_SHADER_SOURCES, DEFAULT_SHADER_SOURCES.length);
 	}
 	
 	private static List<Snippet> readSnippets(String source) throws IOException {
@@ -113,6 +108,13 @@ public class Resources {
 		} finally {
 			snippets.sort(Comparator.comparing(s -> s.name));
 		}
+	}
+
+	public static void initializeSceneFiles(File sceneFile) throws IOException {
+		FilesUtils.write(sceneFile, readResource("/defaultScene.json"));
+		File requiredFragmentShaderFile = new File(sceneFile.getParentFile(), "shader.fs"); // the file name must match that in the default scene file
+		if (!requiredFragmentShaderFile.exists())
+			FilesUtils.write(requiredFragmentShaderFile, DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()]);
 	}
 
 	public static class Snippet {

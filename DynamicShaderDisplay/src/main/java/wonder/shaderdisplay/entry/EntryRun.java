@@ -7,6 +7,7 @@ import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.*;
 import wonder.shaderdisplay.display.GLWindow;
+import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
@@ -17,6 +18,17 @@ import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryRun extends SetupUtils {
+
+    protected static void loadCommonOptions(Main.RunOptions options) throws BadInitException {
+        loadCommonOptions(options.displayOptions);
+
+        if(options.targetFPS <= 0) {
+            throw new BadInitException("Invalid fps: " + options.targetFPS);
+        }
+
+        Texture.setUseCache(!options.noTextureCache);
+        Time.setFps(options.targetFPS);
+    }
 
     public static void run(Main.RunOptions options, File fragment) {
         Main.logger.info("-- Running display --");
@@ -61,6 +73,7 @@ public class EntryRun extends SetupUtils {
                 }
                 if (shaderFiles.requiresSceneRecompilation()) {
                     shaderFiles.stopWatching();
+                    Main.logger.info("Regenerating scene");
                     scene = SceneParser.regenerateScene(fragment, scene);
                     shaderFiles = new FileWatcher(scene, options.hardReload);
                     shaderFiles.startWatching();

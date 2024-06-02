@@ -66,6 +66,7 @@ public class Mesh {
                         vertexData.add(aiVertex.x());
                         vertexData.add(aiVertex.y());
                         vertexData.add(aiVertex.z());
+                        vertexData.add(1.f);
                     }
                     for (AIFace face : mesh.mFaces()) {
                         if (face.mNumIndices() != 3)

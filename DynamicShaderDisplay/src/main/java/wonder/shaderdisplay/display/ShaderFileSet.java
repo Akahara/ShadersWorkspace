@@ -9,7 +9,7 @@ import java.nio.file.Path;
 
 public class ShaderFileSet {
 
-	private final File[] filePaths = new File[ShaderType.values().length];
+	private final File[] filePaths = new File[ShaderType.COUNT];
 	private final String[] cachedSources = Resources.getDefaultShaderSources();
 
 	public boolean isCompute() {
@@ -48,7 +48,7 @@ public class ShaderFileSet {
 				try {
 					cachedSources[i] = FilesUtils.read(filePaths[i]);
 				} catch (IOException e) {
-					throw new IOException("Could not read " + ShaderType.values()[i].name() + " shader " + filePaths[i] + ": " + e.getMessage());
+					throw new IOException("Could not read " + ShaderType.TYPES[i].name() + " shader " + filePaths[i] + ": " + e.getMessage());
 				}
 			}
 		}

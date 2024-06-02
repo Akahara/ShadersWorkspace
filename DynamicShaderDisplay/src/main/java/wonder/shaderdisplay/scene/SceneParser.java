@@ -1,16 +1,13 @@
 package wonder.shaderdisplay.scene;
 
-import com.fasterxml.jackson.annotation.JsonClassDescription;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import fr.wonder.commons.annotations.Nullable;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.display.Mesh;
+import wonder.shaderdisplay.display.Renderer;
 import wonder.shaderdisplay.display.ShaderFileSet;
 import wonder.shaderdisplay.display.ShaderType;
 import wonder.shaderdisplay.entry.BadInitException;
@@ -47,7 +44,7 @@ public class SceneParser {
             return previousScene;
         }
 
-        Scene scene = new Scene();
+        Scene scene = new Scene(file);
         scene.macros.addAll(Arrays.asList(serialized.macros));
         StringBuilder errors = new StringBuilder();
         boolean tryToReloadPreviousScene = previousScene != null && previousScene.layers.size() == serialized.layers.length;
@@ -57,10 +54,10 @@ public class SceneParser {
             try {
                 SceneLayer layer = new SceneLayer(
                     new ShaderFileSet()
-                        .setFile(ShaderType.VERTEX, asOptionalPath(serializedLayer.root, serializedLayer.vertex))
-                        .setFile(ShaderType.GEOMETRY, asOptionalPath(serializedLayer.root, serializedLayer.geometry))
-                        .setFile(ShaderType.FRAGMENT, asOptionalPath(serializedLayer.root, serializedLayer.fragment))
-                        .setFile(ShaderType.COMPUTE, asOptionalPath(serializedLayer.root, serializedLayer.compute))
+                        .setFile(ShaderType.VERTEX, asOptionalPath(file, serializedLayer.root, serializedLayer.vertex))
+                        .setFile(ShaderType.GEOMETRY, asOptionalPath(file, serializedLayer.root, serializedLayer.geometry))
+                        .setFile(ShaderType.FRAGMENT, asOptionalPath(file, serializedLayer.root, serializedLayer.fragment))
+                        .setFile(ShaderType.COMPUTE, asOptionalPath(file, serializedLayer.root, serializedLayer.compute))
                         .readSources(),
                     loadMesh(serializedLayer.model),
                     serializedLayer.macros
@@ -68,6 +65,8 @@ public class SceneParser {
                 if (tryToReloadPreviousScene) {
 //                    layer.shaderUniforms
                 }
+                if (!Renderer.compileShaders(layer))
+                    throw new IOException("Could not build a shader");
                 scene.layers.add(layer);
             } catch (IOException e) {
                 errors.append("Layer " + i + ": " + e.getMessage() + "\n");
@@ -84,10 +83,12 @@ public class SceneParser {
         return scene;
     }
 
-    private static File asOptionalPath(String optRoot, String optPath) {
-        return optPath == null ? null
-                : optRoot == null ? new File(optPath)
-                : new File(new File(optRoot), optPath);
+    private static File asOptionalPath(File sceneFile, String optRoot, String optPath) {
+        if (optPath == null)
+            return null;
+        File finalFile = sceneFile.getParentFile();
+        if (optRoot != null) finalFile = new File(finalFile, optRoot);
+        return new File(finalFile, optPath);
     }
 
     private static Mesh loadMesh(String nameOrPath) throws IOException {

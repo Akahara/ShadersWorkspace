@@ -21,6 +21,20 @@ import java.util.List;
 
 public class EntryVideo extends SetupUtils {
 
+    protected static void loadCommonOptions(Main.VideoOptions options) throws BadInitException {
+        loadCommonOptions(options.displayOptions);
+
+        if (options.framerate <= 0)
+            throw new BadInitException("The framerate must be >0");
+        if (options.lastFrame <= 0 && options.videoDuration <= 0)
+            throw new BadInitException("Video duration not specified, run with -l <last frame> or -d <duration in seconds>");
+        if (options.lastFrame != 0 && options.videoDuration != 0)
+            throw new BadInitException("Both 'last frame' and 'duration' cannot be specified at the same time");
+        options.lastFrame = options.lastFrame <= 0 ? (int) (options.videoDuration * options.framerate) : options.lastFrame;
+        if (options.lastFrame <= options.firstFrame)
+            throw new BadInitException("Last frame cannot be less than or equal to the first frame");
+    }
+
     public static void run(Main.VideoOptions options, File fragment) {
         Main.logger.info("-- Running video generation --");
 

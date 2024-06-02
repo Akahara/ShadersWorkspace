@@ -17,6 +17,12 @@ import java.io.IOException;
 
 public class EntryImage extends SetupUtils {
 
+    protected static void loadCommonOptions(Main.ImagePassOptions options) throws BadInitException {
+        loadCommonOptions(options.displayOptions);
+
+        Main.isImagePass = true;
+    }
+
     public static void run(Main.ImagePassOptions options, File fragment, File[] inputFiles) {
         Main.logger.info("-- Running image shader pass --");
 

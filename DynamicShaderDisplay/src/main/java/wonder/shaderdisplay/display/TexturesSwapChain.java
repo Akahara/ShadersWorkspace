@@ -2,7 +2,6 @@ package wonder.shaderdisplay.display;
 
 import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
 import wonder.shaderdisplay.Resources;
-import wonder.shaderdisplay.renderers.Renderer;
 
 import java.io.IOException;
 
