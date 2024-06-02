@@ -30,45 +30,51 @@ import wonder.shaderdisplay.display.TexturesSwapChain;
 public class UserControls {
 
 	public static final String RENDER_TARGETS_WINDOW = "Render targets";
-	public static ActiveUserControls activeUserControls = new ActiveUserControls();
 
-	private static final int[] screenSizeBuffer = new int[2];
-	private static final StringBuilder stdinBuffer = new StringBuilder();
-	
-	public static void init() {
+	private final int[] screenSizeBuffer = new int[2];
+	private final StringBuilder stdinBuffer = new StringBuilder();
+
+	private boolean takeScreenshot = false;
+	private boolean drawBackground = true;
+	private boolean showRenderTargetWindow = false;
+
+	public UserControls() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
 		screenSizeBuffer[1] = GLWindow.winHeight;
 	}
 	
-	public static void renderControls(TexturesSwapChain renderTargetsSwapChain) {
+	public void renderControls(TexturesSwapChain renderTargetsSwapChain) {
 		if(ImGui.begin("Controls")) {
-			// screenshot
 			if(tooltipButton("Take screenshot", "Beware of transparency!"))
-				activeUserControls.takeScreenshot = true;
+				takeScreenshot = true;
 			
-			// window resize
 			if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
 				GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
 			
-			if(ImGui.checkbox("Draw background", activeUserControls.drawBackground))
-				activeUserControls.drawBackground = !activeUserControls.drawBackground;
+			if(ImGui.checkbox("Draw background", drawBackground))
+				drawBackground = !drawBackground;
 			showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
+
+			if (ImGui.checkbox("Show render targets", showRenderTargetWindow))
+				showRenderTargetWindow = !showRenderTargetWindow;
 		}
 		ImGui.end();
 
-		ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.f, 0.f);
-		if(ImGui.begin(RENDER_TARGETS_WINDOW)) {
-			ImVec2 winSize = ImGui.getWindowSize();
-			float imageW = winSize.x*.5f;
-			float imageH = (winSize.y-30)/(TexturesSwapChain.RENDER_TARGET_COUNT/2f);
-			for(int i = 1; i < TexturesSwapChain.RENDER_TARGET_COUNT; i++) {
-				ImGui.image(renderTargetsSwapChain.getOffscreenTexture(i).getId(), imageW, imageH, 0, 1, 1, 0);
-				if(i%2==1)
-					ImGui.sameLine();
+		if (showRenderTargetWindow) {
+			ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.f, 0.f);
+			if(ImGui.begin(RENDER_TARGETS_WINDOW)) {
+				ImVec2 winSize = ImGui.getWindowSize();
+				float imageW = winSize.x*.5f;
+				float imageH = (winSize.y-30)/(TexturesSwapChain.RENDER_TARGET_COUNT/2f);
+				for(int i = 1; i < TexturesSwapChain.RENDER_TARGET_COUNT; i++) {
+					ImGui.image(renderTargetsSwapChain.getOffscreenTexture(i).getId(), imageW, imageH, 0, 1, 1, 0);
+					if(i%2==1)
+						ImGui.sameLine();
+				}
 			}
+			ImGui.popStyleVar();
+			ImGui.end();
 		}
-		ImGui.popStyleVar();
-		ImGui.end();
 	}
 	
 	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
@@ -87,7 +93,7 @@ public class UserControls {
 			ImGui.setTooltip(tooltip);
 	}
 	
-	public static void takeScreenshot(TexturesSwapChain renderTargetsSwapChain, DisplayOptions options) {
+	public void takeScreenshot(TexturesSwapChain renderTargetsSwapChain, DisplayOptions options) {
 		SimpleDateFormat df = new SimpleDateFormat("MMdd_HHmmss");
 		String fileName = "screenshot_" + df.format(new Date()) + ".png";
 		File file = new File(fileName);
@@ -114,7 +120,7 @@ public class UserControls {
 		}
 	}
 	
-	public static void interpretCommand(String command) {
+	public void interpretCommand(String command) {
 		try {
 			new ArgParser("", UserCommands.class).run(command);
 		} catch (InvalidDeclarationError e) {
@@ -122,7 +128,7 @@ public class UserControls {
 		}
 	}
 
-	public static void readStdin() throws IOException {
+	public void readStdin() throws IOException {
 		while(System.in.available() > 0) {
 			char c = (char)System.in.read();
 			if(c == '\n') {
@@ -132,7 +138,11 @@ public class UserControls {
 			stdinBuffer.append(c);
 		}
 	}
-	
+
+	public boolean getDrawBackground() {
+		return drawBackground;
+	}
+
 	public static class UserCommands {
 		
 		@OptionClass
@@ -177,23 +187,11 @@ public class UserControls {
 			}
 			System.out.println("Found " + snippets.size() + " snippets, use with -c to print their source codes");
 		}
-		
 	}
 
-	public static class ActiveUserControls {
-
-		private boolean takeScreenshot = false;
-		public boolean drawBackground = true;
-
-		public void setShouldTakeScreenshot() {
-			takeScreenshot = true;
-		}
-
-        public boolean poolShouldTakeScreenshot() {
-			boolean val = takeScreenshot;
-			takeScreenshot = false;
-			return val;
-        }
-
-    }
+	public boolean poolShouldTakeScreenshot() {
+		boolean val = takeScreenshot;
+		takeScreenshot = false;
+		return val;
+	}
 }

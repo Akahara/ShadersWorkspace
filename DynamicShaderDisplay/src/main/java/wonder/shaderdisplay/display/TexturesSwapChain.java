@@ -2,7 +2,6 @@ package wonder.shaderdisplay.display;
 
 import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
 import wonder.shaderdisplay.Resources;
-import wonder.shaderdisplay.UserControls;
 import wonder.shaderdisplay.renderers.Renderer;
 
 import java.io.IOException;
@@ -50,8 +49,8 @@ public class TexturesSwapChain {
 		}
 	}
 	
-	public void blitToScreen() {
-		WindowBlit.blitToScreen(textures[currentSwap][0]);
+	public void blitToScreen(boolean drawBackground) {
+		WindowBlit.blitToScreen(textures[currentSwap][0], drawBackground);
 	}
 
 	public int getDisplayWidth() {
@@ -141,13 +140,13 @@ class WindowBlit {
 		}
 	}
 	
-	public static void blitToScreen(Texture source) {
+	public static void blitToScreen(Texture source, boolean drawBackground) {
 		source.bind(0);
 		glBindVertexArray(vao);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glUseProgram(shader);
-		glUniform1i(glGetUniformLocation(shader, "u_background"), UserControls.activeUserControls.drawBackground ? 1 : 0);
+		glUniform1i(glGetUniformLocation(shader, "u_background"), drawBackground ? 1 : 0);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}

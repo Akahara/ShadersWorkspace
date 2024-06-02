@@ -30,7 +30,7 @@ public class EntryImage extends SetupUtils {
                 throw new BadInitException("Output path is not a directory and multiple input files given, use -o <directory>");
 
             display = createDisplay(options.displayOptions, false, false);
-            scene = createScene(options.displayOptions, display.renderer, fragment);
+            scene = createScene(options.displayOptions, fragment);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
             Main.exit();

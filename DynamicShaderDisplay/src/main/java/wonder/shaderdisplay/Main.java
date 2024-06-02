@@ -57,12 +57,6 @@ public class Main {
 		public File computeShaderFile;
 		@Option(name = "--verbose", desc = "Verbose output")
 		public boolean verbose;
-		@Option(name = "--input-file", shorthand = "-i", desc = "Input file to get the vertices data from")
-		public File inputFile;
-		@Option(name = "--script", desc = "External script to run and get the vertices data from")
-		public File scriptFile;
-		@Option(name = "--script-log", desc = "Maximum numbers of characters printed from the script output at each execution, -1 to print everything")
-		public int scriptLogLength = 0;
 		@Option(name = "--force-gl-version", desc = "Forces the opengl version, use format <major>.<minor> (ie: 4.3)")
 		public String forcedGLVersion;
 		@Option(name = "--width", shorthand = "-w", desc = "Sets the initial window width")

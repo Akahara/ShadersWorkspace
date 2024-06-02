@@ -24,12 +24,6 @@ public class SetupUtils {
 
     protected static void loadCommonOptions(Main.DisplayOptions options) throws BadInitException {
         Main.logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
-
-        if(options.scriptLogLength == -1) {
-            options.scriptLogLength = Integer.MAX_VALUE;
-        } else if(options.scriptLogLength < 0) {
-            throw new BadInitException("Invalid script log length: " + options.scriptLogLength);
-        }
     }
 
     protected static void loadCommonOptions(Main.RunOptions options) throws BadInitException {
@@ -78,7 +72,7 @@ public class SetupUtils {
         return display;
     }
 
-    protected static Scene createScene(Main.DisplayOptions options, Renderer renderer, File sceneFile) throws BadInitException {
+    protected static Scene createScene(Main.DisplayOptions options, File sceneFile) throws BadInitException {
         Scene scene;
         if (sceneFile.getName().endsWith(".fs"))
             scene = createSimpleScene(options, sceneFile);

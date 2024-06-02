@@ -27,7 +27,7 @@ public class EntryRun extends SetupUtils {
         try {
             loadCommonOptions(options);
             display = createDisplay(options.displayOptions, true, options.vsync);
-            scene = createScene(options.displayOptions, display.renderer, fragment);
+            scene = createScene(options.displayOptions, fragment);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
             Main.exit();
@@ -38,8 +38,8 @@ public class EntryRun extends SetupUtils {
             TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
             FileWatcher shaderFiles = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem();
+            UserControls userControls = new UserControls();
             Resources.scanForAndLoadSnippets();
-            UserControls.init();
             GLWindow.addResizeListener(renderTargetsSwapChain::resizeTextures);
             shaderFiles.startWatching();
 
@@ -67,7 +67,7 @@ public class EntryRun extends SetupUtils {
                 }
 
                 if (System.in.available() > 0)
-                    UserControls.readStdin();
+                    userControls.readStdin();
 
                 // -------- draw frame ---------
 
@@ -76,7 +76,7 @@ public class EntryRun extends SetupUtils {
                 renderTargetsSwapChain.bind();
                 if (!Time.isPaused() || Time.justChanged())
                     display.renderer.render(scene);
-                renderTargetsSwapChain.blitToScreen();
+                renderTargetsSwapChain.blitToScreen(userControls.getDrawBackground());
 
                 // update time *after* having drawn the frame and *before* drawing controls
                 // that way time can be set by the controls and not be modified until next frame
@@ -88,15 +88,15 @@ public class EntryRun extends SetupUtils {
                 shaderLastNano = current;
 
                 if (imgui != null)
-                    imgui.renderControls(renderTargetsSwapChain, scene);
+                    imgui.renderControls(renderTargetsSwapChain, scene, userControls);
 
                 // ---------/draw frame/---------
 
                 glfwSwapBuffers(GLWindow.getWindow());
                 glfwPollEvents();
 
-                if (UserControls.activeUserControls.poolShouldTakeScreenshot())
-                    UserControls.takeScreenshot(renderTargetsSwapChain, options.displayOptions);
+                if (userControls.poolShouldTakeScreenshot())
+                    userControls.takeScreenshot(renderTargetsSwapChain, options.displayOptions);
 
                 workTime += System.nanoTime() - current;
                 current = System.nanoTime();
@@ -138,10 +138,10 @@ class ImGuiSystem {
         gl3.init();
     }
 
-    public void renderControls(TexturesSwapChain renderTargetsSwapChain, Scene scene) {
+    public void renderControls(TexturesSwapChain renderTargetsSwapChain, Scene scene, UserControls userControls) {
         glfw.newFrame();
         ImGui.newFrame();
-        UserControls.renderControls(renderTargetsSwapChain);
+        userControls.renderControls(renderTargetsSwapChain);
         scene.renderControls();
         ImGui.render();
         gl3.renderDrawData(ImGui.getDrawData());

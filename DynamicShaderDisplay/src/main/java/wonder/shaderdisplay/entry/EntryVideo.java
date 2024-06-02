@@ -31,7 +31,7 @@ public class EntryVideo extends SetupUtils {
             loadCommonOptions(options);
 
             display = createDisplay(options.displayOptions, false, false);
-            scene = createScene(options.displayOptions, display.renderer, fragment);
+            scene = createScene(options.displayOptions, fragment);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
             Main.exit();
