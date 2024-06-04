@@ -3,6 +3,7 @@ import math
 
 grid_size = 50 if len(sys.argv) <= 1 else int(sys.argv[1])
 normalized = "normalized" in sys.argv
+centered = "centered" in sys.argv
 
 ux = 1
 uy = 0
@@ -18,8 +19,16 @@ M = int(grid_size / vy)
 for j in range(0, M):
     for i in range(0, N):
         x = ((i - j//2)*ux+j*vx) * scale
-        y = ((i - j//2)*uy+j*vy) / grid_size
+        y = ((i - j//2)*uy+j*vy) * scale
+        if centered:
+            x -= grid_size * scale * .5
+            y -= grid_size * scale * .5
         print(f"v {x} {y} 0")
+        
+for j in range(0, M):
+    for i in range(0, N):
+        x = ((i - j//2)*ux+j*vx) / grid_size
+        y = ((i - j//2)*uy+j*vy) / grid_size
         print(f"vt {x} {y}")
         
 for j in range(0, M-1):

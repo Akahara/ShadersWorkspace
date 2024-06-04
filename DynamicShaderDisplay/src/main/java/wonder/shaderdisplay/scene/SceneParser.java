@@ -59,7 +59,7 @@ public class SceneParser {
                         .setFile(ShaderType.FRAGMENT, asOptionalPath(file, serializedLayer.root, serializedLayer.fragment))
                         .setFile(ShaderType.COMPUTE, asOptionalPath(file, serializedLayer.root, serializedLayer.compute))
                         .readSources(),
-                    loadMesh(serializedLayer.model),
+                    loadMesh(file, serializedLayer.root, serializedLayer.model),
                     serializedLayer.macros
                 );
                 if (tryToReloadPreviousScene) {
@@ -91,7 +91,7 @@ public class SceneParser {
         return new File(finalFile, optPath);
     }
 
-    private static Mesh loadMesh(String nameOrPath) throws IOException {
+    private static Mesh loadMesh(File sceneFile, String optRoot, String nameOrPath) throws IOException {
         if (nameOrPath == null)
             return Mesh.fullscreenTriangle();
         switch (nameOrPath) {
@@ -99,7 +99,7 @@ public class SceneParser {
             return Mesh.fullscreenTriangle();
         default:
             try {
-                return Mesh.parseFile(new File(nameOrPath));
+                return Mesh.parseFile(asOptionalPath(sceneFile, optRoot, nameOrPath));
             } catch (IOException e) {
                 throw new IOException("Could not parse mesh file '" + nameOrPath + "': " + e.getMessage());
             }
