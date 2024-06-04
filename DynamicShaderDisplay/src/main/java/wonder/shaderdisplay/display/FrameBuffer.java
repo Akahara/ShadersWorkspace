@@ -16,6 +16,7 @@ public class FrameBuffer {
 
 	private final int id;
 	private final List<Texture> attachments = new ArrayList<>();
+	private Texture depthAttachment;
 	
 	public FrameBuffer() {
 		this.id = glGenFramebuffers();
@@ -27,6 +28,15 @@ public class FrameBuffer {
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			throw new IllegalStateException("Incomplete frame buffer " + glCheckFramebufferStatus(GL_FRAMEBUFFER));
 		attachments.add(texture);
+	}
+
+	public void addDepthAttachment(Texture depthTexture) {
+		depthAttachment = depthTexture;
+		glBindFramebuffer(GL_FRAMEBUFFER, id);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture.getId(), 0);
+		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			throw new IllegalStateException("Incomplete frame buffer " + glCheckFramebufferStatus(GL_FRAMEBUFFER));
+		unbind();
 	}
 	
 	public void clearAttachments() {
@@ -43,6 +53,10 @@ public class FrameBuffer {
 		int[] drawBuffers = IntStream.range(0, attachments.size()).map(i -> GL_COLOR_ATTACHMENT0+i).toArray();
 		glViewport(0, 0, w, h);
 		glDrawBuffers(drawBuffers);
+	}
+
+	public void unbind() {
+		glDrawBuffers(0);
 	}
 	
 	public void dispose() {

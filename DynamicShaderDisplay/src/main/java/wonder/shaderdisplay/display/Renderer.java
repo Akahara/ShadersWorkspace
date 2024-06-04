@@ -2,10 +2,6 @@ package wonder.shaderdisplay.display;
 
 import fr.wonder.commons.exceptions.GenerationException;
 import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.display.BufferUtils;
-import wonder.shaderdisplay.display.ShaderFileSet;
-import wonder.shaderdisplay.display.ShaderType;
-import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
 
@@ -17,12 +13,11 @@ import java.util.regex.Pattern;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
-import static org.lwjgl.opengl.GL43.GL_SHADER_STORAGE_BUFFER;
 
 public class Renderer {
 
 	public void render(Scene scene) {
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		for (SceneLayer layer : scene.layers) {
 			glUseProgram(layer.compiledShaders.program);

@@ -76,9 +76,6 @@ public class Mesh {
                 int meshIndexOffset = vertexData.size() / 3;
                 try (AIMesh mesh = AIMesh.create(scene.mMeshes().get(i))) {
                     AIVector3D.Buffer vertices = mesh.mVertices();
-                    IntBuffer ii = mesh.mNumUVComponents();
-                    while (ii.hasRemaining())
-                        System.out.println(ii.get());
                     AIVector3D.Buffer uvs = mesh.mTextureCoords(0);
                     AIVector3D.Buffer normals = mesh.mNormals();
                     while (vertices.hasRemaining()) {

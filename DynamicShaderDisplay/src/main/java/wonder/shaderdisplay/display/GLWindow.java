@@ -1,12 +1,7 @@
 package wonder.shaderdisplay.display;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.GL_VERSION;
-import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glGetInteger;
-import static org.lwjgl.opengl.GL11.glGetString;
-import static org.lwjgl.opengl.GL11.glPointSize;
-import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
@@ -82,8 +77,7 @@ public class GLWindow {
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 0);
 		glPointSize(3);
-		
-		glBindVertexArray(glGenVertexArrays());
+		glEnable(GL_DEPTH_TEST);
 		
 		glfwSetWindowSizeCallback(window, (win, w, h) -> {
 			glViewport(0, 0, w, h);

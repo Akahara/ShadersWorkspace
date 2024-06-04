@@ -24,6 +24,7 @@ public class TexturesSwapChain {
 	
 	private final FrameBuffer[] fbos;
 	private final Texture[][] textures;
+	private Texture depthTexture;
 	private int currentSwap = 0;
 	
 	public TexturesSwapChain(int width, int height) {
@@ -87,6 +88,9 @@ public class TexturesSwapChain {
 	}
 
 	public void resizeTextures(int w, int h) {
+		if (depthTexture != null)
+			depthTexture.dispose();
+		depthTexture = Texture.createDepthTexture(w, h);
 		for(int i = 0; i < SWAP_COUNT; i++) {
 			fbos[i].clearAttachments();
 			for(int j = 0; j < textures[i].length; j++) {
@@ -94,12 +98,13 @@ public class TexturesSwapChain {
 					textures[i][j].dispose();
 				textures[i][j] = new Texture(w, h);
 				fbos[i].addAttachment(textures[i][j]);
+				fbos[i].addDepthAttachment(depthTexture);
 			}
 		}
 	}
 
 	public void clearTextures() {
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
 	public Texture getOffscreenTexture(int renderTargetId) {
@@ -144,10 +149,12 @@ class WindowBlit {
 		glBindVertexArray(vao);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_DEPTH_TEST);
 		glUseProgram(shader);
 		glUniform1i(glGetUniformLocation(shader, "u_background"), drawBackground ? 1 : 0);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
+		glEnable(GL_DEPTH_TEST);
 	}
 	
 }
