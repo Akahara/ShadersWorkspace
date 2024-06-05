@@ -52,6 +52,11 @@ public class SceneParser {
         for (int i = 0; i < serialized.layers.length; i++) {
             JsonSceneLayer serializedLayer = serialized.layers[i];
             try {
+                SceneLayer.RenderState renderState = new SceneLayer.RenderState();
+                renderState.isDepthWriteEnabled = serializedLayer.depthWrite;
+                renderState.isDepthTestEnabled = serializedLayer.depthTest;
+                renderState.isBlendingEnabled = serializedLayer.blending;
+                renderState.culling = serializedLayer.culling;
                 SceneLayer layer = new SceneLayer(
                     new ShaderFileSet()
                         .setFile(ShaderType.VERTEX, asOptionalPath(file, serializedLayer.root, serializedLayer.vertex))
@@ -60,12 +65,13 @@ public class SceneParser {
                         .setFile(ShaderType.COMPUTE, asOptionalPath(file, serializedLayer.root, serializedLayer.compute))
                         .readSources(),
                     loadMesh(file, serializedLayer.root, serializedLayer.model),
-                    serializedLayer.macros
+                    serializedLayer.macros,
+                    renderState
                 );
                 if (tryToReloadPreviousScene) {
 //                    layer.shaderUniforms
                 }
-                if (!Renderer.compileShaders(layer))
+                if (!Renderer.compileShaders(scene, layer))
                     throw new IOException("Could not build a shader");
                 scene.layers.add(layer);
             } catch (IOException e) {
@@ -125,6 +131,10 @@ class JsonSceneLayer {
     public String compute = null;
     public String model = null;
     public Macro[] macros = new Macro[0];
+    public boolean depthTest = true;
+    public boolean depthWrite = true;
+    public boolean blending = true;
+    public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
 }
 
 class JsonSceneAudio {

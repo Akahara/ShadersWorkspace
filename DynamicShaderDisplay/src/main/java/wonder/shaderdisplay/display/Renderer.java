@@ -1,7 +1,9 @@
 package wonder.shaderdisplay.display;
 
 import fr.wonder.commons.exceptions.GenerationException;
+import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.scene.Macro;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
 
@@ -9,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoField;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.*;
@@ -21,12 +24,33 @@ public class Renderer {
 
 		for (SceneLayer layer : scene.layers) {
 			glUseProgram(layer.compiledShaders.program);
+			setupRenderState(layer.renderState);
 			layer.shaderUniforms.apply();
 			layer.mesh.makeDrawCall();
 		}
+		setupRenderState(SceneLayer.RenderState.DEFAULT);
 	}
 
-	public static boolean compileShaders(SceneLayer layer) {
+	private void setupRenderState(SceneLayer.RenderState rs) {
+		if (rs.isBlendingEnabled)
+			glEnable(GL_BLEND);
+		else
+			glDisable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(rs.isDepthTestEnabled ? GL_LESS : GL_ALWAYS);
+		glDepthMask(rs.isDepthWriteEnabled);
+
+		if (rs.culling != SceneLayer.RenderState.Culling.NONE) {
+			glEnable(GL_CULL_FACE);
+			glCullFace(rs.culling == SceneLayer.RenderState.Culling.FRONT ? GL_FRONT : GL_BACK);
+		} else {
+			glDisable(GL_CULL_FACE);
+		}
+	}
+
+	public static boolean compileShaders(Scene scene, SceneLayer layer) {
 		int newFragment = 0, newVertex = 0, newGeometry = 0;
 		int newStandardProgram = 0;
 
@@ -38,10 +62,10 @@ public class Renderer {
 				throw new GenerationException("Unimplemented: compute pass");
 			verifyGeometryShaderInputType(shadersFiles, GL_TRIANGLES);
 
-			newVertex = buildShader(shadersFiles.getFinalFileName(ShaderType.VERTEX), shadersFiles.getSource(ShaderType.VERTEX), GL_VERTEX_SHADER);
-			newFragment = buildShader(shadersFiles.getFinalFileName(ShaderType.FRAGMENT), shadersFiles.getSource(ShaderType.FRAGMENT), GL_FRAGMENT_SHADER);
+			newVertex = buildShader(scene, layer, ShaderType.VERTEX, GL_VERTEX_SHADER);
+			newFragment = buildShader(scene, layer, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
 			if(shadersFiles.hasCustomShader(ShaderType.GEOMETRY))
-				newGeometry = buildShader(shadersFiles.getFinalFileName(ShaderType.GEOMETRY), shadersFiles.getSource(ShaderType.GEOMETRY), GL_GEOMETRY_SHADER);
+				newGeometry = buildShader(scene, layer, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
 
 			if(newFragment == -1 || newVertex == -1 || newGeometry == -1)
 				throw new GenerationException("Could not compile a shader");
@@ -116,19 +140,68 @@ public class Renderer {
 		int millis = time.get(ChronoField.MILLI_OF_SECOND);
 		return String.format("%02d:%02d:%02d.%03d", hour, minute, second, millis);
 	}
-	
-	public static int buildShader(String shaderName, String source, int glType) {
+
+	private static String patchShaderSource(Scene scene, SceneLayer layer, String originalSource) {
+		StringBuilder sb = new StringBuilder();
+		for (Macro macro : Stream.concat(scene.macros.stream(), Stream.of(layer.macros)).toList()) {
+			sb.append("#define ").append(macro.name).append(' ').append(macro.value).append('\n');
+		}
+		return originalSource.replaceFirst("\n", sb.toString());
+	}
+
+	public static int buildShader(Scene scene, SceneLayer layer, ShaderType type, int glType) {
 		int id = glCreateShader(glType);
+		String source = patchShaderSource(scene, layer, layer.fileSet.getSource(type));
 		glShaderSource(id, source);
 		glCompileShader(id);
 		if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE) {
-			Main.logger.warn("Compilation error in '" + shaderName + "': ");
-			for(String line : glGetShaderInfoLog(id).strip().split("\n"))
+			String patchInfo = (scene.macros.isEmpty() && layer.macros.length == 0) ? "" :
+					(Main.logger.getLogLevel() > Logger.LEVEL_DEBUG) ? "(patched)" : "(Line number information patched, numbers might not be accurate)";
+			Main.logger.warn("Compilation error in '" + layer.fileSet.getFinalFileName(type) + "': " + patchInfo);
+			String errorMessage = glGetShaderInfoLog(id);
+			errorMessage = patchErrorMessage(errorMessage, scene, layer);
+			for(String line : errorMessage.strip().split("\n"))
 				Main.logger.warn("  " + line);
 			glDeleteShader(id);
 			return -1;
 		}
 		return id;
+	}
+
+	public static int buildRawShader(String source, int glType) {
+		int id = glCreateShader(glType);
+		glShaderSource(id, source);
+		glCompileShader(id);
+		if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE)
+			throw new RuntimeException("Compilation error: " + glGetShaderInfoLog(id));
+		return id;
+	}
+
+	public static String patchErrorMessage(String errorMessage, Scene scene, SceneLayer failedLayer) {
+		// Because we insert macros in the source code of each shader error messages contain messed
+		// up line information, we offset those by the number of macros we inserted to get back the
+		// real line numbers
+		// Because glGetShaderInfoLog is implementation dependant and that we do not know which line
+		// is broken, we offset *every* number that could be a line number
+
+		int macroLinesDiff = scene.macros.size() + failedLayer.macros.length;
+		if (macroLinesDiff == 0) return errorMessage;
+
+		Matcher m = Pattern.compile("[^.](\\d+)[^.]").matcher(errorMessage);
+		StringBuilder sb = new StringBuilder(errorMessage);
+		int lineCount = 0;
+		for (int o = -1; (o = sb.indexOf("\n", o+1)) != -1; )
+			lineCount++;
+
+		while (m.find()) {
+			int lineNumber = Integer.parseInt(m.group(1));
+			if (lineNumber < macroLinesDiff || lineNumber > lineCount)
+				continue; // probably not a line number
+			int patchedLineNumber = lineNumber - macroLinesDiff;
+			int replacementOffset = sb.length() - errorMessage.length();
+			sb.replace(m.start(1) + replacementOffset, m.end(1) + replacementOffset, String.valueOf(patchedLineNumber));
+		}
+		return sb.toString();
 	}
 	
 	public static void deleteShaders(int... shaders) {

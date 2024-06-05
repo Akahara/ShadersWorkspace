@@ -4,6 +4,7 @@ import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryWatcher;
 import wonder.shaderdisplay.display.ShaderType;
 import wonder.shaderdisplay.display.Renderer;
+import wonder.shaderdisplay.scene.Macro;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
 
@@ -148,7 +149,7 @@ public class FileWatcher {
 		for (SceneLayer pendingLayer : pendingShaderRecompilations) {
 			try {
 				pendingLayer.fileSet.readSources();
-				Renderer.compileShaders(pendingLayer);
+				Renderer.compileShaders(scene, pendingLayer);
 			} catch (IOException e) {
 				Main.logger.err("Could not recompile a shader: " + e.getMessage());
 			}

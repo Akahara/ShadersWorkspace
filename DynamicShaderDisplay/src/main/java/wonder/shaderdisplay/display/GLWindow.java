@@ -77,7 +77,6 @@ public class GLWindow {
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 0);
 		glPointSize(3);
-		glEnable(GL_DEPTH_TEST);
 		
 		glfwSetWindowSizeCallback(window, (win, w, h) -> {
 			glViewport(0, 0, w, h);

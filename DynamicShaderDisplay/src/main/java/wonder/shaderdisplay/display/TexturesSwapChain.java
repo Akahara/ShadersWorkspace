@@ -131,8 +131,8 @@ class WindowBlit {
 			glBindVertexArray(0);
 			
 			shader = glCreateProgram();
-			int vertex = Renderer.buildShader("default-blit.vs", Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
-			int fragment = Renderer.buildShader("default-blit.fs", Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
+			int vertex = Renderer.buildRawShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
+			int fragment = Renderer.buildRawShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
 			glAttachShader(shader, vertex);
 			glAttachShader(shader, fragment);
 			glLinkProgram(shader);
@@ -150,11 +150,11 @@ class WindowBlit {
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
 		glUseProgram(shader);
 		glUniform1i(glGetUniformLocation(shader, "u_background"), drawBackground ? 1 : 0);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
-		glEnable(GL_DEPTH_TEST);
 	}
 	
 }
