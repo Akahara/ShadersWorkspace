@@ -26,6 +26,7 @@ public class EntryRun extends SetupUtils {
             throw new BadInitException("Invalid fps: " + options.targetFPS);
         }
 
+        Resources.setDefaultFragmentTemplate(options.fragmentTemplate);
         Texture.setUseCache(!options.noTextureCache);
         Time.setFps(options.targetFPS);
     }
@@ -78,9 +79,6 @@ public class EntryRun extends SetupUtils {
                     shaderFiles = new FileWatcher(scene, options.hardReload);
                     shaderFiles.startWatching();
                 }
-
-                if (System.in.available() > 0)
-                    userControls.readStdin();
 
                 // -------- draw frame ---------
 

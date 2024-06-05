@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Scanner;
 import java.util.function.Supplier;
 import java.util.regex.PatternSyntaxException;
 
@@ -32,7 +33,6 @@ public class UserControls {
 	public static final String RENDER_TARGETS_WINDOW = "Render targets";
 
 	private final int[] screenSizeBuffer = new int[2];
-	private final StringBuilder stdinBuffer = new StringBuilder();
 
 	private boolean takeScreenshot = false;
 	private boolean drawBackground = true;
@@ -41,6 +41,13 @@ public class UserControls {
 	public UserControls() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
 		screenSizeBuffer[1] = GLWindow.winHeight;
+		
+		new Thread(() -> {
+			try (Scanner sc = new Scanner(System.in)) {
+				while(true)
+					interpretCommand(sc.nextLine().trim());
+			} catch (IllegalStateException x) {}
+		}, "stdin-interpreter").start();
 	}
 	
 	public void renderControls(TexturesSwapChain renderTargetsSwapChain) {
@@ -120,22 +127,11 @@ public class UserControls {
 		}
 	}
 	
-	public void interpretCommand(String command) {
+	private void interpretCommand(String command) {
 		try {
 			new ArgParser("", UserCommands.class).run(command);
 		} catch (InvalidDeclarationError e) {
 			Main.logger.merr(e);
-		}
-	}
-
-	public void readStdin() throws IOException {
-		while(System.in.available() > 0) {
-			char c = (char)System.in.read();
-			if(c == '\n') {
-				interpretCommand(stdinBuffer.toString().trim());
-				stdinBuffer.setLength(0);
-			}
-			stdinBuffer.append(c);
 		}
 	}
 

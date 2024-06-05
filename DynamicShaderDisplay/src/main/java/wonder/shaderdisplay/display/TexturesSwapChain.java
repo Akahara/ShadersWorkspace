@@ -119,29 +119,25 @@ class WindowBlit {
 	private static final int vao;
 	
 	static {
-		try {
-			vao = glGenVertexArrays();
-			glBindVertexArray(vao);
-			int vbo = glGenBuffers();
-			int ibo = glGenBuffers();
-			int[] indices = { 0,1,2, 2,3,0 };
-			glBindBuffer(GL_ARRAY_BUFFER, vbo);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
-			glBindVertexArray(0);
-			
-			shader = glCreateProgram();
-			int vertex = Renderer.buildRawShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
-			int fragment = Renderer.buildRawShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
-			glAttachShader(shader, vertex);
-			glAttachShader(shader, fragment);
-			glLinkProgram(shader);
-			glValidateProgram(shader);
-			if(glGetProgrami(shader, GL_LINK_STATUS) == GL_FALSE || glGetProgrami(shader, GL_VALIDATE_STATUS) == GL_FALSE)
-				throw new RuntimeException("Failed to build the blit shader");
-		} catch (IOException e) {
-			throw new RuntimeException("Could not initialize the blit shader", e);
-		}
+		vao = glGenVertexArrays();
+		glBindVertexArray(vao);
+		int vbo = glGenBuffers();
+		int ibo = glGenBuffers();
+		int[] indices = { 0,1,2, 2,3,0 };
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
+		glBindVertexArray(0);
+
+		shader = glCreateProgram();
+		int vertex = Renderer.buildRawShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
+		int fragment = Renderer.buildRawShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
+		glAttachShader(shader, vertex);
+		glAttachShader(shader, fragment);
+		glLinkProgram(shader);
+		glValidateProgram(shader);
+		if(glGetProgrami(shader, GL_LINK_STATUS) == GL_FALSE || glGetProgrami(shader, GL_VALIDATE_STATUS) == GL_FALSE)
+			throw new RuntimeException("Failed to build the blit shader");
 	}
 	
 	public static void blitToScreen(Texture source, boolean drawBackground) {

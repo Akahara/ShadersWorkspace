@@ -2,10 +2,10 @@ package wonder.shaderdisplay.display;
 
 public enum ShaderType {
 
-    VERTEX("/defaultVertex.vs"),
-    FRAGMENT("/defaultFragment.fs"),
-    GEOMETRY("/defaultGeometry.gs"),
-    COMPUTE("/defaultCompute.cs");
+    VERTEX("/default_vertex.vs"),
+    FRAGMENT("/default_fragment_standard.fs"),
+    GEOMETRY("/default_geometry.gs"),
+    COMPUTE("/default_compute.cs");
 
     public final String defaultSourcePath;
 

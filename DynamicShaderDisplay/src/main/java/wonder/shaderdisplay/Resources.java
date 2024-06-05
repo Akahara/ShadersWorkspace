@@ -27,21 +27,30 @@ public class Resources {
 	public static final List<Snippet> snippets = new ArrayList<>();
 
 	static {
-		try {
-			DEFAULT_SHADER_SOURCES = new String[ShaderType.COUNT];
-			for (ShaderType type : ShaderType.TYPES) {
-				DEFAULT_SHADER_SOURCES[type.ordinal()] = readResource(type.defaultSourcePath);
-			}
-		} catch (IOException e) {
-			throw new RuntimeException("Could not read a default shader", e);
+		DEFAULT_SHADER_SOURCES = new String[ShaderType.COUNT];
+		for (ShaderType type : ShaderType.TYPES) {
+			DEFAULT_SHADER_SOURCES[type.ordinal()] = readResource(type.defaultSourcePath);
 		}
 	}
 
-	public static String readResource(String path) throws IOException {
+	public static void setDefaultFragmentTemplate(Main.RunOptions.FragmentTemplate template) {
+		String templatePath = null;
+		switch (template) {
+			case FRAMEBUFFERS: templatePath = "/default_fragment_framebuffers.fs"; break;
+			case RAYCASTING:   templatePath = "/default_fragment_raycasting.fs";   break;
+			case SHADERTOY:    templatePath = "/default_fragment_shadertoy.fs";    break;
+			case STANDARD:     templatePath = "/default_fragment_standard.fs";     break;
+		}
+		DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()] = readResource(templatePath);
+	}
+
+	public static String readResource(String path) {
 		try (InputStream is = FileWatcher.class.getResourceAsStream(path)) {
 			if(is == null)
-				throw new IOException("Resource " + path + " does not exist");
+				throw new IllegalStateException("Resource " + path + " does not exist");
 			return new String(is.readAllBytes());
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
 		}
 	}
 

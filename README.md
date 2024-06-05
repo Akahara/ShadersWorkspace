@@ -7,12 +7,14 @@ A collection of shaders and a tool for real-time rendering and developping for s
 | ![could not load image](screens/analogic.png) | ![could not load image](screens/not_voronoi.png) |
 |-|-|
 | ![could not load image](screens/summer_butterfly.png) | ![could not load image](screens/flows.png) |
+| These are animated when run | |
 
-![could not load image](screens/environment.png)
+| ![could not load image](screens/environment.png) |
+| - |
+| The controls you get with `java -jar dsd.jar run` |
 
-These are animated when run.
 
-## DSD
+# DSD
 
 The DSD (dynamic shader display) tool is a renderer for fragment shaders, you can use it to run any shader in this repository.
 

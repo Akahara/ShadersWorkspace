@@ -95,6 +95,15 @@ public class Main {
 		public boolean resetRenderTargetsOnUpdate = false;
 		@Option(name = "--frame-exact", shorthand = "-e", desc = "Forces iFrame to advance by 1 each frame, if not set iFrame will try to catch up if frames take longer than 1/fps")
 		public boolean frameExact = false;
+		@Option(name = "--template", shorthand = "-m", desc = "If the fragment file does not exist, create it from a template")
+		public FragmentTemplate fragmentTemplate = FragmentTemplate.STANDARD;
+		
+		public enum FragmentTemplate {
+			STANDARD,
+			SHADERTOY,
+			RAYCASTING,
+			FRAMEBUFFERS,
+		}
 		
 	}
 	
