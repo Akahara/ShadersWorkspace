@@ -1,13 +1,11 @@
 package wonder.shaderdisplay.display;
 
 import org.lwjgl.assimp.*;
-import org.lwjgl.system.MemoryUtil;
 import wonder.shaderdisplay.Main;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,10 +16,12 @@ import static org.lwjgl.opengl.GL30.*;
 
 public class Mesh {
 
+    private final File sourceFile;
     private final int vbo, ibo, vao;
     private final int indexCount;
 
-    public Mesh(float[] vertexData, int[] indices) {
+    public Mesh(File sourceFile, float[] vertexData, int[] indices) {
+        this.sourceFile = sourceFile;
         indexCount = indices.length;
 
         ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(vertexData);
@@ -53,13 +53,15 @@ public class Mesh {
     }
 
     public static Mesh fullscreenTriangle() {
-        return new Mesh(new float[] {
+        return new Mesh(
+            null,
+            new float[] {
                 -1,-1,0,1, 0,0,0, 0,0,
                 +3,-1,0,1, 0,0,0, 2,0,
                 -1,+3,0,1, 0,0,0, 0,2,
-        }, new int[] {
-                0,1,2
-        });
+            },
+            new int[] { 0,1,2 }
+        );
     }
 
     public static Mesh parseFile(File file) throws IOException {
@@ -119,7 +121,11 @@ public class Mesh {
         for (int i = 0; i < vertexData.size(); i++) rawVertexData[i] = vertexData.get(i);
         int[] rawIndexData = indexData.stream().mapToInt(i -> i).toArray();
 
-        return new Mesh(rawVertexData, rawIndexData);
+        return new Mesh(file, rawVertexData, rawIndexData);
+    }
+
+    public File getSourceFile() {
+        return sourceFile;
     }
 
     public void dispose() {

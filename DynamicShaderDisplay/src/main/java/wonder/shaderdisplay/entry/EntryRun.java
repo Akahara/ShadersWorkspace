@@ -49,12 +49,12 @@ public class EntryRun extends SetupUtils {
 
         try {
             TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
-            FileWatcher shaderFiles = new FileWatcher(scene, options.hardReload);
+            FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem();
             UserControls userControls = new UserControls();
             Resources.scanForAndLoadSnippets();
             GLWindow.addResizeListener(renderTargetsSwapChain::resizeTextures);
-            shaderFiles.startWatching();
+            fileWatcher.startWatching();
 
             Main.logger.info("Running shader");
 
@@ -66,19 +66,20 @@ public class EntryRun extends SetupUtils {
 
             while (!GLWindow.shouldDispose()) {
                 // reload shaders if necessary
-                if (shaderFiles.processShaderRecompilation()) {
+                if (fileWatcher.requiresSceneRecompilation()) {
+                    fileWatcher.stopWatching();
+                    Main.logger.info("Regenerating scene");
+                    scene = SceneParser.regenerateScene(fragment, scene);
+                    fileWatcher = new FileWatcher(scene, options.hardReload);
+                    fileWatcher.startWatching();
+                }
+                if (fileWatcher.processShaderRecompilation()) {
                     if (options.resetTimeOnUpdate)
                         Time.setFrame(0);
                     if (options.resetRenderTargetsOnUpdate)
                         renderTargetsSwapChain.clearTextures();
                 }
-                if (shaderFiles.requiresSceneRecompilation()) {
-                    shaderFiles.stopWatching();
-                    Main.logger.info("Regenerating scene");
-                    scene = SceneParser.regenerateScene(fragment, scene);
-                    shaderFiles = new FileWatcher(scene, options.hardReload);
-                    shaderFiles.startWatching();
-                }
+                fileWatcher.processDummyFilesRecompilation();
 
                 // -------- draw frame ---------
 

@@ -11,9 +11,9 @@ import java.util.Objects;
 public class SceneLayer {
 
     public final ShaderFileSet fileSet;
-    public final Mesh mesh;
     public final Macro[] macros;
     public final RenderState renderState;
+    public Mesh mesh;
 
     public final UniformsContext shaderUniforms = new UniformsContext();
     public final ShaderSet compiledShaders = new ShaderSet();
