@@ -17,6 +17,7 @@ import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL45.glCopyTextureSubImage2D;
+import static org.lwjgl.opengl.GL45.glGetTextureImage;
 
 public class TexturesSwapChain {
 
@@ -49,7 +50,7 @@ public class TexturesSwapChain {
 		} else if (outBuffer.length != texture.getWidth() * texture.getHeight()) {
 			throw new IllegalArgumentException("Invalid buffer size, got " + outBuffer.length + " expected " + texture.getWidth() * texture.getHeight());
 		}
-		glGetTexImage(texture.getId(), 0, GL_BGRA, GL_UNSIGNED_BYTE, outBuffer);
+		glGetTextureImage(texture.getId(), 0, GL_BGRA, GL_UNSIGNED_BYTE, outBuffer);
 		switch(background) {
 		case NORMAL:
 			break;

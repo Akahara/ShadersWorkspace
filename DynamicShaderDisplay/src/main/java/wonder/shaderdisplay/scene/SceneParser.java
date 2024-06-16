@@ -209,6 +209,7 @@ class JsonSceneLayer {
     public boolean depthWrite = true;
     public boolean blending = true;
     public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
 }
 

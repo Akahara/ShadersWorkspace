@@ -8,10 +8,8 @@ import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.*;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
-import wonder.shaderdisplay.scene.SceneRenderTarget;
 import wonder.shaderdisplay.uniforms.UniformApplicationContext;
 
 import java.io.File;
@@ -89,7 +87,7 @@ public class EntryRun extends SetupUtils {
                 // render the actual frame
                 if (!Time.isPaused() || Time.justChanged())
                     display.renderer.render(scene);
-                scene.presentToScreen(SceneRenderTarget.DEFAULT_RT.name, userControls.getDrawBackground());
+                scene.presentToScreen(scene.getPrimaryRenderTargetName(), userControls.getDrawBackground());
 
                 // update time *after* having drawn the frame and *before* drawing controls
                 // that way time can be set by the controls and not be modified until next frame
@@ -109,7 +107,7 @@ public class EntryRun extends SetupUtils {
                 glfwPollEvents();
 
                 if (userControls.poolShouldTakeScreenshot())
-                    userControls.takeScreenshot(scene.swapChain, SceneRenderTarget.DEFAULT_RT.name, options.displayOptions);
+                    userControls.takeScreenshot(scene.swapChain, scene.getPrimaryRenderTargetName(), options.displayOptions);
 
                 workTime += System.nanoTime() - current;
                 current = System.nanoTime();
@@ -154,8 +152,7 @@ class ImGuiSystem {
     public void renderControls(Scene scene, UserControls userControls) {
         glfw.newFrame();
         ImGui.newFrame();
-        userControls.renderControls();
-        scene.renderControls();
+        scene.renderControls(userControls);
         ImGui.render();
         gl3.renderDrawData(ImGui.getDrawData());
         ImGui.updatePlatformWindows();

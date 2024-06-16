@@ -1,7 +1,11 @@
 package wonder.shaderdisplay.scene;
 
 import imgui.ImGui;
+import imgui.flag.ImGuiCol;
+import imgui.flag.ImGuiTreeNodeFlags;
+import imgui.type.ImInt;
 import wonder.shaderdisplay.Time;
+import wonder.shaderdisplay.UserControls;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 
@@ -15,6 +19,9 @@ public class Scene {
     public final List<Macro> macros = new ArrayList<>();
     public final List<SceneRenderTarget> renderTargets = new ArrayList<>();
     public final File sourceFile;
+
+    private String[] renderTargetNames;
+    private ImInt selectedRenderTarget;
 
     public TexturesSwapChain swapChain;
     private GLWindow.ListenerHandle resizeHandle;
@@ -34,6 +41,7 @@ public class Scene {
         }
         this.swapChain = new TexturesSwapChain(renderTargets, winWidth, winHeight);
         this.resizeHandle = GLWindow.addResizeListener(swapChain::resizeTextures);
+        this.renderTargetNames = renderTargets.stream().map(rt -> rt.name).toArray(String[]::new);
     }
 
     public void dispose() {
@@ -42,21 +50,45 @@ public class Scene {
         }
     }
 
-    public void renderControls() {
-        if (!ImGui.begin("Uniforms")) {
+    public void renderControls(UserControls generalControls) {
+        ImGui.pushStyleColor(ImGuiCol.WindowBg, 0, 0, 0, 180);
+        ImGui.pushStyleColor(ImGuiCol.Header, 46, 144, 144, 255);
+        if (!ImGui.begin("Controls")) {
             ImGui.end();
+            ImGui.popStyleColor(2);
             return;
         }
-        Time.renderControls();
-        for (int i = 0; i < layers.size(); i++) {
-            ImGui.pushID(i);
-            SceneLayer layer = layers.get(i);
-            ImGui.separator();
-            ImGui.textColored(0xffaaff00, layer.fileSet.getPrimaryFileName());
-            layer.shaderUniforms.renderControls();
-            ImGui.popID();
+
+        if (ImGui.collapsingHeader("General")) {
+            generalControls.renderControls();
+            if (renderTargets.size() > 1) {
+                if (selectedRenderTarget == null)
+                    selectedRenderTarget = new ImInt(0);
+                ImGui.combo("Render Target", selectedRenderTarget, renderTargetNames);
+            }
+            ImGui.newLine();
         }
+
+        if (ImGui.collapsingHeader("Uniforms", ImGuiTreeNodeFlags.DefaultOpen)) {
+            Time.renderControls();
+            ImGui.separator();
+            for (int i = 0; i < layers.size(); i++) {
+                ImGui.pushID(i);
+                SceneLayer layer = layers.get(i);
+                ImGui.textColored(0xffaaff00, layer.fileSet.getPrimaryFileName());
+                layer.shaderUniforms.renderControls();
+                ImGui.separator();
+                ImGui.popID();
+            }
+            ImGui.newLine();
+        }
+
+        ImGui.popStyleColor(2);
         ImGui.end();
+    }
+
+    public String getPrimaryRenderTargetName() {
+        return selectedRenderTarget == null ? SceneRenderTarget.DEFAULT_RT.name : renderTargetNames[selectedRenderTarget.get()];
     }
 
     public SceneRenderTarget getRenderTarget(String name) {

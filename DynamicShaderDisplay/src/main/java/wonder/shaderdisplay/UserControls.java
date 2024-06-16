@@ -56,36 +56,15 @@ public class UserControls {
 	}
 	
 	public void renderControls() {
-		if(ImGui.begin("Controls")) {
-			if(tooltipButton("Take screenshot", "Beware of transparency!"))
-				takeScreenshot = true;
-			
-			if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
-				GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
-			
-			if(ImGui.checkbox("Draw background", drawBackground))
-				drawBackground = !drawBackground;
-			showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
-		}
-		ImGui.end();
+		if(tooltipButton("Take screenshot", "Beware of transparency!"))
+			takeScreenshot = true;
 
-		/*
-		if (showRenderTargetWindow) {
-			ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.f, 0.f);
-			if(ImGui.begin(RENDER_TARGETS_WINDOW)) {
-				ImVec2 winSize = ImGui.getWindowSize();
-				float imageW = winSize.x*.5f;
-				float imageH = (winSize.y-30)/(TexturesSwapChain.RENDER_TARGET_COUNT/2f);
-				for(int i = 1; i < TexturesSwapChain.RENDER_TARGET_COUNT; i++) {
-					ImGui.image(renderTargetsSwapChain.getOffscreenTexture(i).getId(), imageW, imageH, 0, 1, 1, 0);
-					if(i%2==1)
-						ImGui.sameLine();
-				}
-			}
-			ImGui.popStyleVar();
-			ImGui.end();
-		}
-		*/
+		if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
+			GLWindow.resizeWindow(screenSizeBuffer[0], screenSizeBuffer[1]);
+
+		if(ImGui.checkbox("Draw background", drawBackground))
+			drawBackground = !drawBackground;
+		showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
 	}
 	
 	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
