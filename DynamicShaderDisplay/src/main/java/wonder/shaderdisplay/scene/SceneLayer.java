@@ -2,8 +2,8 @@ package wonder.shaderdisplay.scene;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import wonder.shaderdisplay.display.Mesh;
-import wonder.shaderdisplay.display.ShaderFileSet;
 import wonder.shaderdisplay.display.Renderer;
+import wonder.shaderdisplay.display.ShaderFileSet;
 import wonder.shaderdisplay.uniforms.UniformsContext;
 
 import java.util.Objects;
@@ -12,17 +12,21 @@ public class SceneLayer {
 
     public final ShaderFileSet fileSet;
     public final Macro[] macros;
+    public final SceneUniform[] uniforms;
     public final RenderState renderState;
+    public final String[] outRenderTargets;
     public Mesh mesh;
 
-    public final UniformsContext shaderUniforms = new UniformsContext();
+    public final UniformsContext shaderUniforms = new UniformsContext(this);
     public final ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneLayer(ShaderFileSet fileSet, Mesh mesh, Macro[] macros, RenderState renderState) {
+    public SceneLayer(ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
         this.fileSet = Objects.requireNonNull(fileSet);
         this.mesh = Objects.requireNonNull(mesh);
         this.macros = Objects.requireNonNull(macros);
+        this.uniforms = Objects.requireNonNull(uniforms);
         this.renderState = Objects.requireNonNull(renderState);
+        this.outRenderTargets = Objects.requireNonNull(outRenderTargets);
     }
 
     public void dispose() {

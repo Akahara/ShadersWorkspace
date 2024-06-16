@@ -17,8 +17,6 @@ public class Main {
 
 	public static final Logger logger = new SimpleLogger("DSD");
 
-	public static boolean isImagePass = false; // true iff run with "image" (see #applyShaderToImages)
-	
 	public static void main(String[] args) {
 		if(args.length == 0) {
 			String testCmd = System.getenv("TEST_COMMAND");

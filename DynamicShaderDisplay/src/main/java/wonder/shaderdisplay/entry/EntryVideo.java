@@ -10,6 +10,7 @@ import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.scene.Scene;
+import wonder.shaderdisplay.scene.SceneRenderTarget;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -44,6 +45,7 @@ public class EntryVideo extends SetupUtils {
     public static void run(Main.VideoOptions options, File fragment) {
         Main.logger.info("-- Running video generation --");
 
+        int videoWidth = options.displayOptions.winWidth, videoHeight = options.displayOptions.winHeight;
         Display display;
         Scene scene;
 
@@ -52,14 +54,13 @@ public class EntryVideo extends SetupUtils {
 
             display = createDisplay(options.displayOptions, options.preview, false);
             scene = createScene(options.displayOptions, fragment);
+            scene.prepareSwapChain(videoWidth, videoHeight);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
             Main.exit();
             throw new UnreachableException();
         }
 
-        int videoWidth = options.displayOptions.winWidth, videoHeight = options.displayOptions.winHeight;
-        TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(videoWidth, videoHeight);
         BufferedImage frame = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_3BYTE_BGR);
         int[] buffer = new int[videoWidth*videoHeight];
         Logger logger = new SimpleLogger("ffmpeg");
@@ -94,16 +95,14 @@ public class EntryVideo extends SetupUtils {
         try {
             for(int f = options.firstFrame; f < options.lastFrame && !GLWindow.shouldDispose(); f++) {
                 Time.setFrame(f);
-                renderTargetsSwapChain.swap();
-                renderTargetsSwapChain.bind();
                 display.renderer.render(scene);
-                renderTargetsSwapChain.readColorAttachment(0, buffer, options.displayOptions.background);
+                scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, buffer, options.displayOptions.background);
                 frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
                 ImageIO.write(frame, "jpeg", ffmpegStdin);
                 ProcessUtils.printProgressbar(f-options.firstFrame, options.lastFrame-options.firstFrame, "Writing frames");
 
                 if (options.preview) {
-                    renderTargetsSwapChain.blitToScreen(options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
+                    scene.swapChain.blitToScreen(SceneRenderTarget.DEFAULT_RT.name, options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
                     glfwSwapBuffers(GLWindow.getWindow());
                     glfwPollEvents();
                 }

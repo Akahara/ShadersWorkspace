@@ -4,7 +4,7 @@ import imgui.ImGui;
 import wonder.shaderdisplay.UserControls;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
-class ArbitraryIntUniform extends Uniform implements ArbitraryUniform {
+class ArbitraryIntUniform extends EditableUniform implements ArbitraryUniform {
 	
 	private final UniformLocationCache locationCache;
 	private final GLUniformType type;
@@ -24,7 +24,7 @@ class ArbitraryIntUniform extends Uniform implements ArbitraryUniform {
 	}
 	
 	@Override
-	public void apply() {
+	public void apply(UniformApplicationContext context) {
 		for(int i = 0; i < values.length; i++)
 			type.intSetterFunction.setUniform(locationCache.getLocation(i), values[i]);
 	}

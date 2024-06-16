@@ -1,25 +1,19 @@
 package wonder.shaderdisplay.uniforms;
 
-import static org.lwjgl.opengl.GL20.GL_ACTIVE_UNIFORMS;
-import static org.lwjgl.opengl.GL20.glGetActiveUniform;
-import static org.lwjgl.opengl.GL20.glGetProgrami;
-import static org.lwjgl.opengl.GL20.glGetUniformLocation;
-import static org.lwjgl.opengl.GL20.glGetUniformfv;
-import static org.lwjgl.opengl.GL20.glGetUniformiv;
+import imgui.ImGui;
+import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.display.Texture;
+import wonder.shaderdisplay.scene.Scene;
+import wonder.shaderdisplay.scene.SceneLayer;
+import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
+import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import imgui.ImGui;
-import imgui.flag.ImGuiCond;
-import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.display.TexturesSwapChain;
-import wonder.shaderdisplay.Time;
-import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
-import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
+import static org.lwjgl.opengl.GL20.*;
 
 public class UniformsContext {
 	
@@ -42,20 +36,18 @@ public class UniformsContext {
 	// are not used in code)
 	private final Map<String, ArbitraryUniform> oldArbitraryUniforms = new HashMap<>();
 	private final Map<String, Number[][]> originalUniformValues = new HashMap<>();
-	
-	public UniformsContext() {}
-	
-	
+
+	private final SceneLayer layer;
+
+	public UniformsContext(SceneLayer layer) {
+		this.layer = Objects.requireNonNull(layer);
+	}
+
 	public void rescan(int program, String code) {
 		uniforms = new ArrayList<>();
 		originalUniformValues.clear();
 		
 		List<RawUniform> newUniforms = scanForUniforms(program, code);
-		
-		// the first N binding points are reserved for rendertargets, the remaining ones are standard textures
-		TexturesContext nextTextureSlot = new TexturesContext(TexturesSwapChain.RENDER_TARGET_COUNT);
-		// the next slot is used for the input texture
-		if(Main.isImagePass) nextTextureSlot.nextTextureSlot++;
 		
 		for(RawUniform u : newUniforms) {
 			// find built-in uniforms (iTime/iFrame...)
@@ -67,9 +59,7 @@ public class UniformsContext {
 			
 			// handle textures
 			if(u.type == GLUniformType.SAMPLER2D) {
-				Uniform uniformAsTexture = tryGetTextureUniform(program, code, u, nextTextureSlot);
-				if(uniformAsTexture != null)
-					uniforms.add(uniformAsTexture);
+				uniforms.add(getTextureUniform(program, code, u));
 				oldArbitraryUniforms.remove(u.name);
 				continue;
 			}
@@ -142,44 +132,38 @@ public class UniformsContext {
 		return null;
 	}
 	
-	private static Uniform tryGetTextureUniform(int program, String code, RawUniform u, TexturesContext nextTextureSlot) {
-		Pattern texturePattern = Pattern.compile("\nuniform sampler2D " + Pattern.quote(u.name) + ";\\s+//[ \t]*(.+)");
+	private static Uniform getTextureUniform(int program, String code, RawUniform u) {
+		Pattern texturePattern = Pattern.compile("\nuniform sampler2D " + Pattern.quote(u.name) + ";\\s+//(.+)");
 		Matcher matcher = texturePattern.matcher(code);
+
+		if (!matcher.find())
+			return new TextureUniform(program, u.name);
 		
-		if(!matcher.find()) {
-			Main.logger.warn("Unset texture uniform '" + u.name + "'");
-			return null;
+		String path = matcher.group(1).trim();
+
+		boolean canUseImageInputPassTexture = false;
+
+		if(path.startsWith("input or")) { // if in image processing mode, the input texture
+			canUseImageInputPassTexture = true;
+			path = path.substring("input or".length()).trim();
 		}
 		
-		String path = matcher.group(1);
-		
-		if(path.startsWith("input or ")) { // if in image processing mode, the input texture
-			if(Main.isImagePass)
-				return new InputTextureUniform(program, u.name);
-			path = path.substring("input or ".length());
-		}
-		
-		if(path.matches("target \\d+")) { // rendering target texture
-			int target = Integer.parseInt(path.substring("target ".length()));
-			if(target < 0 || target >= TexturesSwapChain.RENDER_TARGET_COUNT) {
-				Main.logger.err("Invalid render target '" + target + "' for uniform '" + u.name + "', available are 0.." + (TexturesSwapChain.RENDER_TARGET_COUNT-1));
-				target = 0;
-			}
-			return new TargetTextureUniform(program, target, u.name, target);
-		} else if(path.matches("builtin \\d+")) { // default texture, loaded from resources
+		if(path.matches("builtin \\d+")) { // default texture, loaded from resources
 			int buitinId = Integer.parseInt(path.substring("builtin ".length()));
 			Texture texture = Texture.loadTextureFromResources(buitinId);
-			return new TextureUniform(program, nextTextureSlot.nextTextureSlot++, u.name, texture, path);
-		} else { // normal texture, loaded from user files
+			return new TextureUniform(program, u.name, canUseImageInputPassTexture, texture, path);
+		} else if (!path.isEmpty()) { // normal texture, loaded from user files
 			Texture texture = Texture.loadTexture(path);
-			return new TextureUniform(program, nextTextureSlot.nextTextureSlot++, u.name, texture, path);
+			return new TextureUniform(program, u.name, canUseImageInputPassTexture, texture, path);
+		} else { // no texture specified, might use render targets if specified in the scene file
+			return new TextureUniform(program, u.name);
 		}
 	}
 	
 	private static List<RawUniform> scanForUniforms(int program, String code) {
 		int uniformCount = glGetProgrami(program, GL_ACTIVE_UNIFORMS);
 		List<RawUniform> uniforms = new ArrayList<>();
-		Map<RawUniform, Integer> firstOccurences = new HashMap<>();
+		Map<RawUniform, Integer> firstOccurrences = new HashMap<>();
 		int[] _nameLength = new int[1],
 				_size = new int[1],
 				_type = new int[1];
@@ -202,9 +186,9 @@ public class UniformsContext {
 			uniforms.add(u);
 			Pattern namePattern = Pattern.compile(Pattern.quote(name) + "\\W");
 			Matcher nameMatcher = namePattern.matcher(code);
-			firstOccurences.put(u, nameMatcher.find() ? nameMatcher.start() : code.length());
+			firstOccurrences.put(u, nameMatcher.find() ? nameMatcher.start() : code.length());
 		}
-		uniforms.sort(Comparator.comparingInt(firstOccurences::get));
+		uniforms.sort(Comparator.comparingInt(firstOccurrences::get));
 		return uniforms;
 	}
 	
@@ -232,42 +216,39 @@ public class UniformsContext {
 		return values;
 	}
 	
-	public void apply() {
+	public void apply(Scene scene) {
+		UniformApplicationContext context = new UniformApplicationContext(scene, layer);
 		for(Uniform u : uniforms)
-			u.apply();
+			u.apply(context);
 	}
 	
 	public void renderControls() {
-		if(ImGui.button("Copy")) {
-			StringBuilder clipboardText = new StringBuilder();
-			for(Uniform u : uniforms) {
-				clipboardText.append(u.toUniformString());
-				clipboardText.append('\n');
+		if (uniforms.stream().anyMatch(Uniform::isUserEditable)) {
+			ImGui.sameLine();
+			if(ImGui.button("Copy")) {
+				StringBuilder clipboardText = new StringBuilder();
+				for(Uniform u : uniforms) {
+					if (u.isUserEditable()) {
+						clipboardText.append(u.toUniformString());
+						clipboardText.append('\n');
+					}
+				}
+				ImGui.setClipboardText(clipboardText.toString());
 			}
-			ImGui.setClipboardText(clipboardText.toString());
-		}
-		if(ImGui.isItemHovered())
-			ImGui.setTooltip("Copy all uniforms to clipboard, unused uniforms will be discarded");
-		ImGui.sameLine();
-		if(ImGui.button("Reset")) {
-			for(Uniform u : uniforms) {
-				if(u instanceof ArbitraryUniform)
-					((ArbitraryUniform) u).copy(originalUniformValues.get(u.name));
+			if(ImGui.isItemHovered())
+				ImGui.setTooltip("Copy all editable uniforms to clipboard, unused uniforms will be discarded");
+			ImGui.sameLine();
+			if(ImGui.button("Reset")) {
+				for(Uniform u : uniforms) {
+					if(u instanceof ArbitraryUniform)
+						((ArbitraryUniform) u).copy(originalUniformValues.get(u.name));
+				}
 			}
 		}
 		for(Uniform u : uniforms)
 			u.renderControl();
 	}
 	
-}
-
-class TexturesContext {
-	
-	public int nextTextureSlot;
-	
-	TexturesContext(int firstTextureSlot) {
-		this.nextTextureSlot = firstTextureSlot;
-	}
 }
 
 record RawBuiltinUniform(GLUniformType type, String name, BuiltinUniformGenerator generator) {

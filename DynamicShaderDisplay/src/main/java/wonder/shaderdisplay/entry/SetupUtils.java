@@ -5,10 +5,7 @@ import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.display.*;
-import wonder.shaderdisplay.scene.Macro;
-import wonder.shaderdisplay.scene.Scene;
-import wonder.shaderdisplay.scene.SceneLayer;
-import wonder.shaderdisplay.scene.SceneParser;
+import wonder.shaderdisplay.scene.*;
 import wonder.shaderdisplay.uniforms.ResolutionUniform;
 
 import java.io.File;
@@ -65,11 +62,6 @@ public class SetupUtils {
         else
             throw new BadInitException("Invalid scene file, either pass in a fragment shader or a scene description file (.json or .scene)");
 
-        for (SceneLayer layer : scene.layers) {
-            if (!Renderer.compileShaders(scene, layer))
-                throw new BadInitException("Could not load shaders");
-        }
-
         return scene;
     }
 
@@ -85,7 +77,9 @@ public class SetupUtils {
                     .readSources(),
                 Mesh.fullscreenTriangle(),
                 new Macro[0],
-                new SceneLayer.RenderState()
+                new SceneUniform[0],
+                new SceneLayer.RenderState(),
+                new String[] { SceneRenderTarget.DEFAULT_RT.name }
             ));
             return scene;
         } catch (IOException e) {

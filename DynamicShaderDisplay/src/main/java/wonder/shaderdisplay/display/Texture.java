@@ -42,9 +42,6 @@ public class Texture {
 	}
 	
 	private static Texture loadOrUseCachedTexture(String name, Supplier<Texture> cacheMissSupplier) {
-		if(MISSING_TEXTURE == null)
-			MISSING_TEXTURE = loadFromResources(0);
-		
 		if(cachedTextures.containsKey(name)) {
 			Main.logger.debug("Loading texture: " + name + " (cached)");
 			return cachedTextures.get(name);
@@ -64,8 +61,14 @@ public class Texture {
 			return new Texture(image);
 		} catch(IOException | InvalidPathException e) {
 			Main.logger.err(e, "Could not load texture '" + file + "'");
-			return MISSING_TEXTURE;
+			return getMissingTexture();
 		}
+	}
+
+	public static Texture getMissingTexture() {
+		if(MISSING_TEXTURE == null)
+			MISSING_TEXTURE = loadFromResources(0);
+		return MISSING_TEXTURE;
 	}
 	
 	private static Texture loadFromResources(int resourceId) {
@@ -76,7 +79,8 @@ public class Texture {
 			return new Texture(image);
 		} catch (IOException e) {
 			Main.logger.err(e, "Could not read resource texture " + resourceId);
-			return MISSING_TEXTURE;
+			if (resourceId == 0) throw new RuntimeException("Could not load the missing texture");
+			return getMissingTexture();
 		}
 	}
 

@@ -3,7 +3,7 @@ package wonder.shaderdisplay.uniforms;
 import static org.lwjgl.opengl.GL20.glUniform2f;
 import static org.lwjgl.opengl.GL20.glUniform2i;
 
-public class ResolutionUniform extends Uniform {
+public class ResolutionUniform extends NonEditableUniform {
 	
 	private static int viewportWidth, viewportHeight;
 	
@@ -18,9 +18,9 @@ public class ResolutionUniform extends Uniform {
 	}
 	
 	@Override
-	public void apply() {
+	public void apply(UniformApplicationContext context) {
 		if(w != viewportWidth || h != viewportHeight) {
-			if(isFloat)
+			if (isFloat)
 				glUniform2f(location, viewportWidth, viewportHeight);
 			else
 				glUniform2i(location, viewportWidth, viewportHeight);
@@ -37,9 +37,4 @@ public class ResolutionUniform extends Uniform {
 		viewportHeight = height;
 	}
 
-	@Override
-	public String toUniformString() {
-		return "uniform " + (isFloat?"vec2 ":"ivec2 ") + name + ";";
-	}
-	
 }

@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -184,8 +185,23 @@ public class GLWindow {
 		return winHeight;
 	}
 
-	public static void addResizeListener(BiConsumer<Integer, Integer> callback) {
+	public static ListenerHandle addResizeListener(BiConsumer<Integer, Integer> callback) {
 		resizeCallbacks.add(callback);
+		return new ListenerHandle(() -> resizeCallbacks.remove(callback));
+	}
+
+	public static class ListenerHandle {
+
+		private Runnable removeHandle;
+
+		ListenerHandle(Runnable removeHandle) {
+			this.removeHandle = Objects.requireNonNull(removeHandle);
+		}
+
+		public void remove() {
+			removeHandle.run();
+		}
+
 	}
 
 }

@@ -11,6 +11,8 @@ import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
+import wonder.shaderdisplay.scene.SceneRenderTarget;
+import wonder.shaderdisplay.uniforms.UniformApplicationContext;
 
 import java.io.File;
 
@@ -41,6 +43,7 @@ public class EntryRun extends SetupUtils {
             loadCommonOptions(options);
             display = createDisplay(options.displayOptions, true, options.vsync);
             scene = createScene(options.displayOptions, fragment);
+            scene.prepareSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
             Main.exit();
@@ -48,12 +51,10 @@ public class EntryRun extends SetupUtils {
         }
 
         try {
-            TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
             FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem();
             UserControls userControls = new UserControls();
             Resources.scanForAndLoadSnippets();
-            GLWindow.addResizeListener(renderTargetsSwapChain::resizeTextures);
             fileWatcher.startWatching();
 
             Main.logger.info("Running shader");
@@ -70,25 +71,25 @@ public class EntryRun extends SetupUtils {
                     fileWatcher.stopWatching();
                     Main.logger.info("Regenerating scene");
                     scene = SceneParser.regenerateScene(fragment, scene);
+                    scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());
                     fileWatcher = new FileWatcher(scene, options.hardReload);
                     fileWatcher.startWatching();
                 }
                 if (fileWatcher.processShaderRecompilation()) {
+                    UniformApplicationContext.resetLoggedBindingWarnings();
                     if (options.resetTimeOnUpdate)
                         Time.setFrame(0);
                     if (options.resetRenderTargetsOnUpdate)
-                        renderTargetsSwapChain.clearTextures();
+                        scene.clearSwapChainTextures();
                 }
                 fileWatcher.processDummyFilesRecompilation();
 
                 // -------- draw frame ---------
 
                 // render the actual frame
-                renderTargetsSwapChain.swap();
-                renderTargetsSwapChain.bind();
                 if (!Time.isPaused() || Time.justChanged())
                     display.renderer.render(scene);
-                renderTargetsSwapChain.blitToScreen(userControls.getDrawBackground());
+                scene.presentToScreen(SceneRenderTarget.DEFAULT_RT.name, userControls.getDrawBackground());
 
                 // update time *after* having drawn the frame and *before* drawing controls
                 // that way time can be set by the controls and not be modified until next frame
@@ -100,7 +101,7 @@ public class EntryRun extends SetupUtils {
                 shaderLastNano = current;
 
                 if (imgui != null)
-                    imgui.renderControls(renderTargetsSwapChain, scene, userControls);
+                    imgui.renderControls(scene, userControls);
 
                 // ---------/draw frame/---------
 
@@ -108,7 +109,7 @@ public class EntryRun extends SetupUtils {
                 glfwPollEvents();
 
                 if (userControls.poolShouldTakeScreenshot())
-                    userControls.takeScreenshot(renderTargetsSwapChain, options.displayOptions);
+                    userControls.takeScreenshot(scene.swapChain, SceneRenderTarget.DEFAULT_RT.name, options.displayOptions);
 
                 workTime += System.nanoTime() - current;
                 current = System.nanoTime();
@@ -150,10 +151,10 @@ class ImGuiSystem {
         gl3.init();
     }
 
-    public void renderControls(TexturesSwapChain renderTargetsSwapChain, Scene scene, UserControls userControls) {
+    public void renderControls(Scene scene, UserControls userControls) {
         glfw.newFrame();
         ImGui.newFrame();
-        userControls.renderControls(renderTargetsSwapChain);
+        userControls.renderControls();
         scene.renderControls();
         ImGui.render();
         gl3.renderDrawData(ImGui.getDrawData());

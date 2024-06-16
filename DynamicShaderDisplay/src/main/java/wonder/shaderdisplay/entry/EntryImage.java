@@ -5,9 +5,8 @@ import fr.wonder.commons.files.FilesUtils;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.scene.Scene;
-import wonder.shaderdisplay.uniforms.InputTextureUniform;
+import wonder.shaderdisplay.scene.SceneRenderTarget;
 import wonder.shaderdisplay.uniforms.ResolutionUniform;
 
 import javax.imageio.ImageIO;
@@ -17,10 +16,13 @@ import java.io.IOException;
 
 public class EntryImage extends SetupUtils {
 
+    private static Texture imagePassInputTexture = null;
+
+    public static boolean isImagePass() { return imagePassInputTexture != null; }
+    public static Texture getImagePassInputTexture() { return imagePassInputTexture; }
+
     protected static void loadCommonOptions(Main.ImagePassOptions options) throws BadInitException {
         loadCommonOptions(options.displayOptions);
-
-        Main.isImagePass = true;
     }
 
     public static void run(Main.ImagePassOptions options, File fragment, File[] inputFiles) {
@@ -54,18 +56,16 @@ public class EntryImage extends SetupUtils {
                 continue;
             }
 
-            Texture inputTexture;
             try {
-                inputTexture = new Texture(ImageIO.read(inputFile));
+                imagePassInputTexture = new Texture(ImageIO.read(inputFile));
             } catch (IOException e) {
                 Main.logger.err("Could not read file '" + inputFile.getPath() + "': " + e.getMessage());
                 continue;
             }
-            inputTexture.bind(InputTextureUniform.INPUT_TEXTURE_SLOT);
 
-            int outputWidth = options.sizeToImage ? inputTexture.getWidth() : options.displayOptions.winWidth;
-            int outputHeight = options.sizeToImage ? inputTexture.getHeight() : options.displayOptions.winHeight;
-            TexturesSwapChain renderTargetsSwapChain = new TexturesSwapChain(outputWidth, outputHeight);
+            int outputWidth = options.sizeToImage ? imagePassInputTexture.getWidth() : options.displayOptions.winWidth;
+            int outputHeight = options.sizeToImage ? imagePassInputTexture.getHeight() : options.displayOptions.winHeight;
+            scene.prepareSwapChain(outputWidth, outputHeight);
             BufferedImage frameImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
             int[] frameCpuBuffer = new int[outputWidth*outputHeight];
             ResolutionUniform.updateViewportSize(outputWidth, outputHeight);
@@ -73,18 +73,14 @@ public class EntryImage extends SetupUtils {
             if(options.runFromFrame != Main.ImagePassOptions.NO_RUN_FROM_FRAME) {
                 for(int i = options.runFromFrame; i < options.screenshotFrame; i++) {
                     Time.setFrame(i);
-                    renderTargetsSwapChain.swap();
-                    renderTargetsSwapChain.bind();
                     display.renderer.render(scene);
                 }
             }
             Time.setFrame(options.screenshotFrame);
 
-            renderTargetsSwapChain.swap();
-            renderTargetsSwapChain.bind();
             display.renderer.render(scene);
 
-            renderTargetsSwapChain.readColorAttachment(0, frameCpuBuffer, options.displayOptions.background);
+            scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, frameCpuBuffer, options.displayOptions.background);
             frameImage.setRGB(0, 0, outputWidth, outputHeight, frameCpuBuffer, outputWidth*(outputHeight-1), -outputWidth);
 
             try {
@@ -94,7 +90,7 @@ public class EntryImage extends SetupUtils {
                 Main.logger.err("Could not write file '" + outputFile.getPath() + "': " + e.getMessage());
             }
 
-            inputTexture.dispose();
+            imagePassInputTexture.dispose();
         }
     }
 }

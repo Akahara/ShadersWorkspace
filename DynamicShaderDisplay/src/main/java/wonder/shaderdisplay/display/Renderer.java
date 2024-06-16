@@ -23,11 +23,14 @@ public class Renderer {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		for (SceneLayer layer : scene.layers) {
+			scene.swapChain.preparePass(layer);
 			glUseProgram(layer.compiledShaders.program);
 			setupRenderState(layer.renderState);
-			layer.shaderUniforms.apply();
+			layer.shaderUniforms.apply(scene);
 			layer.mesh.makeDrawCall();
+			scene.swapChain.endPass();
 		}
+
 		setupRenderState(SceneLayer.RenderState.DEFAULT);
 	}
 

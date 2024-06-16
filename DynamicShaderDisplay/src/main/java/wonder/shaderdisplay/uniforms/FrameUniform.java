@@ -5,7 +5,7 @@ import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import wonder.shaderdisplay.Time;
 
-class FrameUniform extends Uniform {
+class FrameUniform extends NonEditableUniform {
 	
 	private final int location;
 	private final boolean isFloat;
@@ -17,7 +17,7 @@ class FrameUniform extends Uniform {
 	}
 	
 	@Override
-	public void apply() {
+	public void apply(UniformApplicationContext context) {
 		if(isFloat)
 			glUniform1f(location, Time.getFrame());
 		else
@@ -29,8 +29,4 @@ class FrameUniform extends Uniform {
 		Time.renderFrameControls(name);
 	}
 
-	@Override
-	public String toUniformString() {
-		return "uniform " + (isFloat?"float ":"int ") + name + ";";
-	}
 }

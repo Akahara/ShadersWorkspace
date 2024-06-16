@@ -4,7 +4,7 @@ import static org.lwjgl.opengl.GL20.glUniform1f;
 
 import wonder.shaderdisplay.Time;
 
-class TimeUniform extends Uniform {
+class TimeUniform extends NonEditableUniform {
 	
 	private final int location;
 	
@@ -14,7 +14,7 @@ class TimeUniform extends Uniform {
 	}
 	
 	@Override
-	public void apply() {
+	public void apply(UniformApplicationContext context) {
 		glUniform1f(location, Time.getTime());
 	}
 	
@@ -23,8 +23,4 @@ class TimeUniform extends Uniform {
 		Time.renderTimeControls(name);
 	}
 
-	@Override
-	public String toUniformString() {
-		return "uniform float " + name + ";";
-	}
 }

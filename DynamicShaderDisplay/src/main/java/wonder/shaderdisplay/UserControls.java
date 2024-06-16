@@ -26,6 +26,7 @@ import imgui.flag.ImGuiStyleVar;
 import wonder.shaderdisplay.Main.DisplayOptions;
 import wonder.shaderdisplay.Resources.Snippet;
 import wonder.shaderdisplay.display.GLWindow;
+import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 
 public class UserControls {
@@ -36,11 +37,15 @@ public class UserControls {
 
 	private boolean takeScreenshot = false;
 	private boolean drawBackground = true;
-	private boolean showRenderTargetWindow = false;
 
 	public UserControls() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
 		screenSizeBuffer[1] = GLWindow.winHeight;
+
+		GLWindow.addResizeListener((w,h) -> {
+			screenSizeBuffer[0] = w;
+			screenSizeBuffer[1] = h;
+		});
 		
 		new Thread(() -> {
 			try (Scanner sc = new Scanner(System.in)) {
@@ -50,7 +55,7 @@ public class UserControls {
 		}, "stdin-interpreter").start();
 	}
 	
-	public void renderControls(TexturesSwapChain renderTargetsSwapChain) {
+	public void renderControls() {
 		if(ImGui.begin("Controls")) {
 			if(tooltipButton("Take screenshot", "Beware of transparency!"))
 				takeScreenshot = true;
@@ -61,12 +66,10 @@ public class UserControls {
 			if(ImGui.checkbox("Draw background", drawBackground))
 				drawBackground = !drawBackground;
 			showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
-
-			if (ImGui.checkbox("Show render targets", showRenderTargetWindow))
-				showRenderTargetWindow = !showRenderTargetWindow;
 		}
 		ImGui.end();
 
+		/*
 		if (showRenderTargetWindow) {
 			ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, 0.f, 0.f);
 			if(ImGui.begin(RENDER_TARGETS_WINDOW)) {
@@ -82,6 +85,7 @@ public class UserControls {
 			ImGui.popStyleVar();
 			ImGui.end();
 		}
+		*/
 	}
 	
 	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
@@ -100,7 +104,7 @@ public class UserControls {
 			ImGui.setTooltip(tooltip);
 	}
 	
-	public void takeScreenshot(TexturesSwapChain renderTargetsSwapChain, DisplayOptions options) {
+	public void takeScreenshot(TexturesSwapChain renderTargetsSwapChain, String renderTargetName, DisplayOptions options) {
 		SimpleDateFormat df = new SimpleDateFormat("MMdd_HHmmss");
 		String fileName = "screenshot_" + df.format(new Date()) + ".png";
 		File file = new File(fileName);
@@ -112,10 +116,10 @@ public class UserControls {
 		} else {
 			format = format.toUpperCase();
 		}
-		
-		int w = renderTargetsSwapChain.getDisplayWidth();
-		int h = renderTargetsSwapChain.getDisplayHeight();
-		int[] buffer = renderTargetsSwapChain.readColorAttachment(0, new int[w*h], options.background);
+
+		Texture texture = renderTargetsSwapChain.getColorAttachment(renderTargetName);
+		int w = texture.getWidth(), h = texture.getHeight();
+		int[] buffer = renderTargetsSwapChain.readColorAttachment(renderTargetName, null, options.background);
 		BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
 		image.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 		

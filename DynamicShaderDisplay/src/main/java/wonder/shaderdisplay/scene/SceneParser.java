@@ -1,9 +1,6 @@
 package wonder.shaderdisplay.scene;
 
-import com.fasterxml.jackson.annotation.JsonFilter;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.StreamReadFeature;
@@ -62,10 +59,15 @@ public class SceneParser {
             return previousScene;
         }
 
+        StringBuilder errors = new StringBuilder();
+
         Scene scene = new Scene(file);
         scene.macros.addAll(Arrays.asList(serialized.macros));
-        StringBuilder errors = new StringBuilder();
+        scene.renderTargets.add(SceneRenderTarget.DEFAULT_RT);
+        scene.renderTargets.addAll(Arrays.asList(serialized.renderTargets));
         boolean tryToReloadPreviousScene = previousScene != null && previousScene.layers.size() == serialized.layers.length;
+
+        validateSceneRenderTargets(errors, serialized.renderTargets);
 
         for (int i = 0; i < serialized.layers.length; i++) {
             JsonSceneLayer serializedLayer = serialized.layers[i];
@@ -84,8 +86,13 @@ public class SceneParser {
                         .readSources(),
                     loadMesh(file, serializedLayer.root, serializedLayer.model),
                     serializedLayer.macros,
-                    renderState
+                    serializedLayer.uniforms,
+                    renderState,
+                    serializedLayer.targets
                 );
+
+                validateLayerRenderTargets(scene, serializedLayer.targets);
+
                 if (tryToReloadPreviousScene) {
 //                    layer.shaderUniforms
                 }
@@ -135,6 +142,43 @@ public class SceneParser {
         }
     }
 
+    private static void validateSceneRenderTargets(StringBuilder errors, SceneRenderTarget[] renderTargets) {
+        for (int i = 0; i < renderTargets.length; i++) {
+            SceneRenderTarget rt = renderTargets[i];
+            for (int j = 0; j < i; j++) {
+                if (renderTargets[j].name.equals(rt.name))
+                    errors.append("Render target '").append(rt.name).append("' specified twice\n");
+            }
+            if (rt.width < 0 || rt.height < 0)
+                errors.append("Invalid size for render target '").append(rt.name).append("'");
+            if (!rt.screenRelative && (rt.width < 1.f || rt.height < 1.f || (int)rt.width != rt.width || (int)rt.height != rt.height))
+                errors.append("Invalid size for render target '").append(rt.name).append("', for non-screen relative RTs only absolute dimensions are valid\n");
+            if (rt.screenRelative && (rt.width > 20 || rt.height > 20))
+                errors.append("Very large render target '").append(rt.name).append("', did you forget 'screenRelative':false ?\n");
+        }
+    }
+
+    private static void validateLayerRenderTargets(Scene scene, String[] layerRenderTargets) throws IOException {
+        if (layerRenderTargets.length == 0) {
+            throw new IOException("No output render target specified");
+        } else {
+            SceneRenderTarget baseRenderTarget = scene.getRenderTarget(layerRenderTargets[0]);
+            for (int j = 1; j < layerRenderTargets.length; j++) {
+                String rtName = layerRenderTargets[j];
+                SceneRenderTarget rt = scene.getRenderTarget(rtName);
+                for (int k = 0; k < j; k++)
+                    if (rtName.equals(layerRenderTargets[k]))
+                        throw new IOException("Target '" + rtName + "' is written to twice");
+                if (rt == null) {
+                    throw new IOException("Target '" + rtName + "' was not declared");
+                } else {
+                    if (rt.screenRelative != baseRenderTarget.screenRelative || rt.width != baseRenderTarget.width || rt.height != baseRenderTarget.height)
+                        throw new IOException("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
+                }
+            }
+        }
+    }
+
 }
 
 @JsonIgnoreProperties({ "$schema" })
@@ -146,6 +190,7 @@ class JsonScene {
     public JsonSceneLayer[] layers;
     public Macro[] macros = new Macro[0];
     public JsonSceneAudio[] audio = new JsonSceneAudio[0];
+    public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
 }
 
 class JsonSceneLayer {
@@ -159,10 +204,12 @@ class JsonSceneLayer {
     public String compute = null;
     public String model = null;
     public Macro[] macros = new Macro[0];
+    public SceneUniform[] uniforms = new SceneUniform[0];
     public boolean depthTest = true;
     public boolean depthWrite = true;
     public boolean blending = true;
     public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
+    public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
 }
 
 class JsonSceneAudio {

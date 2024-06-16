@@ -7,7 +7,7 @@ import java.util.Arrays;
 import imgui.ImGui;
 import wonder.shaderdisplay.UserControls;
 
-public class ArbitraryBoolUniform extends Uniform implements ArbitraryUniform {
+public class ArbitraryBoolUniform extends EditableUniform implements ArbitraryUniform {
 
 	private final UniformLocationCache locationCache;
 	private final boolean[] values;
@@ -19,7 +19,7 @@ public class ArbitraryBoolUniform extends Uniform implements ArbitraryUniform {
 	}
 
 	@Override
-	public void apply() {
+	public void apply(UniformApplicationContext context) {
 		for(int i = 0; i < values.length; i++)
 			glUniform1i(locationCache.getLocation(i), values[i]?1:0);
 	}
