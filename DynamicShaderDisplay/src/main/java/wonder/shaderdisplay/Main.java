@@ -126,6 +126,8 @@ public class Main {
 		public String ffmpegOptions = "";
 		@Option(name = "--output", shorthand = "-o", valueName = "file", desc = "Output file path, defaults to \"video.mp4\"")
 		public File outputFile = new File("video.mp4");
+		@Option(name = "--preview", shorthand = "-p", desc = "Show the window during generation")
+		public boolean preview = false;
 		
 	}
 	

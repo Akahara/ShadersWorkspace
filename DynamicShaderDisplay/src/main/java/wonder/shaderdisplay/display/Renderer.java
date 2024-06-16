@@ -36,7 +36,7 @@ public class Renderer {
 			glEnable(GL_BLEND);
 		else
 			glDisable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(rs.isDepthTestEnabled ? GL_LESS : GL_ALWAYS);
@@ -51,29 +51,31 @@ public class Renderer {
 	}
 
 	public static boolean compileShaders(Scene scene, SceneLayer layer) {
-		int newFragment = 0, newVertex = 0, newGeometry = 0;
+		int[] newFragments = null, newVertices = null, newGeometries = null;
 		int newStandardProgram = 0;
 
 		ShaderFileSet shadersFiles = layer.fileSet;
 		SceneLayer.ShaderSet shaders = layer.compiledShaders;
+
+		boolean hasGeometry = shadersFiles.hasCustomShader(ShaderType.GEOMETRY);
 
 		try {
 			if (shadersFiles.isCompute())
 				throw new GenerationException("Unimplemented: compute pass");
 			verifyGeometryShaderInputType(shadersFiles, GL_TRIANGLES);
 
-			newVertex = buildShader(scene, layer, ShaderType.VERTEX, GL_VERTEX_SHADER);
-			newFragment = buildShader(scene, layer, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
-			if(shadersFiles.hasCustomShader(ShaderType.GEOMETRY))
-				newGeometry = buildShader(scene, layer, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
+			newVertices = buildShaders(scene, layer, ShaderType.VERTEX, GL_VERTEX_SHADER);
+			newFragments = buildShaders(scene, layer, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
+			if(hasGeometry)
+				newGeometries = buildShaders(scene, layer, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
 
-			if(newFragment == -1 || newVertex == -1 || newGeometry == -1)
+			if(newFragments == null || newVertices == null || (hasGeometry && newGeometries == null))
 				throw new GenerationException("Could not compile a shader");
 			
 			newStandardProgram = glCreateProgram();
-			glAttachShader(newStandardProgram, newFragment);
-			glAttachShader(newStandardProgram, newVertex);
-			if (newGeometry != 0) glAttachShader(newStandardProgram, newGeometry);
+			for (int fs : newFragments) glAttachShader(newStandardProgram, fs);
+			for (int vs : newVertices) glAttachShader(newStandardProgram, vs);
+			if (hasGeometry) for (int vs : newGeometries) glAttachShader(newStandardProgram, vs);
 			glLinkProgram(newStandardProgram);
 			
 			if (glGetProgrami(newStandardProgram, GL_LINK_STATUS) == GL_FALSE)
@@ -83,29 +85,28 @@ public class Renderer {
 				throw new GenerationException("Unexpected error: " + glGetProgramInfoLog(newStandardProgram).strip());
 		} catch (GenerationException e) {
 			Main.logger.warn(e.getMessage());
-			deleteShaders(newVertex, newGeometry, newFragment);
+			deleteShaders(newVertices);
+			deleteShaders(newGeometries);
+			deleteShaders(newFragments);
 			deletePrograms(newStandardProgram);
 			return false;
 		}
 		
-		Main.logger.info("Compiled successfully " + getCompilationTimestampString());
-		
-		deleteShaders(shaders.vertex, shaders.geometry, shaders.fragment, shaders.compute);
-		deletePrograms(shaders.program);
-		glUseProgram(newStandardProgram);
-		shaders.program = newStandardProgram;
-		shaders.vertex = newVertex;
-		shaders.geometry = newGeometry;
-		shaders.fragment = newFragment;
-		shaders.compute = 0;
+		Main.logger.info("Compiled successfully " + layer.fileSet.getPrimaryFileName() + " : " + getCompilationTimestampString());
 
-		if(!Texture.isUsingCache())
-			Texture.unloadTextures();
+		shaders.disposeAll();
+		shaders.program = newStandardProgram;
+		shaders.vertex = newVertices;
+		shaders.geometry = newGeometries;
+		shaders.fragment = newFragments;
+		shaders.compute = 0;
 
 		StringBuilder pseudoTotalSource = new StringBuilder();
 		for (ShaderType type : ShaderType.STANDARD_TYPES) {
-			if (shadersFiles.hasCustomShader(type))
-				pseudoTotalSource.append(shadersFiles.getSource(type));
+			if (shadersFiles.hasCustomShader(type)) {
+				for (String source : shadersFiles.getSources(type))
+					pseudoTotalSource.append(source);
+			}
 		}
 
 		layer.shaderUniforms.rescan(newStandardProgram, pseudoTotalSource.toString());
@@ -124,12 +125,16 @@ public class Renderer {
 		if (expected == null)
 			throw new IllegalArgumentException("Unknown draw mode");
 
-		Matcher m = Pattern.compile("layout\\((\\w+)\\) in;").matcher(shaders.getSource(ShaderType.GEOMETRY));
-		if (!m.find())
-			throw new GenerationException("The geometry shader is missing its 'layout(...) in;' directive");
-		String in = m.group(1);
-		if (!in.equals(expected))
-			throw new GenerationException("The geometry shader input type does not match the provided type, expected '" + expected + "', got '" + in + "'");
+		for (String gs : shaders.getSources(ShaderType.GEOMETRY)) {
+			Matcher m = Pattern.compile("layout\\((\\w+)\\) in;").matcher(gs);
+			if (!m.find())
+				continue;
+			String in = m.group(1);
+			if (!in.equals(expected))
+				throw new GenerationException("The geometry shader input type does not match the provided type, expected '" + expected + "', got '" + in + "'");
+			return;
+		}
+		throw new GenerationException("The geometry shader is missing its 'layout(...) in;' directive");
 	}
 	
 	private static String getCompilationTimestampString() {
@@ -149,23 +154,27 @@ public class Renderer {
 		return originalSource.replaceFirst("\n", sb.toString());
 	}
 
-	public static int buildShader(Scene scene, SceneLayer layer, ShaderType type, int glType) {
-		int id = glCreateShader(glType);
-		String source = patchShaderSource(scene, layer, layer.fileSet.getSource(type));
-		glShaderSource(id, source);
-		glCompileShader(id);
-		if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE) {
-			String patchInfo = (scene.macros.isEmpty() && layer.macros.length == 0) ? "" :
-					(Main.logger.getLogLevel() > Logger.LEVEL_DEBUG) ? "(patched)" : "(Line number information patched, numbers might not be accurate)";
-			Main.logger.warn("Compilation error in '" + layer.fileSet.getFinalFileName(type) + "': " + patchInfo);
-			String errorMessage = glGetShaderInfoLog(id);
-			errorMessage = patchErrorMessage(errorMessage, scene, layer);
-			for(String line : errorMessage.strip().split("\n"))
-				Main.logger.warn("  " + line);
-			glDeleteShader(id);
-			return -1;
+	public static int[] buildShaders(Scene scene, SceneLayer layer, ShaderType type, int glType) {
+		String[] sources = layer.fileSet.getSources(type);
+		int[] ids = new int[sources.length];
+		for (int i = 0; i < sources.length; i++) {
+			int id = ids[i] = glCreateShader(glType);
+			String source = patchShaderSource(scene, layer, sources[i]);
+			glShaderSource(id, source);
+			glCompileShader(id);
+			if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE) {
+				String patchInfo = (scene.macros.isEmpty() && layer.macros.length == 0) ? "" :
+						(Main.logger.getLogLevel() > Logger.LEVEL_DEBUG) ? "(patched)" : "(Line number information patched, numbers might not be accurate)";
+				Main.logger.warn("Compilation error in '" + layer.fileSet.getFinalFileName(type) + "': " + patchInfo);
+				String errorMessage = glGetShaderInfoLog(id);
+				errorMessage = patchErrorMessage(errorMessage, scene, layer, sources[i]);
+				for(String line : errorMessage.strip().split("\n"))
+					Main.logger.warn("  " + line);
+				deleteShaders(ids);
+				return null;
+			}
 		}
-		return id;
+		return ids;
 	}
 
 	public static int buildRawShader(String source, int glType) {
@@ -177,7 +186,7 @@ public class Renderer {
 		return id;
 	}
 
-	public static String patchErrorMessage(String errorMessage, Scene scene, SceneLayer failedLayer) {
+	public static String patchErrorMessage(String errorMessage, Scene scene, SceneLayer failedLayer, String failedShaderSource) {
 		// Because we insert macros in the source code of each shader error messages contain messed
 		// up line information, we offset those by the number of macros we inserted to get back the
 		// real line numbers
@@ -190,10 +199,12 @@ public class Renderer {
 		Matcher m = Pattern.compile("[^.](\\d+)[^.]").matcher(errorMessage);
 		StringBuilder sb = new StringBuilder(errorMessage);
 		int lineCount = 0;
-		for (int o = -1; (o = sb.indexOf("\n", o+1)) != -1; )
+		for (int o = -1; (o = failedShaderSource.indexOf("\n", o+1)) != -1; )
 			lineCount++;
 
-		while (m.find()) {
+		int nextStart = 0;
+		while (m.find(nextStart)) {
+			nextStart = m.start(1);
 			int lineNumber = Integer.parseInt(m.group(1));
 			if (lineNumber < macroLinesDiff || lineNumber > lineCount)
 				continue; // probably not a line number
@@ -205,6 +216,7 @@ public class Renderer {
 	}
 	
 	public static void deleteShaders(int... shaders) {
+		if (shaders == null) return;
 		for(int s : shaders) {
 			if(s > 0)
 				glDeleteShader(s);

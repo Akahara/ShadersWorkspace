@@ -7,6 +7,7 @@ import fr.wonder.commons.systems.process.ProcessUtils;
 import fr.wonder.commons.utils.StringUtils;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
+import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.scene.Scene;
 
@@ -18,6 +19,9 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryVideo extends SetupUtils {
 
@@ -33,6 +37,8 @@ public class EntryVideo extends SetupUtils {
         options.lastFrame = options.lastFrame <= 0 ? (int) (options.videoDuration * options.framerate) : options.lastFrame;
         if (options.lastFrame <= options.firstFrame)
             throw new BadInitException("Last frame cannot be less than or equal to the first frame");
+
+        Time.setFps(options.framerate);
     }
 
     public static void run(Main.VideoOptions options, File fragment) {
@@ -44,7 +50,7 @@ public class EntryVideo extends SetupUtils {
         try {
             loadCommonOptions(options);
 
-            display = createDisplay(options.displayOptions, false, false);
+            display = createDisplay(options.displayOptions, options.preview, false);
             scene = createScene(options.displayOptions, fragment);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
@@ -86,7 +92,7 @@ public class EntryVideo extends SetupUtils {
         OutputStream ffmpegStdin = ffmpegProcess.getOutputStream();
 
         try {
-            for(int f = options.firstFrame; f < options.lastFrame; f++) {
+            for(int f = options.firstFrame; f < options.lastFrame && !GLWindow.shouldDispose(); f++) {
                 Time.setFrame(f);
                 renderTargetsSwapChain.swap();
                 renderTargetsSwapChain.bind();
@@ -95,6 +101,12 @@ public class EntryVideo extends SetupUtils {
                 frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
                 ImageIO.write(frame, "jpeg", ffmpegStdin);
                 ProcessUtils.printProgressbar(f-options.firstFrame, options.lastFrame-options.firstFrame, "Writing frames");
+
+                if (options.preview) {
+                    renderTargetsSwapChain.blitToScreen(options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
+                    glfwSwapBuffers(GLWindow.getWindow());
+                    glfwPollEvents();
+                }
             }
             ffmpegStdin.close();
             ffmpegProcess.waitFor();

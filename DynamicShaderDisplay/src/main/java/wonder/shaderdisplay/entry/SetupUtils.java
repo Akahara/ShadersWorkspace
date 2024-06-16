@@ -49,7 +49,7 @@ public class SetupUtils {
         if (!sceneFile.isFile()) {
             try {
                 if (sceneFile.getName().endsWith(".fs"))
-                    FilesUtils.write(sceneFile, Resources.getDefaultShaderSources()[ShaderType.FRAGMENT.ordinal()]);
+                    FilesUtils.write(sceneFile, Resources.DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()]);
                 else if (sceneFile.getName().endsWith(".json") || sceneFile.getName().endsWith(".scene"))
                     Resources.initializeSceneFiles(sceneFile);
             } catch (IOException e) {

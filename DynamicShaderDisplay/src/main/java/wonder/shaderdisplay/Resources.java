@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 
 public class Resources {
 
-	private static final String[] DEFAULT_SHADER_SOURCES;
+	public static final String[] DEFAULT_SHADER_SOURCES;
 
 	private static final String SNIPPET_FILE_EXTENSION = "snippets";
 	private static final String SNIPPETS_FILE = "/snippets.snippets";
@@ -52,10 +52,6 @@ public class Resources {
 		} catch (IOException e) {
 			throw new IllegalStateException(e);
 		}
-	}
-
-	public static String[] getDefaultShaderSources() {
-		return Arrays.copyOf(DEFAULT_SHADER_SOURCES, DEFAULT_SHADER_SOURCES.length);
 	}
 	
 	private static List<Snippet> readSnippets(String source) throws IOException {

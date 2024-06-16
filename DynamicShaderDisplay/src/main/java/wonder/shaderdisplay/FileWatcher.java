@@ -40,8 +40,9 @@ public class FileWatcher {
 
 		for (SceneLayer layer : scene.layers) {
 			for (ShaderType type : ShaderType.TYPES) {
-				File shaderFile = layer.fileSet.getFile(type);
-				if (shaderFile != null)
+				if (!layer.fileSet.hasCustomShader(type))
+					continue;
+				for (File shaderFile : layer.fileSet.getFiles(type))
 					addWatchedPath(shaderFile, new WatchableShaderFiles(layer));
 			}
 

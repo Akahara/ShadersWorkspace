@@ -1,10 +1,18 @@
 package wonder.shaderdisplay.scene;
 
+import com.fasterxml.jackson.annotation.JsonFilter;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonFactoryBuilder;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
+import fr.wonder.commons.utils.ArrayOperator;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.display.Mesh;
 import wonder.shaderdisplay.display.Renderer;
@@ -26,7 +34,17 @@ public class SceneParser {
             .enable(JsonReadFeature.ALLOW_LEADING_PLUS_SIGN_FOR_NUMBERS)
             .enable(JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES)
             .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
-            .build());
+            .build())
+            .addHandler(new DeserializationProblemHandler() {
+                @Override
+                public boolean handleUnknownProperty(DeserializationContext c, JsonParser p, JsonDeserializer<?> d, Object beanOrClass, String propertyName) throws IOException {
+                    if(propertyName.startsWith("_")) {
+                        p.skipChildren();
+                        return true;
+                    }
+                    return false;
+                }
+            });
 
     public static Scene loadScene(File file) throws BadInitException {
         Scene scene = regenerateScene(file, null);
@@ -59,9 +77,9 @@ public class SceneParser {
                 renderState.culling = serializedLayer.culling;
                 SceneLayer layer = new SceneLayer(
                     new ShaderFileSet()
-                        .setFile(ShaderType.VERTEX, asOptionalPath(file, serializedLayer.root, serializedLayer.vertex))
-                        .setFile(ShaderType.GEOMETRY, asOptionalPath(file, serializedLayer.root, serializedLayer.geometry))
-                        .setFile(ShaderType.FRAGMENT, asOptionalPath(file, serializedLayer.root, serializedLayer.fragment))
+                        .setFiles(ShaderType.VERTEX, asOptionalPaths(file, serializedLayer.root, serializedLayer.vertex))
+                        .setFiles(ShaderType.GEOMETRY, asOptionalPaths(file, serializedLayer.root, serializedLayer.geometry))
+                        .setFiles(ShaderType.FRAGMENT, asOptionalPaths(file, serializedLayer.root, serializedLayer.fragment))
                         .setFile(ShaderType.COMPUTE, asOptionalPath(file, serializedLayer.root, serializedLayer.compute))
                         .readSources(),
                     loadMesh(file, serializedLayer.root, serializedLayer.model),
@@ -97,6 +115,11 @@ public class SceneParser {
         return new File(finalFile, optPath);
     }
 
+    private static File[] asOptionalPaths(File sceneFile, String optRoot, String[] optPaths) {
+        if (optPaths == null) return null;
+        return ArrayOperator.map(optPaths, File[]::new, p -> asOptionalPath(sceneFile, optRoot, p));
+    }
+
     private static Mesh loadMesh(File sceneFile, String optRoot, String nameOrPath) throws IOException {
         if (nameOrPath == null)
             return Mesh.fullscreenTriangle();
@@ -114,6 +137,8 @@ public class SceneParser {
 
 }
 
+@JsonIgnoreProperties({ "$schema" })
+@JsonFilter("ignores")
 class JsonScene {
     @JsonProperty(required = true)
     public String version;
@@ -125,9 +150,12 @@ class JsonScene {
 
 class JsonSceneLayer {
     public String root = null;
-    public String vertex = null;
-    public String geometry = null;
-    public String fragment = null;
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+    public String[] vertex = null;
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+    public String[] geometry = null;
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+    public String[] fragment = null;
     public String compute = null;
     public String model = null;
     public Macro[] macros = new Macro[0];

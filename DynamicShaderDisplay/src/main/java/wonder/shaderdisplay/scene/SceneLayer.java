@@ -27,16 +27,22 @@ public class SceneLayer {
 
     public void dispose() {
         mesh.dispose();
-        Renderer.deletePrograms(compiledShaders.program);
-        Renderer.deleteShaders(compiledShaders.vertex, compiledShaders.geometry, compiledShaders.fragment, compiledShaders.compute);
+        compiledShaders.disposeAll();
     }
 
     public static class ShaderSet {
-        public int vertex;
-        public int geometry;
-        public int fragment;
+        public int[] vertex;
+        public int[] geometry;
+        public int[] fragment;
         public int compute;
         public int program;
+
+        public void disposeAll() {
+            Renderer.deletePrograms(program);
+            Renderer.deleteShaders(vertex);
+            Renderer.deleteShaders(geometry);
+            Renderer.deleteShaders(fragment);
+        }
     }
 
     public static class RenderState {
