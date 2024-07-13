@@ -197,6 +197,7 @@ class WindowBlit {
 		glDisable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
 		glUseProgram(shader);
+		glViewport(0, 0, GLWindow.getWinWidth(), GLWindow.getWinHeight());
 		glUniform1i(glGetUniformLocation(shader, "u_background"), drawBackground ? 1 : 0);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);

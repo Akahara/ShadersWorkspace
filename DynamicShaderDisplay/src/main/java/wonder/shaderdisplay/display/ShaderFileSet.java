@@ -5,11 +5,13 @@ import wonder.shaderdisplay.Resources;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 
 public class ShaderFileSet {
 
 	private final File[][] filePaths = new File[ShaderType.COUNT][];
 	private final String[][] cachedSources;
+	private String fixedPrimarySourceName;
 
 	public ShaderFileSet() {
 		cachedSources = new String[ShaderType.COUNT][];
@@ -35,6 +37,18 @@ public class ShaderFileSet {
 
 	public ShaderFileSet setFile(ShaderType type, File file) {
 		return setFiles(type, file == null ? null : new File[] { file });
+	}
+
+	public ShaderFileSet setSource(ShaderType type, String source) {
+		if (hasCustomShader(type))
+			throw new IllegalArgumentException("A " + type.name() + " shader is already specified");
+		cachedSources[type.ordinal()] = new String[] { Objects.requireNonNull(source) };
+		return this;
+	}
+
+	public ShaderFileSet setFixedPrimarySourceName(String name) {
+		this.fixedPrimarySourceName = Objects.requireNonNull(name);
+		return this;
 	}
 
 	public ShaderFileSet setFiles(ShaderType type, File[] files) {
@@ -78,6 +92,8 @@ public class ShaderFileSet {
 	}
 
 	public String getPrimaryFileName() {
-		return isCompute() ? getFinalFileName(ShaderType.COMPUTE) : getFinalFileName(ShaderType.FRAGMENT);
+		return fixedPrimarySourceName != null ? fixedPrimarySourceName
+			: isCompute() ? getFinalFileName(ShaderType.COMPUTE)
+			: getFinalFileName(ShaderType.FRAGMENT);
 	}
 }

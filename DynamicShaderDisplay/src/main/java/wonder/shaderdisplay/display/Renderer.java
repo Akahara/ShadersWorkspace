@@ -28,6 +28,11 @@ public class Renderer {
 			setupRenderState(layer.renderState);
 			layer.shaderUniforms.apply(scene);
 			layer.mesh.makeDrawCall();
+			if (layer.builtinAddon != null) {
+				switch (layer.builtinAddon) {
+					case CLEAR_PASS -> glClear(GL_DEPTH_BUFFER_BIT);
+				}
+			}
 			scene.swapChain.endPass();
 		}
 
@@ -151,9 +156,11 @@ public class Renderer {
 
 	private static String patchShaderSource(Scene scene, SceneLayer layer, String originalSource) {
 		StringBuilder sb = new StringBuilder();
-		for (Macro macro : Stream.concat(scene.macros.stream(), Stream.of(layer.macros)).toList()) {
-			sb.append("#define ").append(macro.name).append(' ').append(macro.value).append('\n');
-		}
+		Stream<Macro> allMacros = scene == null ? Stream.empty() : scene.macros.stream();
+		allMacros = Stream.concat(allMacros, Stream.of(layer.macros));
+		allMacros.forEach(macro ->
+			sb.append("#define ").append(macro.name).append(' ').append(macro.value).append('\n')
+		);
 		return originalSource.replaceFirst("\n", sb.toString());
 	}
 
@@ -166,7 +173,7 @@ public class Renderer {
 			glShaderSource(id, source);
 			glCompileShader(id);
 			if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE) {
-				String patchInfo = (scene.macros.isEmpty() && layer.macros.length == 0) ? "" :
+				String patchInfo = ((scene == null || scene.macros.isEmpty()) && layer.macros.length == 0) ? "" :
 						(Main.logger.getLogLevel() > Logger.LEVEL_DEBUG) ? "(patched)" : "(Line number information patched, numbers might not be accurate)";
 				Main.logger.warn("Compilation error in '" + layer.fileSet.getFinalFileName(type) + "': " + patchInfo);
 				String errorMessage = glGetShaderInfoLog(id);
@@ -196,7 +203,7 @@ public class Renderer {
 		// Because glGetShaderInfoLog is implementation dependant and that we do not know which line
 		// is broken, we offset *every* number that could be a line number
 
-		int macroLinesDiff = scene.macros.size() + failedLayer.macros.length;
+		int macroLinesDiff = (scene == null ? 0 : scene.macros.size()) + failedLayer.macros.length;
 		if (macroLinesDiff == 0) return errorMessage;
 
 		Matcher m = Pattern.compile("[^.](\\d+)[^.]").matcher(errorMessage);

@@ -58,7 +58,7 @@ public class Main {
 		@Option(name = "--force-gl-version", desc = "Forces the opengl version, use format <major>.<minor> (ie: 4.3)")
 		public String forcedGLVersion;
 		@Option(name = "--width", shorthand = "-w", desc = "Sets the initial window width")
-		public int winWidth = 500;
+		public int winWidth = 500 * 16/9;
 		@Option(name = "--height", shorthand = "-h", desc = "Sets the initial window height")
 		public int winHeight = 500;
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")

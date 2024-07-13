@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -116,7 +115,7 @@ public class Resources {
 	}
 
 	public static void initializeSceneFiles(File sceneFile) throws IOException {
-		FilesUtils.write(sceneFile, readResource("/defaultScene.json"));
+		FilesUtils.write(sceneFile, readResource("/default_scene.json"));
 		File requiredFragmentShaderFile = new File(sceneFile.getParentFile(), "shader.fs"); // the file name must match that in the default scene file
 		if (!requiredFragmentShaderFile.exists())
 			FilesUtils.write(requiredFragmentShaderFile, DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()]);

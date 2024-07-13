@@ -67,7 +67,10 @@ public class SetupUtils {
 
     private static Scene createSimpleScene(Main.DisplayOptions options, File fragmentFile) throws BadInitException {
         try {
+            SceneRenderTarget renderTarget = SceneRenderTarget.DEFAULT_RT;
             Scene scene = new Scene();
+            scene.renderTargets.add(renderTarget);
+            scene.layers.add(SceneParser.makeClearLayer(new String[] { renderTarget.name }));
             scene.layers.add(new SceneLayer(
                 new ShaderFileSet()
                     .setFile(ShaderType.VERTEX, options.vertexShaderFile)
@@ -79,8 +82,12 @@ public class SetupUtils {
                 new Macro[0],
                 new SceneUniform[0],
                 new SceneLayer.RenderState(),
-                new String[] { SceneRenderTarget.DEFAULT_RT.name }
+                new String[] { renderTarget.name }
             ));
+
+            for (SceneLayer layer : scene.layers)
+                if (!Renderer.compileShaders(scene, layer))
+                    throw new IOException("Could not compile shaders");
             return scene;
         } catch (IOException e) {
             throw new BadInitException(e.getMessage());

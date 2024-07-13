@@ -62,25 +62,32 @@ public class EntryRun extends SetupUtils {
             long lastSec = System.nanoTime();
             int frames = 0;
             long workTime = 0;
+            WindowTitleSupplier windowTitleSupplier = new WindowTitleSupplier(fragment.getName());
 
             while (!GLWindow.shouldDispose()) {
                 // reload shaders if necessary
-                if (fileWatcher.requiresSceneRecompilation()) {
-                    fileWatcher.stopWatching();
-                    Main.logger.info("Regenerating scene");
-                    scene = SceneParser.regenerateScene(fragment, scene);
-                    scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());
-                    fileWatcher = new FileWatcher(scene, options.hardReload);
-                    fileWatcher.startWatching();
+                boolean hasPendingFileChanges = fileWatcher.hasPendingChanges();
+                windowTitleSupplier.hasPendingFileChanges = hasPendingFileChanges;
+                if (hasPendingFileChanges && !fileWatcher.isDebouncingRecompilation()) {
+                    synchronized (fileWatcher) {
+                        if (fileWatcher.requiresSceneRecompilation()) {
+                            fileWatcher.stopWatching();
+                            Main.logger.info("Regenerating scene");
+                            scene = SceneParser.regenerateScene(fragment, scene);
+                            scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());
+                            fileWatcher = new FileWatcher(scene, options.hardReload);
+                            fileWatcher.startWatching();
+                        }
+                        if (fileWatcher.processShaderRecompilation()) {
+                            UniformApplicationContext.resetLoggedBindingWarnings();
+                            if (options.resetTimeOnUpdate)
+                                Time.setFrame(0);
+                            if (options.resetRenderTargetsOnUpdate)
+                                scene.clearSwapChainTextures();
+                        }
+                        fileWatcher.processDummyFilesRecompilation();
+                    }
                 }
-                if (fileWatcher.processShaderRecompilation()) {
-                    UniformApplicationContext.resetLoggedBindingWarnings();
-                    if (options.resetTimeOnUpdate)
-                        Time.setFrame(0);
-                    if (options.resetRenderTargetsOnUpdate)
-                        scene.clearSwapChainTextures();
-                }
-                fileWatcher.processDummyFilesRecompilation();
 
                 // -------- draw frame ---------
 
@@ -116,12 +123,14 @@ public class EntryRun extends SetupUtils {
                 nextFrame += 1E9 / options.targetFPS;
                 frames++;
                 if (current > lastSec + 1E9) {
-                    GLWindow.setWindowTitle(String.format("Shader workspace - %d fps - %f millis per frame - %d expected fps",
-                            frames, workTime / 1E6 / frames, (int) (1E9 * frames / workTime)));
+                    windowTitleSupplier.millisPerFrame = workTime / 1E6 / frames;
+                    windowTitleSupplier.currentFPS = frames;
                     lastSec = current;
                     workTime = 0;
                     frames = 0;
                 }
+
+                GLWindow.setWindowTitle(windowTitleSupplier.getTitle());
             }
 
             GLWindow.dispose();
@@ -158,4 +167,24 @@ class ImGuiSystem {
         ImGui.updatePlatformWindows();
         ImGui.renderPlatformWindowsDefault();
     }
+}
+
+class WindowTitleSupplier {
+
+    private final String primaryFileName;
+    public int currentFPS;
+    public double millisPerFrame;
+    public boolean hasPendingFileChanges;
+
+    WindowTitleSupplier(String primaryFileName) {
+        this.primaryFileName = primaryFileName;
+    }
+
+    String getTitle() {
+        return String.format("%s %s- %d fps - %.4f millis per frame - %d expected fps",
+                primaryFileName,
+                hasPendingFileChanges ? "(*) " : "",
+                currentFPS, millisPerFrame, (int) (1000 / millisPerFrame));
+    }
+
 }

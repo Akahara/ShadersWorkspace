@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import fr.wonder.commons.utils.ArrayOperator;
 import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.display.Mesh;
 import wonder.shaderdisplay.display.Renderer;
 import wonder.shaderdisplay.display.ShaderFileSet;
@@ -20,6 +21,8 @@ import wonder.shaderdisplay.entry.BadInitException;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class SceneParser {
 
@@ -70,35 +73,15 @@ public class SceneParser {
         validateSceneRenderTargets(errors, serialized.renderTargets);
 
         for (int i = 0; i < serialized.layers.length; i++) {
-            JsonSceneLayer serializedLayer = serialized.layers[i];
+            JsonSceneLayer serializedLayerBase = serialized.layers[i];
             try {
-                SceneLayer.RenderState renderState = new SceneLayer.RenderState();
-                renderState.isDepthWriteEnabled = serializedLayer.depthWrite;
-                renderState.isDepthTestEnabled = serializedLayer.depthTest;
-                renderState.isBlendingEnabled = serializedLayer.blending;
-                renderState.culling = serializedLayer.culling;
-                SceneLayer layer = new SceneLayer(
-                    new ShaderFileSet()
-                        .setFiles(ShaderType.VERTEX, asOptionalPaths(file, serializedLayer.root, serializedLayer.vertex))
-                        .setFiles(ShaderType.GEOMETRY, asOptionalPaths(file, serializedLayer.root, serializedLayer.geometry))
-                        .setFiles(ShaderType.FRAGMENT, asOptionalPaths(file, serializedLayer.root, serializedLayer.fragment))
-                        .setFile(ShaderType.COMPUTE, asOptionalPath(file, serializedLayer.root, serializedLayer.compute))
-                        .readSources(),
-                    loadMesh(file, serializedLayer.root, serializedLayer.model),
-                    serializedLayer.macros,
-                    serializedLayer.uniforms,
-                    renderState,
-                    serializedLayer.targets
-                );
-
-                validateLayerRenderTargets(scene, serializedLayer.targets);
-
-                if (tryToReloadPreviousScene) {
-//                    layer.shaderUniforms
+                if (serializedLayerBase instanceof JsonSceneStandardLayer serializedLayer) {
+                    scene.layers.add(parseStandardLayer(file, scene, serializedLayer));
+                } else if (serializedLayerBase instanceof JsonClearPass pass) {
+                    scene.layers.add(makeClearLayer(pass.targets, pass.clearColor));
+                } else {
+                    throw new IOException(serializedLayerBase.getClass().getName());
                 }
-                if (!Renderer.compileShaders(scene, layer))
-                    throw new IOException("Could not build a shader");
-                scene.layers.add(layer);
             } catch (IOException e) {
                 errors.append("Layer " + i + ": " + e.getMessage() + "\n");
             }
@@ -112,6 +95,60 @@ public class SceneParser {
         }
 
         return scene;
+    }
+
+    private static SceneLayer parseStandardLayer(File rootFile, Scene scene, JsonSceneStandardLayer serializedLayer) throws IOException {
+        SceneLayer layer = new SceneLayer(
+            new ShaderFileSet()
+                .setFiles(ShaderType.VERTEX, asOptionalPaths(rootFile, serializedLayer.root, serializedLayer.vertex))
+                .setFiles(ShaderType.GEOMETRY, asOptionalPaths(rootFile, serializedLayer.root, serializedLayer.geometry))
+                .setFiles(ShaderType.FRAGMENT, asOptionalPaths(rootFile, serializedLayer.root, serializedLayer.fragment))
+                .setFile(ShaderType.COMPUTE, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.compute))
+                .readSources(),
+            loadMesh(rootFile, serializedLayer.root, serializedLayer.model),
+            serializedLayer.macros,
+            serializedLayer.uniforms,
+            serializedLayer.makeRenderState(),
+            serializedLayer.targets
+        );
+
+        validateLayerRenderTargets(scene, serializedLayer.targets);
+
+        if (!Renderer.compileShaders(scene, layer))
+            throw new IOException("Could not build a shader");
+        return layer;
+    }
+
+    public static SceneLayer makeClearLayer(String[] outputTargets) throws IOException {
+        return makeClearLayer(outputTargets, "vec4(0,0,0,1)");
+    }
+
+    public static SceneLayer makeClearLayer(String[] outputTargets, String clearColor) throws IOException {
+        Stream<Macro> macros = Stream.empty();
+        macros = Stream.concat(macros, IntStream.range(0, outputTargets.length).mapToObj(i -> new Macro("CLEAR_TARGET_"+i)));
+        macros = Stream.concat(macros, Stream.of(new Macro("CLEAR_COLOR", clearColor)));
+
+        SceneLayer layer = new SceneLayer(
+            SceneLayer.BuiltinSceneLayerAddon.CLEAR_PASS,
+            new ShaderFileSet()
+                .setFixedPrimarySourceName("clear_pass")
+                .setSource(ShaderType.FRAGMENT, Resources.readResource("/passes/clear.fs"))
+                .setSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
+            Mesh.fullscreenTriangle(),
+            macros.toArray(Macro[]::new),
+            new SceneUniform[0],
+            new SceneLayer.RenderState()
+                .setBlending(false)
+                .setCulling(SceneLayer.RenderState.Culling.NONE)
+                .setDepthTest(false)
+                .setDepthWrite(true),
+            outputTargets
+        );
+
+        if (!Renderer.compileShaders(null, layer))
+            throw new IOException("Could not build a shader");
+
+        return layer;
     }
 
     private static File asOptionalPath(File sceneFile, String optRoot, String optPath) {
@@ -193,7 +230,32 @@ class JsonScene {
     public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
 }
 
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, defaultImpl = JsonSceneStandardLayer.class, property = "pass")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = JsonSceneStandardLayer.class, name = "standard"),
+        @JsonSubTypes.Type(value = JsonClearPass.class, name = "clear")
+})
 class JsonSceneLayer {
+    public boolean depthTest = false;
+    public boolean depthWrite = false;
+    public boolean blending = true;
+    public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+    public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
+
+    public SceneLayer.RenderState makeRenderState() {
+        SceneLayer.RenderState renderState = new SceneLayer.RenderState();
+        renderState.isDepthWriteEnabled = depthWrite;
+        renderState.isDepthTestEnabled = depthTest;
+        renderState.isBlendingEnabled = blending;
+        renderState.culling = culling;
+        return renderState;
+    }
+}
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
+class JsonSceneStandardLayer extends JsonSceneLayer {
     public String root = null;
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     public String[] vertex = null;
@@ -205,12 +267,10 @@ class JsonSceneLayer {
     public String model = null;
     public Macro[] macros = new Macro[0];
     public SceneUniform[] uniforms = new SceneUniform[0];
-    public boolean depthTest = true;
-    public boolean depthWrite = true;
-    public boolean blending = true;
-    public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
-    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
-    public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
+}
+
+class JsonClearPass extends JsonSceneLayer {
+    public String clearColor = "vec4(0,0,0,1)";
 }
 
 class JsonSceneAudio {

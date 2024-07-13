@@ -121,6 +121,7 @@ public class Mesh {
         for (int i = 0; i < vertexData.size(); i++) rawVertexData[i] = vertexData.get(i);
         int[] rawIndexData = indexData.stream().mapToInt(i -> i).toArray();
 
+        Main.logger.info("Successfully loaded mesh " + file);
         return new Mesh(file, rawVertexData, rawIndexData);
     }
 

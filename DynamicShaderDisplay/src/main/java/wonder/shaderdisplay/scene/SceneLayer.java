@@ -10,6 +10,7 @@ import java.util.Objects;
 
 public class SceneLayer {
 
+    public final BuiltinSceneLayerAddon builtinAddon;
     public final ShaderFileSet fileSet;
     public final Macro[] macros;
     public final SceneUniform[] uniforms;
@@ -20,13 +21,18 @@ public class SceneLayer {
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public final ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneLayer(ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
+    public SceneLayer(BuiltinSceneLayerAddon builtinType, ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
+        this.builtinAddon = builtinType;
         this.fileSet = Objects.requireNonNull(fileSet);
         this.mesh = Objects.requireNonNull(mesh);
         this.macros = Objects.requireNonNull(macros);
         this.uniforms = Objects.requireNonNull(uniforms);
         this.renderState = Objects.requireNonNull(renderState);
         this.outRenderTargets = Objects.requireNonNull(outRenderTargets);
+    }
+
+    public SceneLayer(ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
+        this(null, fileSet, mesh, macros, uniforms, renderState, outRenderTargets);
     }
 
     public void dispose() {
@@ -58,12 +64,21 @@ public class SceneLayer {
         public boolean isDepthWriteEnabled = true;
         public Culling culling = Culling.BACK;
 
+        public RenderState setBlending(boolean enabled) { this.isBlendingEnabled = enabled; return this; }
+        public RenderState setDepthTest(boolean enabled) { this.isDepthTestEnabled = enabled; return this; }
+        public RenderState setDepthWrite(boolean enabled) { this.isDepthWriteEnabled = enabled; return this; }
+        public RenderState setCulling(Culling culling) { this.culling = culling; return this; }
+
         public enum Culling {
             BACK, FRONT, NONE;
 
             @JsonValue
             public String serialName() { return name().toLowerCase(); }
         }
+    }
+
+    public enum BuiltinSceneLayerAddon {
+        CLEAR_PASS,
     }
 
 }

@@ -16,6 +16,9 @@ import java.util.stream.Collectors;
 public class FileWatcher {
 	
 	private static final int PATH_WARNING_LIMIT = 50;
+	// After a file change, wait that long before reloading the file just in case
+	// it gets updated multiple times in a short amount of time
+	private static final float DEBOUNCING_DURATION = .1f;
 
 	private final Scene scene;
 	private final boolean hardReload;
@@ -26,6 +29,7 @@ public class FileWatcher {
 	private final Set<SceneLayer> pendingShaderRecompilations = new HashSet<>();
 	private final Set<SceneLayer> pendingMeshReloads = new HashSet<>();
 	private boolean isSceneFileUpdatePending = false;
+	private long latestChangeTimestamp = 0;
 
 	private DirectoryWatcher watcher;
 
@@ -80,6 +84,8 @@ public class FileWatcher {
 			Main.logger.err("File does not exist anymore '" + updatedFile + "'");
 			Main.exit();
 		}
+
+		latestChangeTimestamp = System.nanoTime();
 
 		if (hardReload) {
 			isSceneFileUpdatePending = true;
@@ -146,11 +152,19 @@ public class FileWatcher {
 		return current;
 	}
 
+	public synchronized boolean isDebouncingRecompilation() {
+		return System.nanoTime() - latestChangeTimestamp < 1e9 * DEBOUNCING_DURATION;
+	}
+
+	public synchronized boolean hasPendingChanges() {
+		return isSceneFileUpdatePending || !pendingMeshReloads.isEmpty() || !pendingShaderRecompilations.isEmpty();
+	}
+
 	public boolean requiresSceneRecompilation() {
 		return isSceneFileUpdatePending;
 	}
 
-	public synchronized boolean processShaderRecompilation() {
+	public boolean processShaderRecompilation() {
 		if (pendingShaderRecompilations.isEmpty()) return false;
 
 		for (SceneLayer pendingLayer : pendingShaderRecompilations) {
@@ -167,7 +181,7 @@ public class FileWatcher {
 		return true;
 	}
 
-	public synchronized void processDummyFilesRecompilation() {
+	public void processDummyFilesRecompilation() {
 		for (SceneLayer pendingLayer : pendingMeshReloads) {
 			try {
 				pendingLayer.mesh = Mesh.parseFile(pendingLayer.mesh.getSourceFile());
@@ -175,6 +189,8 @@ public class FileWatcher {
 				Main.logger.err("Could not reload mesh '" + pendingLayer.mesh.getSourceFile() + "': " + e.getMessage());
 			}
 		}
+
+		pendingMeshReloads.clear();
 	}
 }
 
