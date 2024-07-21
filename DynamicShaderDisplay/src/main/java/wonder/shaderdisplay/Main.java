@@ -57,6 +57,8 @@ public class Main {
 		public boolean verbose;
 		@Option(name = "--force-gl-version", desc = "Forces the opengl version, use format <major>.<minor> (ie: 4.3)")
 		public String forcedGLVersion;
+		@Option(name = "--debug-resolved-shaders", desc = "Write the resolved version of the shaders to a file, useful to debug #include")
+		public boolean debugResolvedShaders;
 		@Option(name = "--width", shorthand = "-w", desc = "Sets the initial window width")
 		public int winWidth = 500 * 16/9;
 		@Option(name = "--height", shorthand = "-h", desc = "Sets the initial window height")

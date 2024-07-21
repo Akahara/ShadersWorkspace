@@ -1,11 +1,10 @@
 package wonder.shaderdisplay.scene;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import wonder.shaderdisplay.display.Mesh;
-import wonder.shaderdisplay.display.Renderer;
-import wonder.shaderdisplay.display.ShaderFileSet;
+import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.uniforms.UniformsContext;
 
+import java.io.File;
 import java.util.Objects;
 
 public class SceneLayer {
@@ -19,7 +18,7 @@ public class SceneLayer {
     public Mesh mesh;
 
     public final UniformsContext shaderUniforms = new UniformsContext(this);
-    public final ShaderSet compiledShaders = new ShaderSet();
+    public ShaderSet compiledShaders = new ShaderSet();
 
     public SceneLayer(BuiltinSceneLayerAddon builtinType, ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
         this.builtinAddon = builtinType;
@@ -41,17 +40,14 @@ public class SceneLayer {
     }
 
     public static class ShaderSet {
-        public int[] vertex;
-        public int[] geometry;
-        public int[] fragment;
-        public int compute;
+        public int[] shaderIds = new int[ShaderType.COUNT];
+        public String[] resolvedSources = new String[ShaderType.COUNT];
+        public File[][] shaderSourceFiles = new File[ShaderType.COUNT][];
         public int program;
 
         public void disposeAll() {
-            Renderer.deletePrograms(program);
-            Renderer.deleteShaders(vertex);
-            Renderer.deleteShaders(geometry);
-            Renderer.deleteShaders(fragment);
+            ShaderCompiler.deletePrograms(program);
+            ShaderCompiler.deleteShaders(shaderIds);
         }
     }
 

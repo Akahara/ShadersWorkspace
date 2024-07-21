@@ -1,5 +1,6 @@
 package wonder.shaderdisplay.entry;
 
+import fr.wonder.commons.exceptions.ErrorWrapper;
 import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.Main;
@@ -21,6 +22,7 @@ public class SetupUtils {
 
     protected static void loadCommonOptions(Main.DisplayOptions options) throws BadInitException {
         Main.logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
+        ShaderCompiler.setDebugResolvedShaders(options.debugResolvedShaders);
     }
 
     protected static Display createDisplay(Main.DisplayOptions options, boolean windowVisible, boolean useVSync) {
@@ -66,32 +68,40 @@ public class SetupUtils {
     }
 
     private static Scene createSimpleScene(Main.DisplayOptions options, File fragmentFile) throws BadInitException {
-        try {
-            SceneRenderTarget renderTarget = SceneRenderTarget.DEFAULT_RT;
-            Scene scene = new Scene();
-            scene.renderTargets.add(renderTarget);
-            scene.layers.add(SceneParser.makeClearLayer(new String[] { renderTarget.name }));
-            scene.layers.add(new SceneLayer(
-                new ShaderFileSet()
-                    .setFile(ShaderType.VERTEX, options.vertexShaderFile)
-                    .setFile(ShaderType.GEOMETRY, options.geometryShaderFile)
-                    .setFile(ShaderType.COMPUTE, options.computeShaderFile)
-                    .setFile(ShaderType.FRAGMENT, fragmentFile)
-                    .readSources(),
-                Mesh.fullscreenTriangle(),
-                new Macro[0],
-                new SceneUniform[0],
-                new SceneLayer.RenderState(),
-                new String[] { renderTarget.name }
-            ));
+        SceneRenderTarget renderTarget = SceneRenderTarget.DEFAULT_RT;
+        ErrorWrapper errors = new ErrorWrapper("Could not build a simple scene");
+        Scene scene = new Scene();
+        scene.renderTargets.add(renderTarget);
+        scene.layers.add(SceneParser.makeClearLayer(
+            errors,
+            new String[] { renderTarget.name },
+            "vec4(0, 0, 0, 1)"
+        ));
+        scene.layers.add(new SceneLayer(
+            new ShaderFileSet()
+                .setFile(ShaderType.VERTEX, options.vertexShaderFile)
+                .setFile(ShaderType.GEOMETRY, options.geometryShaderFile)
+                .setFile(ShaderType.COMPUTE, options.computeShaderFile)
+                .setFile(ShaderType.FRAGMENT, fragmentFile)
+                .completeWithDefaultSources(),
+            Mesh.fullscreenTriangle(),
+            new Macro[0],
+            new SceneUniform[0],
+            new SceneLayer.RenderState(),
+            new String[] { renderTarget.name }
+        ));
 
-            for (SceneLayer layer : scene.layers)
-                if (!Renderer.compileShaders(scene, layer))
-                    throw new IOException("Could not compile shaders");
-            return scene;
-        } catch (IOException e) {
-            throw new BadInitException(e.getMessage());
+        ShaderCompiler compiler = new ShaderCompiler(scene);
+        for (SceneLayer layer : scene.layers)
+            if (!compiler.compileShaders(errors, layer).success)
+                throw new BadInitException("Could not compile shaders");
+
+        if (!errors.noErrors()) {
+            errors.dump(Main.logger);
+            throw new BadInitException("Could not build a simple scene");
         }
+
+        return scene;
     }
 
 }

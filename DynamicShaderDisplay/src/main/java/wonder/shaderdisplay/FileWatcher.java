@@ -1,9 +1,10 @@
 package wonder.shaderdisplay;
 
+import fr.wonder.commons.exceptions.ErrorWrapper;
 import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryWatcher;
 import wonder.shaderdisplay.display.Mesh;
-import wonder.shaderdisplay.display.Renderer;
+import wonder.shaderdisplay.display.ShaderCompiler;
 import wonder.shaderdisplay.display.ShaderType;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
@@ -46,8 +47,8 @@ public class FileWatcher {
 			for (ShaderType type : ShaderType.TYPES) {
 				if (!layer.fileSet.hasCustomShader(type))
 					continue;
-				for (File shaderFile : layer.fileSet.getFiles(type))
-					addWatchedPath(shaderFile, new WatchableShaderFiles(layer));
+				for (File file : layer.compiledShaders.shaderSourceFiles[type.ordinal()])
+					addWatchedPath(file, new WatchableShaderFiles(layer));
 			}
 
 			if (layer.mesh.getSourceFile() != null)
@@ -164,21 +165,25 @@ public class FileWatcher {
 		return isSceneFileUpdatePending;
 	}
 
-	public boolean processShaderRecompilation() {
-		if (pendingShaderRecompilations.isEmpty()) return false;
+	public ShaderCompiler.ShaderCompilationResult processShaderRecompilation() {
+		if (pendingShaderRecompilations.isEmpty())
+			return ShaderCompiler.ShaderCompilationResult.error();
+
+		ShaderCompiler compiler = new ShaderCompiler(scene);
+		ShaderCompiler.ShaderCompilationResult result = new ShaderCompiler.ShaderCompilationResult();
 
 		for (SceneLayer pendingLayer : pendingShaderRecompilations) {
-			try {
-				pendingLayer.fileSet.readSources();
-				Renderer.compileShaders(scene, pendingLayer);
-			} catch (IOException e) {
-				Main.logger.err("Could not recompile a shader: " + e.getMessage());
-			}
+			ErrorWrapper errors = new ErrorWrapper("Could not compile shader " + pendingLayer.fileSet.getPrimaryFileName());
+			ShaderCompiler.ShaderCompilationResult r = compiler.compileShaders(errors, pendingLayer);
+			result.success &= r.success;
+			result.fileDependenciesUpdated |= r.fileDependenciesUpdated;
+			if (!r.success)
+				errors.dump(Main.logger);
 		}
 
 		pendingShaderRecompilations.clear();
 
-		return true;
+		return result;
 	}
 
 	public void processDummyFilesRecompilation() {

@@ -12,6 +12,10 @@ public class SceneRenderTarget {
 
     public static SceneRenderTarget DEFAULT_RT = new SceneRenderTarget();
 
+    public boolean sizeMatch(SceneRenderTarget other) {
+        return width == other.width && height == other.height && screenRelative == other.screenRelative;
+    }
+
     static {
         DEFAULT_RT.name = "screen";
     }

@@ -1,49 +1,63 @@
 package wonder.shaderdisplay.display;
 
-import fr.wonder.commons.files.FilesUtils;
 import wonder.shaderdisplay.Resources;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Objects;
 
 public class ShaderFileSet {
 
-	private final File[][] filePaths = new File[ShaderType.COUNT][];
-	private final String[][] cachedSources;
-	private String fixedPrimarySourceName;
+	public static class ShaderSource {
+		private final File fileSource;
+		private final String rawSource;
+		private String cachedResolvedSource;
 
-	public ShaderFileSet() {
-		cachedSources = new String[ShaderType.COUNT][];
-		for (ShaderType type : ShaderType.STANDARD_TYPES)
-			cachedSources[type.ordinal()] = new String[] { Resources.DEFAULT_SHADER_SOURCES[type.ordinal()] };
+		ShaderSource(File fileSource) {
+			this.fileSource = fileSource;
+			this.rawSource = null;
+		}
+
+		ShaderSource(String rawSource) {
+			this.fileSource = null;
+			this.rawSource = rawSource;
+		}
+
+		public boolean isRawSource() {
+			return rawSource != null;
+		}
+
+		public String getRawSource() {
+			return rawSource;
+		}
+
+		public File getFileSource() {
+			if (isRawSource())
+				throw new IllegalStateException("Not a file source");
+			return fileSource;
+		}
+
+		public void updateCachedResolvedSource(String resolvedSource) {
+			this.cachedResolvedSource = resolvedSource;
+		}
+
+		public String getCachedResolvedSource() {
+			return cachedResolvedSource;
+		}
 	}
+
+	private final ShaderSource[] sources = new ShaderSource[ShaderType.COUNT];
+	private String fixedPrimarySourceName;
 
 	public boolean isCompute() {
 		return hasCustomShader(ShaderType.COMPUTE);
 	}
 
-	public File[] getFiles(ShaderType type) {
-		return filePaths[type.ordinal()];
+	public ShaderSource getSource(ShaderType type) {
+		return sources[type.ordinal()];
 	}
 
 	public boolean hasCustomShader(ShaderType type) {
-		return filePaths[type.ordinal()] != null;
-	}
-
-	public String[] getSources(ShaderType type) {
-		return cachedSources[type.ordinal()];
-	}
-
-	public ShaderFileSet setFile(ShaderType type, File file) {
-		return setFiles(type, file == null ? null : new File[] { file });
-	}
-
-	public ShaderFileSet setSource(ShaderType type, String source) {
-		if (hasCustomShader(type))
-			throw new IllegalArgumentException("A " + type.name() + " shader is already specified");
-		cachedSources[type.ordinal()] = new String[] { Objects.requireNonNull(source) };
-		return this;
+		return sources[type.ordinal()] != null;
 	}
 
 	public ShaderFileSet setFixedPrimarySourceName(String name) {
@@ -51,49 +65,45 @@ public class ShaderFileSet {
 		return this;
 	}
 
-	public ShaderFileSet setFiles(ShaderType type, File[] files) {
+	public ShaderFileSet setFile(ShaderType type, File file) {
 		if (hasCustomShader(type))
 			throw new IllegalArgumentException("A " + type.name() + " shader is already specified");
-		if (files == null)
+		if (file == null)
 			return this;
-		if (files.length == 0)
-			throw new IllegalArgumentException("Cannot specify an empty set of shader files");
 		if (type == ShaderType.COMPUTE
-				? (filePaths[ShaderType.VERTEX.ordinal()] != null || filePaths[ShaderType.FRAGMENT.ordinal()] != null || filePaths[ShaderType.GEOMETRY.ordinal()] != null)
-				: (filePaths[ShaderType.COMPUTE.ordinal()] != null))
+				? (sources[ShaderType.VERTEX.ordinal()] != null || sources[ShaderType.FRAGMENT.ordinal()] != null || sources[ShaderType.GEOMETRY.ordinal()] != null)
+				: (sources[ShaderType.COMPUTE.ordinal()] != null))
 			throw new IllegalArgumentException("A compute shader cannot be specified with other types of shaders");
 
-		filePaths[type.ordinal()] = files;
-		cachedSources[type.ordinal()] = new String[files.length];
+		sources[type.ordinal()] = new ShaderSource(file);
 		return this;
 	}
 
-	public ShaderFileSet readSources() throws IOException {
-		for (int i = 0; i < ShaderType.COUNT; i++) {
-			if (filePaths[i] == null)
-				continue;
-			for (int j = 0; j < filePaths[i].length; j++) {
-				try {
-					cachedSources[i][j] = FilesUtils.read(filePaths[i][j]);
-				} catch (IOException e) {
-					throw new IOException("Could not read " + ShaderType.TYPES[i].name() + " shader " + filePaths[i][j] + ": " + e.getMessage());
-				}
-			}
-		}
-		return this;
-	}
-
-	public String getFinalFileName(ShaderType type) {
+	public ShaderFileSet setRawSource(ShaderType type, String rawSource) {
+		if (fixedPrimarySourceName == null)
+			throw new IllegalStateException("Raw source can only be specified for named shader sets");
 		if (hasCustomShader(type))
-			return filePaths[type.ordinal()][0].getName();
-		if (type == ShaderType.GEOMETRY)
-			throw new IllegalArgumentException("No geometry shader specified, that one should not be assumed to exist");
-		return "default-" + type.name().toLowerCase();
+			throw new IllegalArgumentException("A " + type.name() + " shader is already specified");
+		if (rawSource == null)
+			return this;
+		if (type == ShaderType.COMPUTE
+				? (sources[ShaderType.VERTEX.ordinal()] != null || sources[ShaderType.FRAGMENT.ordinal()] != null || sources[ShaderType.GEOMETRY.ordinal()] != null)
+				: (sources[ShaderType.COMPUTE.ordinal()] != null))
+			throw new IllegalArgumentException("A compute shader cannot be specified with other types of shaders");
+
+		sources[type.ordinal()] = new ShaderSource(rawSource);
+		return this;
+	}
+
+	public ShaderFileSet completeWithDefaultSources() {
+		if (!hasCustomShader(ShaderType.VERTEX))
+			sources[ShaderType.VERTEX.ordinal()] = new ShaderSource(Resources.DEFAULT_SHADER_SOURCES[ShaderType.VERTEX.ordinal()]);
+		return this;
 	}
 
 	public String getPrimaryFileName() {
 		return fixedPrimarySourceName != null ? fixedPrimarySourceName
-			: isCompute() ? getFinalFileName(ShaderType.COMPUTE)
-			: getFinalFileName(ShaderType.FRAGMENT);
+			: isCompute() ? getSource(ShaderType.COMPUTE).getFileSource().getName()
+			: getSource(ShaderType.FRAGMENT).getFileSource().getName();
 	}
 }

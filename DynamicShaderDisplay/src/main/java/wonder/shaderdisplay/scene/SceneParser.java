@@ -9,18 +9,19 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
+import fr.wonder.commons.exceptions.ErrorWrapper;
 import fr.wonder.commons.utils.ArrayOperator;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Resources;
-import wonder.shaderdisplay.display.Mesh;
-import wonder.shaderdisplay.display.Renderer;
-import wonder.shaderdisplay.display.ShaderFileSet;
-import wonder.shaderdisplay.display.ShaderType;
+import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.entry.BadInitException;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -62,49 +63,54 @@ public class SceneParser {
             return previousScene;
         }
 
-        StringBuilder errors = new StringBuilder();
+        ErrorWrapper errors = new ErrorWrapper("Could not regenerate the scene");
 
         Scene scene = new Scene(file);
         scene.macros.addAll(Arrays.asList(serialized.macros));
         scene.renderTargets.add(SceneRenderTarget.DEFAULT_RT);
         scene.renderTargets.addAll(Arrays.asList(serialized.renderTargets));
-        boolean tryToReloadPreviousScene = previousScene != null && previousScene.layers.size() == serialized.layers.length;
+        ShaderCompiler compiler = new ShaderCompiler(scene);
+        boolean tryToReloadPreviousScene = previousScene != null && previousScene.layers.size() == serialized.layers.length; // TODO keep uniform states after a reload
 
         validateSceneRenderTargets(errors, serialized.renderTargets);
 
         for (int i = 0; i < serialized.layers.length; i++) {
             JsonSceneLayer serializedLayerBase = serialized.layers[i];
+            ErrorWrapper layerErrors = errors.subErrors("Layer " + i);
             try {
                 if (serializedLayerBase instanceof JsonSceneStandardLayer serializedLayer) {
-                    scene.layers.add(parseStandardLayer(file, scene, serializedLayer));
+                    scene.layers.add(parseStandardLayer(layerErrors, compiler, file, scene, serializedLayer));
                 } else if (serializedLayerBase instanceof JsonClearPass pass) {
-                    scene.layers.add(makeClearLayer(pass.targets, pass.clearColor));
+                    scene.layers.addAll(makeClearLayers(layerErrors, scene.renderTargets, pass));
+                } else if (serializedLayerBase instanceof JsonBlitPass pass) {
+                    scene.layers.addAll(makeBlitLayers(layerErrors, scene.renderTargets, pass));
                 } else {
-                    throw new IOException(serializedLayerBase.getClass().getName());
+                    errors.add("Pass doesn't have a layer implementation? : " + serializedLayerBase.getClass().getName());
                 }
-            } catch (IOException e) {
-                errors.append("Layer " + i + ": " + e.getMessage() + "\n");
+                errors.assertNoErrors();
+            } catch (ErrorWrapper.WrappedException x) {
+            } catch (IOException | IllegalArgumentException | IllegalStateException e) {
+                errors.add(String.format("Layer %d: %s", i, e.getMessage()));
             }
         }
 
-        if (!errors.isEmpty()) {
+        if (!errors.noErrors()) {
             scene.dispose();
-            errors.deleteCharAt(errors.length()-1);
-            Main.logger.err(errors.toString());
+            errors.dump(Main.logger);
             return previousScene;
         }
 
         return scene;
     }
 
-    private static SceneLayer parseStandardLayer(File rootFile, Scene scene, JsonSceneStandardLayer serializedLayer) throws IOException {
+    private static SceneLayer parseStandardLayer(ErrorWrapper errors, ShaderCompiler compiler, File rootFile, Scene scene, JsonSceneStandardLayer serializedLayer) throws IOException, ErrorWrapper.WrappedException {
         SceneLayer layer = new SceneLayer(
             new ShaderFileSet()
-                .setFiles(ShaderType.VERTEX, asOptionalPaths(rootFile, serializedLayer.root, serializedLayer.vertex))
-                .setFiles(ShaderType.GEOMETRY, asOptionalPaths(rootFile, serializedLayer.root, serializedLayer.geometry))
-                .setFiles(ShaderType.FRAGMENT, asOptionalPaths(rootFile, serializedLayer.root, serializedLayer.fragment))
+                .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
+                .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
+                .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
                 .setFile(ShaderType.COMPUTE, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.compute))
-                .readSources(),
+                .completeWithDefaultSources(),
             loadMesh(rootFile, serializedLayer.root, serializedLayer.model),
             serializedLayer.macros,
             serializedLayer.uniforms,
@@ -114,16 +120,39 @@ public class SceneParser {
 
         validateLayerRenderTargets(scene, serializedLayer.targets);
 
-        if (!Renderer.compileShaders(scene, layer))
-            throw new IOException("Could not build a shader");
+        ShaderCompiler.ShaderCompilationResult result = compiler.compileShaders(errors, layer);
+        result.errors.assertNoErrors();
         return layer;
     }
 
-    public static SceneLayer makeClearLayer(String[] outputTargets) throws IOException {
-        return makeClearLayer(outputTargets, "vec4(0,0,0,1)");
+    private static List<List<SceneRenderTarget>> groupRenderTargets(List<SceneRenderTarget> targets, String[] pickedTargets) throws IllegalArgumentException {
+        List<List<SceneRenderTarget>> renderTargetSets = new ArrayList<>();
+
+        for (String pickedTarget : pickedTargets) {
+            SceneRenderTarget target = targets.stream()
+                    .filter(t -> t.name.equals(pickedTarget))
+                    .findFirst()
+                    .orElse(null);
+            if (target == null)
+                throw new IllegalArgumentException("Cannot clear undefined render target '" + pickedTarget + "'");
+
+            List<SceneRenderTarget> matchingSet = renderTargetSets.stream().filter(s -> s.get(0).sizeMatch(target)).findFirst().orElse(null);
+            if (matchingSet != null)
+                matchingSet.add(target);
+            else
+                renderTargetSets.add(new ArrayList<>(List.of(target)));
+        }
+
+        return renderTargetSets;
     }
 
-    public static SceneLayer makeClearLayer(String[] outputTargets, String clearColor) throws IOException {
+    private static List<SceneLayer> makeClearLayers(ErrorWrapper errors, List<SceneRenderTarget> existingRenderTargets, JsonClearPass pass) {
+        return groupRenderTargets(existingRenderTargets, pass.targets).stream()
+            .map(set -> makeClearLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass.clearColor))
+            .collect(Collectors.toList());
+    }
+
+    public static SceneLayer makeClearLayer(ErrorWrapper errors, String[] outputTargets, String clearColor) {
         Stream<Macro> macros = Stream.empty();
         macros = Stream.concat(macros, IntStream.range(0, outputTargets.length).mapToObj(i -> new Macro("CLEAR_TARGET_"+i)));
         macros = Stream.concat(macros, Stream.of(new Macro("CLEAR_COLOR", clearColor)));
@@ -132,8 +161,8 @@ public class SceneParser {
             SceneLayer.BuiltinSceneLayerAddon.CLEAR_PASS,
             new ShaderFileSet()
                 .setFixedPrimarySourceName("clear_pass")
-                .setSource(ShaderType.FRAGMENT, Resources.readResource("/passes/clear.fs"))
-                .setSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
+                .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/clear.fs"))
+                .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
             Mesh.fullscreenTriangle(),
             macros.toArray(Macro[]::new),
             new SceneUniform[0],
@@ -145,8 +174,38 @@ public class SceneParser {
             outputTargets
         );
 
-        if (!Renderer.compileShaders(null, layer))
-            throw new IOException("Could not build a shader");
+        new ShaderCompiler(null).compileShaders(errors, layer);
+
+        return layer;
+    }
+
+    private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, List<SceneRenderTarget> renderTargets, JsonBlitPass pass) {
+        return groupRenderTargets(renderTargets, pass.targets).stream()
+                .map(set -> makeBlitLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass.source))
+                .collect(Collectors.toList());
+    }
+
+    private static SceneLayer makeBlitLayer(ErrorWrapper errors, String[] renderTargets, String source) {
+        Stream<Macro> macros = IntStream.range(0, renderTargets.length).mapToObj(i -> new Macro("BLIT_TARGET_"+i));
+
+        SceneLayer layer = new SceneLayer(
+            SceneLayer.BuiltinSceneLayerAddon.CLEAR_PASS,
+            new ShaderFileSet()
+                .setFixedPrimarySourceName("blit_pass")
+                .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
+                .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
+            Mesh.fullscreenTriangle(),
+            macros.toArray(Macro[]::new),
+            new SceneUniform[] { new SceneUniform("u_source", source) },
+            new SceneLayer.RenderState()
+                .setBlending(false)
+                .setCulling(SceneLayer.RenderState.Culling.NONE)
+                .setDepthTest(false)
+                .setDepthWrite(false),
+            renderTargets
+        );
+
+        new ShaderCompiler(null).compileShaders(errors, layer);
 
         return layer;
     }
@@ -157,11 +216,6 @@ public class SceneParser {
         File finalFile = sceneFile.getParentFile();
         if (optRoot != null) finalFile = new File(finalFile, optRoot);
         return new File(finalFile, optPath);
-    }
-
-    private static File[] asOptionalPaths(File sceneFile, String optRoot, String[] optPaths) {
-        if (optPaths == null) return null;
-        return ArrayOperator.map(optPaths, File[]::new, p -> asOptionalPath(sceneFile, optRoot, p));
     }
 
     private static Mesh loadMesh(File sceneFile, String optRoot, String nameOrPath) throws IOException {
@@ -179,25 +233,25 @@ public class SceneParser {
         }
     }
 
-    private static void validateSceneRenderTargets(StringBuilder errors, SceneRenderTarget[] renderTargets) {
+    private static void validateSceneRenderTargets(ErrorWrapper errors, SceneRenderTarget[] renderTargets) {
         for (int i = 0; i < renderTargets.length; i++) {
             SceneRenderTarget rt = renderTargets[i];
             for (int j = 0; j < i; j++) {
                 if (renderTargets[j].name.equals(rt.name))
-                    errors.append("Render target '").append(rt.name).append("' specified twice\n");
+                    errors.add("Render target '" + rt.name + "' specified twice");
             }
             if (rt.width < 0 || rt.height < 0)
-                errors.append("Invalid size for render target '").append(rt.name).append("'");
+                errors.add("Invalid size for render target '" + rt.name + "'");
             if (!rt.screenRelative && (rt.width < 1.f || rt.height < 1.f || (int)rt.width != rt.width || (int)rt.height != rt.height))
-                errors.append("Invalid size for render target '").append(rt.name).append("', for non-screen relative RTs only absolute dimensions are valid\n");
+                errors.add("Invalid size for render target '" + rt.name + "', for non-screen relative RTs only absolute dimensions are valid");
             if (rt.screenRelative && (rt.width > 20 || rt.height > 20))
-                errors.append("Very large render target '").append(rt.name).append("', did you forget 'screenRelative':false ?\n");
+                errors.add("Very large render target '" + rt.name + "', did you forget 'screenRelative':false ?");
         }
     }
 
-    private static void validateLayerRenderTargets(Scene scene, String[] layerRenderTargets) throws IOException {
+    private static void validateLayerRenderTargets(Scene scene, String[] layerRenderTargets) {
         if (layerRenderTargets.length == 0) {
-            throw new IOException("No output render target specified");
+            throw new IllegalArgumentException("No output render target specified");
         } else {
             SceneRenderTarget baseRenderTarget = scene.getRenderTarget(layerRenderTargets[0]);
             for (int j = 1; j < layerRenderTargets.length; j++) {
@@ -205,12 +259,12 @@ public class SceneParser {
                 SceneRenderTarget rt = scene.getRenderTarget(rtName);
                 for (int k = 0; k < j; k++)
                     if (rtName.equals(layerRenderTargets[k]))
-                        throw new IOException("Target '" + rtName + "' is written to twice");
+                        throw new IllegalArgumentException("Target '" + rtName + "' is written to twice");
                 if (rt == null) {
-                    throw new IOException("Target '" + rtName + "' was not declared");
+                    throw new IllegalArgumentException("Target '" + rtName + "' was not declared");
                 } else {
                     if (rt.screenRelative != baseRenderTarget.screenRelative || rt.width != baseRenderTarget.width || rt.height != baseRenderTarget.height)
-                        throw new IOException("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
+                        throw new IllegalArgumentException("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
                 }
             }
         }
@@ -226,7 +280,6 @@ class JsonScene {
     @JsonProperty(required = true)
     public JsonSceneLayer[] layers;
     public Macro[] macros = new Macro[0];
-    public JsonSceneAudio[] audio = new JsonSceneAudio[0];
     public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
 }
 
@@ -234,7 +287,8 @@ class JsonScene {
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, defaultImpl = JsonSceneStandardLayer.class, property = "pass")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = JsonSceneStandardLayer.class, name = "standard"),
-        @JsonSubTypes.Type(value = JsonClearPass.class, name = "clear")
+        @JsonSubTypes.Type(value = JsonClearPass.class, name = "clear"),
+        @JsonSubTypes.Type(value = JsonBlitPass.class, name = "blit"),
 })
 class JsonSceneLayer {
     public boolean depthTest = false;
@@ -257,12 +311,9 @@ class JsonSceneLayer {
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 class JsonSceneStandardLayer extends JsonSceneLayer {
     public String root = null;
-    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
-    public String[] vertex = null;
-    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
-    public String[] geometry = null;
-    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
-    public String[] fragment = null;
+    public String vertex = null;
+    public String geometry = null;
+    public String fragment = null;
     public String compute = null;
     public String model = null;
     public Macro[] macros = new Macro[0];
@@ -273,7 +324,7 @@ class JsonClearPass extends JsonSceneLayer {
     public String clearColor = "vec4(0,0,0,1)";
 }
 
-class JsonSceneAudio {
+class JsonBlitPass extends JsonSceneLayer {
     @JsonProperty(required = true)
-    public String path;
+    public String source;
 }

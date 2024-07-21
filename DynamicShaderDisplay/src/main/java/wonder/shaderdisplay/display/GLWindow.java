@@ -1,11 +1,9 @@
 package wonder.shaderdisplay.display;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL43.*;
 import static org.lwjgl.opengl.GL20.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS;
 import static org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
-import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL30.glGetIntegeri;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_COUNT;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
@@ -14,6 +12,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -29,6 +28,7 @@ import org.lwjgl.glfw.Callbacks;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GLCapabilities;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 import wonder.shaderdisplay.Main;
@@ -51,7 +51,7 @@ public class GLWindow {
 			throw new IllegalStateException("Unable to initialize GLFW !");
 
 		setGLVersionHint(forcedGlVersion);
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
@@ -97,7 +97,7 @@ public class GLWindow {
 	private static void setGLVersionHint(String forcedGLVersion) {
 		if(forcedGLVersion == null) {
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+			glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 			return;
 		}
 
@@ -148,7 +148,7 @@ public class GLWindow {
 		BufferedImage iconImage;
 		try {
 			iconImage = ImageIO.read(GLWindow.class.getResourceAsStream(resourcePath));
-		} catch (IOException | IllegalArgumentException e) {
+		} catch (IOException | IllegalArgumentException | NullPointerException e) {
 			Main.logger.err(e, "Could not load taskbar icon");
 			return;
 		}
@@ -175,6 +175,15 @@ public class GLWindow {
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1) + ", " +
 				glGetIntegeri(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2) + ")");
 		System.out.println("GLSL:computeMaxInvocations " + glGetInteger(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS));
+
+		GLCapabilities capabilities = GL.getCapabilities();
+		for (Field field : GLCapabilities.class.getFields()) {
+			if(field.getType() != boolean.class)
+				continue;
+			try {
+				System.out.println("GLCapability:" + field.getName() + " " + field.get(capabilities));
+			} catch (IllegalAccessException x) {}
+		}
 	}
 
 	public static int getWinWidth() {
@@ -192,7 +201,7 @@ public class GLWindow {
 
 	public static class ListenerHandle {
 
-		private Runnable removeHandle;
+		private final Runnable removeHandle;
 
 		ListenerHandle(Runnable removeHandle) {
 			this.removeHandle = Objects.requireNonNull(removeHandle);

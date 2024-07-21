@@ -179,8 +179,8 @@ class WindowBlit {
 		glBindVertexArray(0);
 
 		shader = glCreateProgram();
-		int vertex = Renderer.buildRawShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
-		int fragment = Renderer.buildRawShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
+		int vertex = ShaderCompiler.buildRawShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
+		int fragment = ShaderCompiler.buildRawShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
 		glAttachShader(shader, vertex);
 		glAttachShader(shader, fragment);
 		glLinkProgram(shader);

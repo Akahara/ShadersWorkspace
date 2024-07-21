@@ -7,6 +7,7 @@ import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.*;
 import wonder.shaderdisplay.display.GLWindow;
+import wonder.shaderdisplay.display.ShaderCompiler;
 import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
@@ -70,15 +71,16 @@ public class EntryRun extends SetupUtils {
                 windowTitleSupplier.hasPendingFileChanges = hasPendingFileChanges;
                 if (hasPendingFileChanges && !fileWatcher.isDebouncingRecompilation()) {
                     synchronized (fileWatcher) {
+                        boolean rewatchFiles = false;
                         if (fileWatcher.requiresSceneRecompilation()) {
-                            fileWatcher.stopWatching();
+                            rewatchFiles = true;
                             Main.logger.info("Regenerating scene");
                             scene = SceneParser.regenerateScene(fragment, scene);
                             scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());
-                            fileWatcher = new FileWatcher(scene, options.hardReload);
-                            fileWatcher.startWatching();
                         }
-                        if (fileWatcher.processShaderRecompilation()) {
+                        ShaderCompiler.ShaderCompilationResult compilationResult = fileWatcher.processShaderRecompilation();
+                        rewatchFiles |= compilationResult.fileDependenciesUpdated;
+                        if (compilationResult.success) {
                             UniformApplicationContext.resetLoggedBindingWarnings();
                             if (options.resetTimeOnUpdate)
                                 Time.setFrame(0);
@@ -86,6 +88,11 @@ public class EntryRun extends SetupUtils {
                                 scene.clearSwapChainTextures();
                         }
                         fileWatcher.processDummyFilesRecompilation();
+                        if (rewatchFiles) {
+                            fileWatcher.stopWatching();
+                            fileWatcher = new FileWatcher(scene, options.hardReload);
+                            fileWatcher.startWatching();
+                        }
                     }
                 }
 
