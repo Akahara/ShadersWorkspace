@@ -9,8 +9,10 @@ import wonder.shaderdisplay.*;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.ShaderCompiler;
 import wonder.shaderdisplay.display.Texture;
+import wonder.shaderdisplay.display.WindowBlit;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
+import wonder.shaderdisplay.scene.SceneRenderTarget;
 import wonder.shaderdisplay.uniforms.UniformApplicationContext;
 import wonder.shaderdisplay.uniforms.ViewUniform;
 
@@ -103,7 +105,12 @@ public class EntryRun extends SetupUtils {
                 // render the actual frame
                 if (!Time.isPaused() || Time.justChanged() || userControls.justMoved())
                     display.renderer.render(scene);
-                scene.presentToScreen(scene.getPrimaryRenderTargetName(), userControls.getDrawBackground());
+                int primaryRTIndex = userControls.getPrimaryRenderTargetIndex();
+                WindowBlit.blitToScreen(
+                        scene.swapChain.getAttachment(primaryRTIndex < 0 ? SceneRenderTarget.DEFAULT_RT.name : scene.renderTargets.get(primaryRTIndex).name),
+                        userControls.getDrawBackground(),
+                        userControls.getDepthPreviewZRangeStart(),
+                        userControls.getDepthPreviewZRangeStop());
 
                 // update time *after* having drawn the frame and *before* drawing controls
                 // that way time can be set by the controls and not be modified until next frame
@@ -125,13 +132,13 @@ public class EntryRun extends SetupUtils {
                 glfwPollEvents();
 
                 if (userControls.poolShouldTakeScreenshot())
-                    userControls.takeScreenshot(scene.swapChain, scene.getPrimaryRenderTargetName(), options.displayOptions);
+                    userControls.takeScreenshot(scene, options.displayOptions);
 
                 workTime += System.nanoTime() - current;
                 current = System.nanoTime();
                 if (current < nextFrame)
                     ProcessUtils.sleep((nextFrame - current) / (int) 1E6);
-                nextFrame += 1E9 / options.targetFPS;
+                nextFrame += (long) (1E9 / options.targetFPS);
                 frames++;
                 if (current > lastSec + 1E9) {
                     windowTitleSupplier.millisPerFrame = workTime / 1E6 / frames;

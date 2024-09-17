@@ -9,21 +9,36 @@ import static org.lwjgl.opengl.GL20.glUseProgram;
 
 public class Renderer {
 
-	public void render(Scene scene) {
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	private final FrameBuffer clearFBO = new FrameBuffer();
 
+	public void render(Scene scene) {
 		for (SceneLayer layer : scene.layers) {
-			scene.swapChain.preparePass(layer);
-			glUseProgram(layer.compiledShaders.program);
-			setupRenderState(layer.renderState);
-			layer.shaderUniforms.apply(scene);
-			layer.mesh.makeDrawCall();
-			if (layer.builtinAddon != null) {
-				switch (layer.builtinAddon) {
-					case CLEAR_PASS -> glClear(GL_DEPTH_BUFFER_BIT);
+			switch (layer.sceneType) {
+			case STANDARD_PASS:
+				scene.swapChain.preparePass(layer);
+				glUseProgram(layer.compiledShaders.program);
+				setupRenderState(layer.renderState);
+				layer.shaderUniforms.apply(scene);
+				layer.mesh.makeDrawCall();
+				scene.swapChain.endPass();
+				break;
+			case CLEAR_PASS:
+				glClearColor(layer.clearColor[0], layer.clearColor[1], layer.clearColor[2], layer.clearColor[3]);
+				glClearDepth(layer.clearDepth);
+				for (String rt : layer.outRenderTargets) {
+					Texture texture = scene.swapChain.getAttachment(rt);
+					if (texture.isDepth()) {
+						clearFBO.addDepthAttachment(texture);
+					} else {
+						clearFBO.addAttachment(texture);
+					}
+					clearFBO.bind();
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					clearFBO.unbind();
+					clearFBO.clearAttachments();
 				}
+				break;
 			}
-			scene.swapChain.endPass();
 		}
 
 		setupRenderState(SceneLayer.RenderState.DEFAULT);

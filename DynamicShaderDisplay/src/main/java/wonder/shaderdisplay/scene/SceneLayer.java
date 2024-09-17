@@ -9,29 +9,28 @@ import java.util.Objects;
 
 public class SceneLayer {
 
-    public final BuiltinSceneLayerAddon builtinAddon;
+    public final SceneType sceneType;
     public final ShaderFileSet fileSet;
     public final Macro[] macros;
     public final SceneUniform[] uniforms;
     public final RenderState renderState;
     public final String[] outRenderTargets;
     public Mesh mesh;
+    // only valid if sceneType is CLEAR
+    public float[] clearColor;
+    public float clearDepth;
 
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneLayer(BuiltinSceneLayerAddon builtinType, ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
-        this.builtinAddon = builtinType;
+    public SceneLayer(SceneType type, ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
+        this.sceneType = Objects.requireNonNull(type);
         this.fileSet = Objects.requireNonNull(fileSet);
         this.mesh = Objects.requireNonNull(mesh);
         this.macros = Objects.requireNonNull(macros);
         this.uniforms = Objects.requireNonNull(uniforms);
         this.renderState = Objects.requireNonNull(renderState);
         this.outRenderTargets = Objects.requireNonNull(outRenderTargets);
-    }
-
-    public SceneLayer(ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
-        this(null, fileSet, mesh, macros, uniforms, renderState, outRenderTargets);
     }
 
     public void dispose() {
@@ -73,7 +72,8 @@ public class SceneLayer {
         }
     }
 
-    public enum BuiltinSceneLayerAddon {
+    public enum SceneType {
+        STANDARD_PASS,
         CLEAR_PASS,
     }
 

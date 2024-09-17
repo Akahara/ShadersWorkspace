@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import fr.wonder.commons.exceptions.ErrorWrapper;
-import fr.wonder.commons.utils.ArrayOperator;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.display.*;
@@ -21,6 +20,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -81,7 +82,7 @@ public class SceneParser {
                 if (serializedLayerBase instanceof JsonSceneStandardLayer serializedLayer) {
                     scene.layers.add(parseStandardLayer(layerErrors, compiler, file, scene, serializedLayer));
                 } else if (serializedLayerBase instanceof JsonClearPass pass) {
-                    scene.layers.addAll(makeClearLayers(layerErrors, scene.renderTargets, pass));
+                    scene.layers.add(makeClearLayer(layerErrors, pass.targets, pass.clearColor, pass.clearDepth));
                 } else if (serializedLayerBase instanceof JsonBlitPass pass) {
                     scene.layers.addAll(makeBlitLayers(layerErrors, scene.renderTargets, pass));
                 } else {
@@ -105,6 +106,7 @@ public class SceneParser {
 
     private static SceneLayer parseStandardLayer(ErrorWrapper errors, ShaderCompiler compiler, File rootFile, Scene scene, JsonSceneStandardLayer serializedLayer) throws IOException, ErrorWrapper.WrappedException {
         SceneLayer layer = new SceneLayer(
+            SceneLayer.SceneType.STANDARD_PASS,
             new ShaderFileSet()
                 .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
                 .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
@@ -125,7 +127,7 @@ public class SceneParser {
         return layer;
     }
 
-    private static List<List<SceneRenderTarget>> groupRenderTargets(List<SceneRenderTarget> targets, String[] pickedTargets) throws IllegalArgumentException {
+    private static List<List<SceneRenderTarget>> groupRenderTargetsBySize(List<SceneRenderTarget> targets, String[] pickedTargets) throws IllegalArgumentException {
         List<List<SceneRenderTarget>> renderTargetSets = new ArrayList<>();
 
         for (String pickedTarget : pickedTargets) {
@@ -146,41 +148,41 @@ public class SceneParser {
         return renderTargetSets;
     }
 
-    private static List<SceneLayer> makeClearLayers(ErrorWrapper errors, List<SceneRenderTarget> existingRenderTargets, JsonClearPass pass) {
-        return groupRenderTargets(existingRenderTargets, pass.targets).stream()
-            .map(set -> makeClearLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass.clearColor))
-            .collect(Collectors.toList());
-    }
-
-    public static SceneLayer makeClearLayer(ErrorWrapper errors, String[] outputTargets, String clearColor) {
-        Stream<Macro> macros = Stream.empty();
-        macros = Stream.concat(macros, IntStream.range(0, outputTargets.length).mapToObj(i -> new Macro("CLEAR_TARGET_"+i)));
-        macros = Stream.concat(macros, Stream.of(new Macro("CLEAR_COLOR", clearColor)));
-
+    public static SceneLayer makeClearLayer(ErrorWrapper errors, String[] renderTargets, String clearColor, float clearDepth) {
         SceneLayer layer = new SceneLayer(
-            SceneLayer.BuiltinSceneLayerAddon.CLEAR_PASS,
-            new ShaderFileSet()
-                .setFixedPrimarySourceName("clear_pass")
-                .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/clear.fs"))
-                .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
-            Mesh.fullscreenTriangle(),
-            macros.toArray(Macro[]::new),
+            SceneLayer.SceneType.CLEAR_PASS,
+            new ShaderFileSet().setFixedPrimarySourceName("clear_pass"),
+            Mesh.emptyMesh(),
+            new Macro[0],
             new SceneUniform[0],
-            new SceneLayer.RenderState()
-                .setBlending(false)
-                .setCulling(SceneLayer.RenderState.Culling.NONE)
-                .setDepthTest(false)
-                .setDepthWrite(true),
-            outputTargets
+            new SceneLayer.RenderState(),
+            renderTargets
         );
 
-        new ShaderCompiler(null).compileShaders(errors, layer);
+        layer.clearDepth = clearDepth;
+        layer.clearColor = new float[] { 0, 0, 0, 0 };
+
+        if (clearColor != null) {
+            String floatPattern = "-?\\d+(?:\\.\\d+)?", f = floatPattern;
+            Pattern clearColorPattern = Pattern.compile("vec[34]\\(("+f+"),("+f+"),("+f+")(?:,("+f+"))?\\)");
+            Matcher m = clearColorPattern.matcher(clearColor.replaceAll("[ \t]", ""));
+            if (!m.matches()) {
+                errors.add("Invalid clear color, expected something like 'vec4(1, 0.3, 0.2, 1)' or 'vec3(1.2, -32, 0)'");
+            } else {
+                layer.clearColor = new float[] {
+                        Float.parseFloat(m.group(1)),
+                        Float.parseFloat(m.group(2)),
+                        Float.parseFloat(m.group(3)),
+                        m.group(4) != null ? Float.parseFloat(m.group(4)) : 1
+                };
+            }
+        }
 
         return layer;
     }
 
     private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, List<SceneRenderTarget> renderTargets, JsonBlitPass pass) {
-        return groupRenderTargets(renderTargets, pass.targets).stream()
+        return groupRenderTargetsBySize(renderTargets, pass.targets).stream()
                 .map(set -> makeBlitLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass.source))
                 .collect(Collectors.toList());
     }
@@ -188,8 +190,10 @@ public class SceneParser {
     private static SceneLayer makeBlitLayer(ErrorWrapper errors, String[] renderTargets, String source) {
         Stream<Macro> macros = IntStream.range(0, renderTargets.length).mapToObj(i -> new Macro("BLIT_TARGET_"+i));
 
+        // TODO blit depth textures
+
         SceneLayer layer = new SceneLayer(
-            SceneLayer.BuiltinSceneLayerAddon.CLEAR_PASS,
+            SceneLayer.SceneType.STANDARD_PASS,
             new ShaderFileSet()
                 .setFixedPrimarySourceName("blit_pass")
                 .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
@@ -250,22 +254,27 @@ public class SceneParser {
     }
 
     private static void validateLayerRenderTargets(Scene scene, String[] layerRenderTargets) {
+        String foundDepthTarget = null;
         if (layerRenderTargets.length == 0) {
             throw new IllegalArgumentException("No output render target specified");
         } else {
             SceneRenderTarget baseRenderTarget = scene.getRenderTarget(layerRenderTargets[0]);
-            for (int j = 1; j < layerRenderTargets.length; j++) {
+            for (int j = 0; j < layerRenderTargets.length; j++) {
                 String rtName = layerRenderTargets[j];
                 SceneRenderTarget rt = scene.getRenderTarget(rtName);
+
                 for (int k = 0; k < j; k++)
                     if (rtName.equals(layerRenderTargets[k]))
                         throw new IllegalArgumentException("Target '" + rtName + "' is written to twice");
-                if (rt == null) {
+                if (rt == null)
                     throw new IllegalArgumentException("Target '" + rtName + "' was not declared");
-                } else {
-                    if (rt.screenRelative != baseRenderTarget.screenRelative || rt.width != baseRenderTarget.width || rt.height != baseRenderTarget.height)
-                        throw new IllegalArgumentException("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
+                if (rt.type == SceneRenderTarget.RenderTargetType.DEPTH) {
+                    if (foundDepthTarget != null)
+                        throw new IllegalArgumentException("Cannot have two depth targets '" + rtName + "' and '" + foundDepthTarget + "'");
+                    foundDepthTarget = rtName;
                 }
+                if (rt.screenRelative != baseRenderTarget.screenRelative || rt.width != baseRenderTarget.width || rt.height != baseRenderTarget.height)
+                    throw new IllegalArgumentException("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
             }
         }
     }
@@ -321,7 +330,10 @@ class JsonSceneStandardLayer extends JsonSceneLayer {
 }
 
 class JsonClearPass extends JsonSceneLayer {
+    @JsonProperty(value = "clear_color")
     public String clearColor = "vec4(0,0,0,1)";
+    @JsonProperty(value = "clear_depth")
+    public float clearDepth = 1.f;
 }
 
 class JsonBlitPass extends JsonSceneLayer {

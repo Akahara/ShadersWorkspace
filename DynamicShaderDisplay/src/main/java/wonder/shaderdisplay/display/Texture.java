@@ -1,6 +1,5 @@
 package wonder.shaderdisplay.display;
 
-import org.w3c.dom.Text;
 import wonder.shaderdisplay.Main;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -29,6 +28,7 @@ public class Texture {
 	
 	private final int id;
 	private final int width, height;
+	private final boolean isDepth;
 	
 	@SuppressWarnings("unused")
 	private static int aliveTextureCount = 0;
@@ -92,10 +92,10 @@ public class Texture {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		return new Texture(width, height, texId);
+		return new Texture(width, height, texId, true);
 	}
 	
 	public static void setUseCache(boolean useCache) {
@@ -116,6 +116,7 @@ public class Texture {
 	public Texture(BufferedImage image) {
 		this.width = image.getWidth();
 		this.height = image.getHeight();
+		this.isDepth = false;
 		
 		this.id = glGenTextures();
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -130,16 +131,18 @@ public class Texture {
 		aliveTextureCount++;
 	}
 
-	private Texture(int width, int height, int id) {
+	private Texture(int width, int height, int id, boolean isDepth) {
 		this.id = id;
 		this.width = width;
 		this.height = height;
+		this.isDepth = isDepth;
 	}
 
 	public Texture(int width, int height, ByteBuffer rgba8Buffer) {
 		this.id = glGenTextures();
 		this.width = width;
 		this.height = height;
+		this.isDepth = false;
 		glBindTexture(GL_TEXTURE_2D, id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -207,5 +210,8 @@ public class Texture {
 	public int getHeight() {
 		return height;
 	}
-	
+
+    public boolean isDepth() {
+		return isDepth;
+	}
 }

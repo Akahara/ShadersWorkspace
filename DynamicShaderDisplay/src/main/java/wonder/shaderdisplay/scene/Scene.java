@@ -3,7 +3,6 @@ package wonder.shaderdisplay.scene;
 import imgui.ImGui;
 import imgui.flag.ImGuiCol;
 import imgui.flag.ImGuiTreeNodeFlags;
-import imgui.type.ImInt;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.UserControls;
 import wonder.shaderdisplay.display.GLWindow;
@@ -18,10 +17,8 @@ public class Scene {
     public final List<SceneLayer> layers = new ArrayList<>();
     public final List<Macro> macros = new ArrayList<>();
     public final List<SceneRenderTarget> renderTargets = new ArrayList<>();
+    public String[] renderTargetNames;
     public final File sourceFile;
-
-    private String[] renderTargetNames;
-    private ImInt selectedRenderTarget;
 
     public TexturesSwapChain swapChain;
     private GLWindow.ListenerHandle resizeHandle;
@@ -59,15 +56,8 @@ public class Scene {
             return;
         }
 
-        if (ImGui.collapsingHeader("General")) {
-            generalControls.renderControls();
-            if (renderTargets.size() > 1) {
-                if (selectedRenderTarget == null)
-                    selectedRenderTarget = new ImInt(0);
-                ImGui.combo("Render Target", selectedRenderTarget, renderTargetNames);
-            }
-            ImGui.newLine();
-        }
+        if (ImGui.collapsingHeader("General"))
+            generalControls.renderControls(this);
 
         if (ImGui.collapsingHeader("Uniforms", ImGuiTreeNodeFlags.DefaultOpen)) {
             Time.renderControls();
@@ -87,19 +77,11 @@ public class Scene {
         ImGui.end();
     }
 
-    public String getPrimaryRenderTargetName() {
-        return selectedRenderTarget == null ? SceneRenderTarget.DEFAULT_RT.name : renderTargetNames[selectedRenderTarget.get()];
-    }
-
     public SceneRenderTarget getRenderTarget(String name) {
         return renderTargets.stream().filter(r -> r.name.equals(name)).findFirst().orElse(null);
     }
 
     public void clearSwapChainTextures() {
         swapChain.clearTextures();
-    }
-
-    public void presentToScreen(String renderTargetName, boolean drawBackground) {
-        swapChain.blitToScreen(renderTargetName, drawBackground);
     }
 }

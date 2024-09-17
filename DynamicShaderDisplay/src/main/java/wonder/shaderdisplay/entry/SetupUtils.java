@@ -75,9 +75,11 @@ public class SetupUtils {
         scene.layers.add(SceneParser.makeClearLayer(
             errors,
             new String[] { renderTarget.name },
-            "vec4(0, 0, 0, 1)"
+            "vec4(0, 0, 0, 1)",
+            1
         ));
         scene.layers.add(new SceneLayer(
+            SceneLayer.SceneType.STANDARD_PASS,
             new ShaderFileSet()
                 .setFile(ShaderType.VERTEX, options.vertexShaderFile)
                 .setFile(ShaderType.GEOMETRY, options.geometryShaderFile)

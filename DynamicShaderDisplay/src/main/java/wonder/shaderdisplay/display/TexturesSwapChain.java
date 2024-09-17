@@ -2,7 +2,6 @@ package wonder.shaderdisplay.display;
 
 import fr.wonder.commons.utils.ArrayOperator;
 import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
-import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.scene.SceneLayer;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
 
@@ -14,8 +13,6 @@ import java.util.stream.Stream;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL45.glCopyTextureSubImage2D;
 import static org.lwjgl.opengl.GL45.glGetTextureImage;
 
@@ -30,21 +27,14 @@ public class TexturesSwapChain {
 			textures.put(rt.name, new SwapTexture(rt));
 		resizeTextures(winWidth, winHeight);
 	}
-	
-	public void blitToScreen(String renderTargetName, boolean drawBackground) {
-		WindowBlit.blitToScreen(getColorAttachment(renderTargetName), drawBackground);
-	}
 
-	public Texture getColorAttachment(String renderTargetName) {
+	public Texture getAttachment(String renderTargetName) {
 		return textures.get(renderTargetName).mainTexture;
 	}
 
-	public int[] readColorAttachment(String renderTargetName, BackgroundType background) {
-		return readColorAttachment(renderTargetName, null, background);
-	}
-
 	public int[] readColorAttachment(String renderTargetName, int[] outBuffer, BackgroundType background) {
-		Texture texture = getColorAttachment(renderTargetName);
+		Texture texture = getAttachment(renderTargetName);
+		
 		if (outBuffer == null) {
 			outBuffer = new int[texture.getWidth() * texture.getHeight()];
 		} else if (outBuffer.length != texture.getWidth() * texture.getHeight()) {
@@ -83,17 +73,25 @@ public class TexturesSwapChain {
 
 			int texW = (int)(swap.base.screenRelative ? screenWidth * swap.base.width : swap.base.width);
 			int texH = (int)(swap.base.screenRelative ? screenHeight * swap.base.height : swap.base.height);
-			swap.mainTexture = new Texture(texW, texH);
-			swap.copyForWRPassTexture = new Texture(texW, texH);
+			if (swap.base.type == SceneRenderTarget.RenderTargetType.DEPTH) {
+				swap.mainTexture = Texture.createDepthTexture(texW, texH);
+				swap.copyForWRPassTexture = Texture.createDepthTexture(texW, texH);
+			} else {
+				swap.mainTexture = new Texture(texW, texH);
+				swap.copyForWRPassTexture = new Texture(texW, texH);
+			}
 		}
 	}
 
 	public void clearTextures() {
 		for (SwapTexture swap : textures.values()) {
 			fbo.clearAttachments();
-			fbo.addAttachment(swap.mainTexture);
+			if (swap.base.type == SceneRenderTarget.RenderTargetType.DEPTH)
+				fbo.addDepthAttachment(swap.mainTexture);
+			else
+				fbo.addAttachment(swap.mainTexture);
 			fbo.bind();
-			glClear(GL_COLOR_BUFFER_BIT);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			fbo.unbind();
 		}
 	}
@@ -125,7 +123,11 @@ public class TexturesSwapChain {
 		fbo.clearAttachments();
 		for (String rtName : layer.outRenderTargets) {
 			SwapTexture swap = textures.get(rtName);
-			fbo.addAttachment(swap.mainTexture);
+			if (swap.base.type == SceneRenderTarget.RenderTargetType.DEPTH) {
+				fbo.addDepthAttachment(swap.mainTexture);
+			} else {
+				fbo.addAttachment(swap.mainTexture);
+			}
 		}
 		fbo.bind();
 	}
@@ -162,45 +164,3 @@ class SwapTexture {
 
 }
 
-class WindowBlit {
-	
-	private static final int shader;
-	private static final int vao;
-	
-	static {
-		vao = glGenVertexArrays();
-		glBindVertexArray(vao);
-		int vbo = glGenBuffers();
-		int ibo = glGenBuffers();
-		int[] indices = { 0,1,2, 2,3,0 };
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
-		glBindVertexArray(0);
-
-		shader = glCreateProgram();
-		int vertex = ShaderCompiler.buildRawShader(Resources.readResource("/blit.vs"), GL_VERTEX_SHADER);
-		int fragment = ShaderCompiler.buildRawShader(Resources.readResource("/blit.fs"), GL_FRAGMENT_SHADER);
-		glAttachShader(shader, vertex);
-		glAttachShader(shader, fragment);
-		glLinkProgram(shader);
-		glValidateProgram(shader);
-		if(glGetProgrami(shader, GL_LINK_STATUS) == GL_FALSE || glGetProgrami(shader, GL_VALIDATE_STATUS) == GL_FALSE)
-			throw new RuntimeException("Failed to build the blit shader");
-	}
-	
-	public static void blitToScreen(Texture source, boolean drawBackground) {
-		source.bind(0);
-		glBindVertexArray(vao);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glDisable(GL_DEPTH_TEST);
-		glDisable(GL_CULL_FACE);
-		glUseProgram(shader);
-		glViewport(0, 0, GLWindow.getWinWidth(), GLWindow.getWinHeight());
-		glUniform1i(glGetUniformLocation(shader, "u_background"), drawBackground ? 1 : 0);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-	}
-	
-}

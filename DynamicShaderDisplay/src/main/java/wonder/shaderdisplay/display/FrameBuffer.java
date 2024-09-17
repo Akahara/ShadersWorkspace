@@ -1,10 +1,7 @@
 package wonder.shaderdisplay.display;
 
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
-import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glViewport;
-import static org.lwjgl.opengl.GL12.GL_BGRA;
 import static org.lwjgl.opengl.GL20.glDrawBuffers;
 import static org.lwjgl.opengl.GL30.*;
 
@@ -19,7 +16,7 @@ public class FrameBuffer {
 	private final List<Texture> attachments = new ArrayList<>();
 	private Texture depthAttachment;
 
-	private static Stack<FrameBuffer> frameBufferStack = new Stack<>();
+	private static final Stack<FrameBuffer> frameBufferStack = new Stack<>();
 	
 	public FrameBuffer() {
 		this.id = glGenFramebuffers();
@@ -41,10 +38,12 @@ public class FrameBuffer {
 	public void addDepthAttachment(Texture depthTexture) {
 		if (isBound())
 			throw new IllegalStateException("Cannot modify a bound FBO");
+		if (depthAttachment != null)
+			throw new IllegalStateException("Cannot add two depth attachments");
 
 		depthAttachment = depthTexture;
 		glBindFramebuffer(GL_FRAMEBUFFER, id);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture.getId(), 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture.getId(), 0);
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			throw new IllegalStateException("Incomplete frame buffer " + glCheckFramebufferStatus(GL_FRAMEBUFFER));
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -54,15 +53,18 @@ public class FrameBuffer {
 		glBindFramebuffer(GL_FRAMEBUFFER, id);
 		for(int i = 0; i < attachments.size(); i++)
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachments.size(), GL_TEXTURE_2D, 0, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
 		attachments.clear();
+		depthAttachment = null;
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 	
 	public void bind() {
 		if (isBound()) throw new IllegalStateException("FBO already bound");
 		glBindFramebuffer(GL_FRAMEBUFFER, id);
-		int w = attachments.get(0).getWidth();
-		int h = attachments.get(0).getHeight();
+		Texture anyTexture = attachments.isEmpty() ? depthAttachment : attachments.get(0);
+		int w = anyTexture.getWidth();
+		int h = anyTexture.getHeight();
 		int[] drawBuffers = IntStream.range(0, attachments.size()).map(i -> GL_COLOR_ATTACHMENT0+i).toArray();
 		glViewport(0, 0, w, h);
 		glDrawBuffers(drawBuffers);

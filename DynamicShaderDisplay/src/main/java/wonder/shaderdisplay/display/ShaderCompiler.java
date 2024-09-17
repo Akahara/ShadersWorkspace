@@ -172,14 +172,9 @@ public class ShaderCompiler {
             }
         }
 
-        StringBuilder macroDefinitions = new StringBuilder();
-        macroDefinitions.append('\n');
         Stream<Macro> allMacros = scene == null ? Stream.empty() : scene.macros.stream();
         allMacros = Stream.concat(allMacros, Stream.of(layer.macros));
-        allMacros.forEach(macro -> macroDefinitions.append(String.format("#define %s %s\n", macro.name, macro.value)));
-        macroDefinitions.append("#line 2\n");
-        source = source.replaceFirst("\n", macroDefinitions.toString());
-        source = source.replaceAll("\r", "");
+        source = addMacroDefinitions(source, allMacros);
 
         if (debugResolvedShaders && !sourceObject.isRawSource()) {
             File primarySourceCodeFile = sourceObject.getFileSource();
@@ -199,6 +194,14 @@ public class ShaderCompiler {
         outShaderSet.resolvedSources[type.ordinal()] = source;
         if(glGetShaderi(id, GL_COMPILE_STATUS) == GL_FALSE)
             errors.add("Compilation error in '" + sourceName + "':\n" + glGetShaderInfoLog(id));
+    }
+
+    public static String addMacroDefinitions(String source, Stream<Macro> macros) {
+        StringBuilder macroDefinitions = new StringBuilder();
+        macroDefinitions.append('\n');
+        macros.forEach(macro -> macroDefinitions.append(String.format("#define %s %s\n", macro.name, macro.value)));
+        macroDefinitions.append("#line 2\n");
+        return source.replaceFirst("\n", macroDefinitions.toString());
     }
 
     public static int buildRawShader(String source, int glType) {

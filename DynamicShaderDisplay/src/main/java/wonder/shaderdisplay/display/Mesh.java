@@ -52,6 +52,14 @@ public class Mesh {
         glBindVertexArray(0);
     }
 
+    private Mesh() {
+        this.sourceFile = null;
+        this.ibo = 0;
+        this.vao = 0;
+        this.vbo = 0;
+        this.indexCount = 0;
+    }
+
     public static Mesh fullscreenTriangle() {
         return new Mesh(
             null,
@@ -123,6 +131,10 @@ public class Mesh {
 
         Main.logger.info("Successfully loaded mesh " + file);
         return new Mesh(file, rawVertexData, rawIndexData);
+    }
+
+    public static Mesh emptyMesh() {
+        return new Mesh();
     }
 
     public File getSourceFile() {

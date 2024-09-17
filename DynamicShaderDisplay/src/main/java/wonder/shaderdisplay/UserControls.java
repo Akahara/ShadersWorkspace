@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.Math;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -23,12 +24,14 @@ import fr.wonder.commons.systems.argparser.annotations.OptionClass;
 import imgui.ImGui;
 import static org.lwjgl.glfw.GLFW.*;
 
+import imgui.type.ImInt;
 import org.joml.*;
 import wonder.shaderdisplay.Main.DisplayOptions;
 import wonder.shaderdisplay.Resources.Snippet;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.display.TexturesSwapChain;
+import wonder.shaderdisplay.scene.Scene;
+import wonder.shaderdisplay.scene.SceneRenderTarget;
 
 public class UserControls {
 
@@ -43,6 +46,8 @@ public class UserControls {
 	private final Vector2f prevMousePos = new Vector2f();
 	private final Vector2f mousePos = new Vector2f();
 	private final Quaternionf viewRotation = new Quaternionf();
+	private ImInt selectedRenderTarget;
+	private final float[] depthRenderTargetBlitZRangeStart = { 0 }, depthRenderTargetBlitZRangeStop = { 1 };
 
 	public UserControls() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
@@ -115,7 +120,7 @@ public class UserControls {
 		prevMousePos.set(mousePos);
 	}
 
-	public void renderControls() {
+	public void renderControls(Scene scene) {
 		if(tooltipButton("Take screenshot", "Beware of transparency!"))
 			takeScreenshot = true;
 
@@ -125,6 +130,22 @@ public class UserControls {
 		if(ImGui.checkbox("Draw background", drawBackground))
 			drawBackground = !drawBackground;
 		showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
+
+		if (scene.renderTargets.size() > 1) {
+			if (selectedRenderTarget == null)
+				selectedRenderTarget = new ImInt(0);
+			ImGui.combo("Render Target", selectedRenderTarget, scene.renderTargetNames);
+		}
+
+		if (scene.renderTargets.get(selectedRenderTarget.get()).type == SceneRenderTarget.RenderTargetType.DEPTH) {
+			ImGui.dragFloatRange2("Depth range", depthRenderTargetBlitZRangeStart, depthRenderTargetBlitZRangeStop, .001f, 0, 1);
+			depthRenderTargetBlitZRangeStart[0] = Math.min(depthRenderTargetBlitZRangeStart[0], depthRenderTargetBlitZRangeStop[0]-.0001f);
+		}
+		ImGui.newLine();
+	}
+
+	public int getPrimaryRenderTargetIndex() {
+		return selectedRenderTarget == null ? -1 : selectedRenderTarget.get();
 	}
 
 	public Vector3f getViewPosition() {
@@ -155,7 +176,7 @@ public class UserControls {
 			ImGui.setTooltip(tooltip);
 	}
 	
-	public void takeScreenshot(TexturesSwapChain renderTargetsSwapChain, String renderTargetName, DisplayOptions options) {
+	public void takeScreenshot(Scene scene, DisplayOptions options) {
 		SimpleDateFormat df = new SimpleDateFormat("MMdd_HHmmss");
 		String fileName = "screenshot_" + df.format(new Date()) + ".png";
 		File file = new File(fileName);
@@ -168,9 +189,10 @@ public class UserControls {
 			format = format.toUpperCase();
 		}
 
-		Texture texture = renderTargetsSwapChain.getColorAttachment(renderTargetName);
+		String renderTargetName = getPrimaryRenderTargetIndex() < 0 ? SceneRenderTarget.DEFAULT_RT.name : scene.renderTargets.get(getPrimaryRenderTargetIndex()).name;
+		Texture texture = scene.swapChain.getAttachment(renderTargetName);
 		int w = texture.getWidth(), h = texture.getHeight();
-		int[] buffer = renderTargetsSwapChain.readColorAttachment(renderTargetName, null, options.background);
+		int[] buffer = scene.swapChain.readColorAttachment(renderTargetName, null, options.background);
 		BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
 		image.setRGB(0, 0, w, h, buffer, w*(h-1), -w);
 		
@@ -196,6 +218,14 @@ public class UserControls {
 
 	public void setJustMoved() {
 		viewJustMoved = true;
+	}
+
+	public float getDepthPreviewZRangeStart() {
+		return depthRenderTargetBlitZRangeStart[0];
+	}
+
+	public float getDepthPreviewZRangeStop() {
+		return depthRenderTargetBlitZRangeStop[0];
 	}
 
 	public static class UserCommands {

@@ -8,7 +8,8 @@ import fr.wonder.commons.utils.StringUtils;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.GLWindow;
-import wonder.shaderdisplay.display.TexturesSwapChain;
+import wonder.shaderdisplay.display.Texture;
+import wonder.shaderdisplay.display.WindowBlit;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
 
@@ -102,7 +103,8 @@ public class EntryVideo extends SetupUtils {
                 ProcessUtils.printProgressbar(f-options.firstFrame, options.lastFrame-options.firstFrame, "Writing frames");
 
                 if (options.preview) {
-                    scene.swapChain.blitToScreen(SceneRenderTarget.DEFAULT_RT.name, options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
+                    Texture backbuffer = scene.swapChain.getAttachment(SceneRenderTarget.DEFAULT_RT.name);
+                    WindowBlit.blitToScreen(backbuffer, options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
                     glfwSwapBuffers(GLWindow.getWindow());
                     glfwPollEvents();
                 }
