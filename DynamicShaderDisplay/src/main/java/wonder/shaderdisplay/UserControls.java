@@ -21,8 +21,9 @@ import fr.wonder.commons.systems.argparser.annotations.EntryPoint;
 import fr.wonder.commons.systems.argparser.annotations.Option;
 import fr.wonder.commons.systems.argparser.annotations.OptionClass;
 import imgui.ImGui;
-import imgui.ImVec2;
-import imgui.flag.ImGuiStyleVar;
+import static org.lwjgl.glfw.GLFW.*;
+
+import org.joml.*;
 import wonder.shaderdisplay.Main.DisplayOptions;
 import wonder.shaderdisplay.Resources.Snippet;
 import wonder.shaderdisplay.display.GLWindow;
@@ -31,12 +32,17 @@ import wonder.shaderdisplay.display.TexturesSwapChain;
 
 public class UserControls {
 
-	public static final String RENDER_TARGETS_WINDOW = "Render targets";
-
 	private final int[] screenSizeBuffer = new int[2];
+	private final boolean[] pressedKeys = new boolean[512];
 
 	private boolean takeScreenshot = false;
 	private boolean drawBackground = true;
+	private boolean viewJustMoved = false;
+	private boolean cursorLocked = false;
+	private final Vector3f viewPosition = new Vector3f();
+	private final Vector2f prevMousePos = new Vector2f();
+	private final Vector2f mousePos = new Vector2f();
+	private final Quaternionf viewRotation = new Quaternionf();
 
 	public UserControls() {
 		screenSizeBuffer[0] = GLWindow.winWidth;
@@ -46,6 +52,21 @@ public class UserControls {
 			screenSizeBuffer[0] = w;
 			screenSizeBuffer[1] = h;
 		});
+
+		GLWindow.addKeyCallback((key, action) -> {
+			if (key < pressedKeys.length)
+				pressedKeys[key] = action != GLFW_RELEASE;
+		});
+
+		GLWindow.addMouseCallback((x, y) -> {
+			mousePos.x = x.floatValue();
+			mousePos.y = y.floatValue();
+		});
+
+		GLWindow.addButtonCallback((button, action) -> {
+			cursorLocked = !ImGui.getIO().getWantCaptureMouse() && action == GLFW_PRESS;
+			glfwSetInputMode(GLWindow.getWindow(), GLFW_CURSOR, cursorLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+		});
 		
 		new Thread(() -> {
 			try (Scanner sc = new Scanner(System.in)) {
@@ -54,7 +75,46 @@ public class UserControls {
 			} catch (IllegalStateException x) {}
 		}, "stdin-interpreter").start();
 	}
-	
+
+	public void step(float delta) {
+		viewJustMoved = false;
+
+		if (cursorLocked) {
+			Vector3f movement = new Vector3f();
+			if (pressedKeys[GLFW_KEY_LEFT] || pressedKeys[GLFW_KEY_A])
+				movement.x--;
+			if (pressedKeys[GLFW_KEY_RIGHT] || pressedKeys[GLFW_KEY_D])
+				movement.x++;
+			if (pressedKeys[GLFW_KEY_SPACE] || pressedKeys[GLFW_KEY_Q])
+				movement.y++;
+			if (pressedKeys[GLFW_KEY_LEFT_SHIFT] || pressedKeys[GLFW_KEY_E])
+				movement.y--;
+			if (pressedKeys[GLFW_KEY_UP] || pressedKeys[GLFW_KEY_W])
+				movement.z++;
+			if (pressedKeys[GLFW_KEY_DOWN] || pressedKeys[GLFW_KEY_S])
+				movement.z--;
+
+			if (movement.lengthSquared() != 0) {
+				final float speed = 1.f;
+				final Vector3f up = new Vector3f(0, 1, 0);
+				Vector3f forward = viewRotation.transform(new Vector3f(1, 0, 0));
+				Vector3f left = up.cross(forward, new Vector3f()).normalize();
+				movement = new Matrix3f(forward, up, left).transform(movement);
+				viewPosition.add(movement.mul(delta * speed));
+				viewJustMoved = true;
+			}
+
+			if (!mousePos.equals(prevMousePos)) {
+				final float speed = .02f;
+				viewRotation.rotateX(-(mousePos.y - prevMousePos.y) * speed);
+				viewRotation.rotateLocalY(-(mousePos.x - prevMousePos.x) * speed);
+				viewJustMoved = true;
+			}
+		}
+
+		prevMousePos.set(mousePos);
+	}
+
 	public void renderControls() {
 		if(tooltipButton("Take screenshot", "Beware of transparency!"))
 			takeScreenshot = true;
@@ -65,6 +125,18 @@ public class UserControls {
 		if(ImGui.checkbox("Draw background", drawBackground))
 			drawBackground = !drawBackground;
 		showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
+	}
+
+	public Vector3f getViewPosition() {
+		return viewPosition;
+	}
+
+	public Quaternionf getViewRotation() {
+		return viewRotation;
+	}
+
+	public boolean justMoved() {
+		return viewJustMoved;
 	}
 	
 	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
@@ -120,6 +192,10 @@ public class UserControls {
 
 	public boolean getDrawBackground() {
 		return drawBackground;
+	}
+
+	public void setJustMoved() {
+		viewJustMoved = true;
 	}
 
 	public static class UserCommands {

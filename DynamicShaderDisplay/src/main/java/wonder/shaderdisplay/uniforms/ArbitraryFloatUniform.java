@@ -12,7 +12,9 @@ class ArbitraryFloatUniform extends EditableUniform implements ArbitraryUniform 
 	
 	private final float[][] values;
 	
-	public ArbitraryFloatUniform(int program, String name,
+	public ArbitraryFloatUniform(
+			int program,
+			String name,
 			GLUniformType type,
 			FloatUniformControl control,
 			float[][] initialValues) {
@@ -65,16 +67,7 @@ class ArbitraryFloatUniform extends EditableUniform implements ArbitraryUniform 
 	@Override
 	public String toUniformString() {
 		boolean isArray = values.length > 1;
-		StringBuilder sb = new StringBuilder();
-		sb.append("uniform ");
-		sb.append(type.name);
-		sb.append(' ');
-		sb.append(name);
-		if(isArray) sb.append("[").append(values.length).append("]");
-		sb.append(" = ");
-		sb.append(getValueAsGLSLString());
-		sb.append(';');
-		return sb.toString();
+		return String.format("uniform %s %s = %s;", type.name, isArray ? "[" + values.length + "]" : name, getValueAsGLSLString());
 	}
 	
 	private String getValueAsGLSLString() {

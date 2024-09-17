@@ -12,6 +12,7 @@ import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
 import wonder.shaderdisplay.uniforms.UniformApplicationContext;
+import wonder.shaderdisplay.uniforms.ViewUniform;
 
 import java.io.File;
 
@@ -55,6 +56,7 @@ public class EntryRun extends SetupUtils {
             UserControls userControls = new UserControls();
             Resources.scanForAndLoadSnippets();
             fileWatcher.startWatching();
+            ViewUniform.userControls = userControls;
 
             Main.logger.info("Running shader");
 
@@ -99,18 +101,20 @@ public class EntryRun extends SetupUtils {
                 // -------- draw frame ---------
 
                 // render the actual frame
-                if (!Time.isPaused() || Time.justChanged())
+                if (!Time.isPaused() || Time.justChanged() || userControls.justMoved())
                     display.renderer.render(scene);
                 scene.presentToScreen(scene.getPrimaryRenderTargetName(), userControls.getDrawBackground());
 
                 // update time *after* having drawn the frame and *before* drawing controls
                 // that way time can be set by the controls and not be modified until next frame
                 long current = System.nanoTime();
+                float realDeltaTime = (current - shaderLastNano) / (float) 1E9;
                 if (options.frameExact)
                     Time.stepFrame(1);
                 else
-                    Time.step((current - shaderLastNano) / (float) 1E9);
+                    Time.step(realDeltaTime);
                 shaderLastNano = current;
+                userControls.step(realDeltaTime);
 
                 if (imgui != null)
                     imgui.renderControls(scene, userControls);

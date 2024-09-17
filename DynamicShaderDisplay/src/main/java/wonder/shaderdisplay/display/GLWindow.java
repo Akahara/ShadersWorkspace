@@ -40,6 +40,9 @@ public class GLWindow {
 	
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
 	private static final List<BiConsumer<Integer, Integer>> resizeCallbacks = new ArrayList<>();
+	private static final List<BiConsumer<Integer, Integer>> keyCallback = new ArrayList<>();
+	private static final List<BiConsumer<Double, Double>> mouseCallback = new ArrayList<>();
+	private static final List<BiConsumer<Integer, Integer>> buttonCallback = new ArrayList<>();
 
 	public static void createWindow(int width, int height, boolean visible, String forcedGlVersion, boolean verboseGLFW) {
 		winWidth = width;
@@ -86,11 +89,24 @@ public class GLWindow {
 			for(BiConsumer<Integer, Integer> callback : resizeCallbacks)
 				callback.accept(w, h);
 		});
-		
+
 		glfwSetKeyCallback(window, (win, key, scanCode, action, mods) -> {
 			if(action == GLFW_PRESS && key == GLFW_KEY_ESCAPE) {
 				glfwSetWindowShouldClose(window, true);
 			}
+
+			for(BiConsumer<Integer, Integer> callback : keyCallback)
+				callback.accept(key, action);
+		});
+
+		glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
+			for(BiConsumer<Double, Double> callback : mouseCallback)
+				callback.accept(xpos, ypos);
+		});
+
+		glfwSetMouseButtonCallback(window, (win, button, action, mods) -> {
+			for(BiConsumer<Integer, Integer> callback : buttonCallback)
+				callback.accept(button, action);
 		});
 	}
 	
@@ -197,6 +213,21 @@ public class GLWindow {
 	public static ListenerHandle addResizeListener(BiConsumer<Integer, Integer> callback) {
 		resizeCallbacks.add(callback);
 		return new ListenerHandle(() -> resizeCallbacks.remove(callback));
+	}
+
+	public static ListenerHandle addKeyCallback(BiConsumer<Integer, Integer> callback) {
+		keyCallback.add(callback);
+		return new ListenerHandle(() -> keyCallback.remove(callback));
+	}
+
+	public static ListenerHandle addMouseCallback(BiConsumer<Double, Double> callback) {
+		mouseCallback.add(callback);
+		return new ListenerHandle(() -> mouseCallback.remove(callback));
+	}
+
+	public static ListenerHandle addButtonCallback(BiConsumer<Integer, Integer> callback) {
+		buttonCallback.add(callback);
+		return new ListenerHandle(() -> buttonCallback.remove(callback));
 	}
 
 	public static class ListenerHandle {

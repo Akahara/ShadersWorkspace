@@ -20,14 +20,15 @@ public class UniformsContext {
 	private static final List<RawBuiltinUniform> BUILTIN_UNIFORMS = List.of(
 			new RawBuiltinUniform(GLUniformType.FLOAT, "iTime",        TimeUniform::new),
 			new RawBuiltinUniform(GLUniformType.FLOAT, "u_time",       TimeUniform::new),
-			new RawBuiltinUniform(GLUniformType.INT,   "iFrame",       (p,n) -> new FrameUniform(p,n,false)),
-			new RawBuiltinUniform(GLUniformType.INT,   "u_frame",      (p,n) -> new FrameUniform(p,n,false)),
-			new RawBuiltinUniform(GLUniformType.FLOAT, "iFrame",       (p,n) -> new FrameUniform(p,n,true)),
-			new RawBuiltinUniform(GLUniformType.FLOAT, "u_frame",      (p,n) -> new FrameUniform(p,n,true)),
-			new RawBuiltinUniform(GLUniformType.IVEC2, "iResolution",  (p,n) -> new ResolutionUniform(p,n,false)),
-			new RawBuiltinUniform(GLUniformType.IVEC2, "u_resolution", (p,n) -> new ResolutionUniform(p,n,false)),
-			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  (p,n) -> new ResolutionUniform(p,n,true)),
-			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", (p,n) -> new ResolutionUniform(p,n,true))
+			new RawBuiltinUniform(GLUniformType.INT,   "iFrame",       (n,p) -> new FrameUniform(n,p,false)),
+			new RawBuiltinUniform(GLUniformType.INT,   "u_frame",      (n,p) -> new FrameUniform(n,p,false)),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "iFrame",       (n,p) -> new FrameUniform(n,p,true)),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_frame",      (n,p) -> new FrameUniform(n,p,true)),
+			new RawBuiltinUniform(GLUniformType.IVEC2, "iResolution",  (n,p) -> new ResolutionUniform(n,p,false)),
+			new RawBuiltinUniform(GLUniformType.IVEC2, "u_resolution", (n,p) -> new ResolutionUniform(n,p,false)),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  (n,p) -> new ResolutionUniform(n,p,true)),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", (n,p) -> new ResolutionUniform(n,p,true)),
+			new RawBuiltinUniform(GLUniformType.MAT4,  "u_view",       ViewUniform::new)
 	);
 	
 	private List<Uniform> uniforms = new ArrayList<>();
