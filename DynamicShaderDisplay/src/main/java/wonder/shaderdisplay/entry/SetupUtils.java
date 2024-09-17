@@ -93,8 +93,7 @@ public class SetupUtils {
 
         ShaderCompiler compiler = new ShaderCompiler(scene);
         for (SceneLayer layer : scene.layers)
-            if (!compiler.compileShaders(errors, layer).success)
-                throw new BadInitException("Could not compile shaders");
+            compiler.compileShaders(errors, layer);
 
         if (!errors.noErrors()) {
             errors.dump(Main.logger);

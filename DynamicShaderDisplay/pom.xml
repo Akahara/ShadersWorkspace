@@ -101,6 +101,22 @@
             <version>1.10.7</version>
         </dependency>
 
+        <dependency>
+            <groupId>fr.wonder.commons</groupId>
+            <artifactId>wonder-commons</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/fr.wonder.commons.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>fr.wonder.commons.systems</groupId>
+            <artifactId>wonder-systems</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/fr.wonder.commons.systems.jar</systemPath>
+        </dependency>
+
     </dependencies>
 
 

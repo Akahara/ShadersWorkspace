@@ -173,11 +173,13 @@ public class ShaderCompiler {
         }
 
         StringBuilder macroDefinitions = new StringBuilder();
+        macroDefinitions.append('\n');
         Stream<Macro> allMacros = scene == null ? Stream.empty() : scene.macros.stream();
         allMacros = Stream.concat(allMacros, Stream.of(layer.macros));
         allMacros.forEach(macro -> macroDefinitions.append(String.format("#define %s %s\n", macro.name, macro.value)));
         macroDefinitions.append("#line 2\n");
         source = source.replaceFirst("\n", macroDefinitions.toString());
+        source = source.replaceAll("\r", "");
 
         if (debugResolvedShaders && !sourceObject.isRawSource()) {
             File primarySourceCodeFile = sourceObject.getFileSource();

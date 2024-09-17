@@ -195,15 +195,23 @@ public class UniformsContext {
 	
 	private float[][] getUniformFloatValues(int program, RawUniform uniform) {
 		float[][] values = new float[uniform.arrayLength][uniform.type.typeSize];
-		for(int i = 0; i < uniform.arrayLength; i++)
-			glGetUniformfv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		if (uniform.arrayLength == 1) {
+			glGetUniformfv(program, glGetUniformLocation(program, uniform.name), values[0]);
+		} else {
+			for(int i = 0; i < uniform.arrayLength; i++)
+				glGetUniformfv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		}
 		return values;
 	}
 	
 	private int[][] getUniformIntValues(int program, RawUniform uniform) {
 		int[][] values = new int[uniform.arrayLength][uniform.type.typeSize];
-		for(int i = 0; i < uniform.arrayLength; i++)
-			glGetUniformiv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		if (uniform.arrayLength == 1) {
+			glGetUniformiv(program, glGetUniformLocation(program, uniform.name), values[0]);
+		} else {
+			for(int i = 0; i < uniform.arrayLength; i++)
+				glGetUniformiv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), values[i]);
+		}
 		return values;
 	}
 	
