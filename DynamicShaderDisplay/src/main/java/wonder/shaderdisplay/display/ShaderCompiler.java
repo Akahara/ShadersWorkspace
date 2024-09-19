@@ -53,9 +53,16 @@ public class ShaderCompiler {
             r.success = false;
             return r;
         }
+
+        public static ShaderCompilationResult success() {
+            return new ShaderCompilationResult();
+        }
     }
 
     public ShaderCompilationResult compileShaders(ErrorWrapper errors, SceneLayer layer) {
+        if (layer.sceneType == SceneLayer.SceneType.CLEAR_PASS)
+            return ShaderCompilationResult.success(); // No need for compilation
+
         SceneLayer.ShaderSet newShaders = new SceneLayer.ShaderSet();
 
         boolean hasGeometry = layer.fileSet.hasCustomShader(ShaderType.GEOMETRY);

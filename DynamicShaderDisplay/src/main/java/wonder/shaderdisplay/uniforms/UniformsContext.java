@@ -9,6 +9,7 @@ import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -141,21 +142,16 @@ public class UniformsContext {
 			return new TextureUniform(program, u.name);
 		
 		String path = matcher.group(1).trim();
-
-		boolean canUseImageInputPassTexture = false;
-
-		if(path.startsWith("input or")) { // if in image processing mode, the input texture
-			canUseImageInputPassTexture = true;
-			path = path.substring("input or".length()).trim();
-		}
 		
 		if(path.matches("builtin \\d+")) { // default texture, loaded from resources
 			int buitinId = Integer.parseInt(path.substring("builtin ".length()));
 			Texture texture = Texture.loadTextureFromResources(buitinId);
-			return new TextureUniform(program, u.name, canUseImageInputPassTexture, texture, path);
+			return new TextureUniform(program, u.name, texture, path);
+		} else if (path.matches("input \\d+")) {
+			return new TextureUniform(program, u.name, Integer.parseInt(path.substring("input ".length())));
 		} else if (!path.isEmpty()) { // normal texture, loaded from user files
-			Texture texture = Texture.loadTexture(path);
-			return new TextureUniform(program, u.name, canUseImageInputPassTexture, texture, path);
+			Texture texture = Texture.loadTexture(Paths.get(path).toFile());
+			return new TextureUniform(program, u.name, texture, path);
 		} else { // no texture specified, might use render targets if specified in the scene file
 			return new TextureUniform(program, u.name);
 		}

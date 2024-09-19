@@ -137,7 +137,7 @@ public class UserControls {
 			ImGui.combo("Render Target", selectedRenderTarget, scene.renderTargetNames);
 		}
 
-		if (scene.renderTargets.get(selectedRenderTarget.get()).type == SceneRenderTarget.RenderTargetType.DEPTH) {
+		if (selectedRenderTarget != null && scene.renderTargets.get(selectedRenderTarget.get()).type == SceneRenderTarget.RenderTargetType.DEPTH) {
 			ImGui.dragFloatRange2("Depth range", depthRenderTargetBlitZRangeStart, depthRenderTargetBlitZRangeStop, .001f, 0, 1);
 			depthRenderTargetBlitZRangeStart[0] = Math.min(depthRenderTargetBlitZRangeStart[0], depthRenderTargetBlitZRangeStop[0]-.0001f);
 		}

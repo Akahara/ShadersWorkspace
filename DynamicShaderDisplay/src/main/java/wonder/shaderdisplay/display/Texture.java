@@ -9,11 +9,11 @@ import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL30.*;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -33,8 +33,8 @@ public class Texture {
 	@SuppressWarnings("unused")
 	private static int aliveTextureCount = 0;
 	
-	public static Texture loadTexture(String path) {
-		return loadOrUseCachedTexture("file_" + path, () -> loadFromFiles(path));
+	public static Texture loadTexture(File file) {
+		return loadOrUseCachedTexture("file_" + file.getAbsolutePath(), () -> loadFromFiles(file));
 	}
 	
 	public static Texture loadTextureFromResources(int resourceId) {
@@ -55,9 +55,9 @@ public class Texture {
 		return tex;
 	}
 	
-	private static Texture loadFromFiles(String file) {
+	private static Texture loadFromFiles(File file) {
 		try {
-			BufferedImage image = ImageIO.read(Paths.get(file).toFile());
+			BufferedImage image = ImageIO.read(file);
 			return new Texture(image);
 		} catch(IOException | InvalidPathException e) {
 			Main.logger.err(e, "Could not load texture '" + file + "'");

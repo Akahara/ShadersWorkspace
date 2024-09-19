@@ -3,8 +3,8 @@ package wonder.shaderdisplay.uniforms;
 import imgui.ImGui;
 import imgui.flag.ImGuiHoveredFlags;
 import imgui.type.ImString;
+import wonder.shaderdisplay.ImageInputFiles;
 import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.entry.EntryImage;
 import wonder.shaderdisplay.scene.SceneUniform;
 
 import static org.lwjgl.opengl.GL20.glUniform1i;
@@ -12,25 +12,34 @@ import static org.lwjgl.opengl.GL20.glUniform1i;
 class TextureUniform extends NonEditableUniform {
 
 	private final int location;
-	private final boolean useImagePassInputIfPossible;
-	private final Texture texture;
-	private final String textureName;
+
+	private final int inputTextureSlot;
+	private final Texture fixedInputTexture;
+	private final String fixedTextureName;
 
 	private String currentlyBoundTextureName;
 	
 	// there is a memory leak here, when texture caching is disabled texture uniforms are not
 	// properly deleted and their textures are not freed.
 	
-	TextureUniform(int program, String name, boolean useImagePassInputIfPossible, Texture texture, String textureName) {
+	TextureUniform(int program, String name, Texture texture, String textureName) {
 		super(name);
 		this.location = new ValueLocationCache(program, name).getLocation(0);
-		this.useImagePassInputIfPossible = useImagePassInputIfPossible;
-		this.texture = texture;
-		this.textureName = textureName;
+		this.fixedInputTexture = texture;
+		this.inputTextureSlot = -1;
+		this.fixedTextureName = textureName;
+	}
+
+	TextureUniform(int program, String name, int inputTextureSlot) {
+		super(name);
+		this.location = new ValueLocationCache(program, name).getLocation(0);
+		this.fixedInputTexture = null;
+		this.inputTextureSlot = inputTextureSlot;
+		this.fixedTextureName = null;
 	}
 
 	TextureUniform(int program, String name) {
-		this(program, name, false, null, null);
+		this(program, name, null, null);
 	}
 	
 	@Override
@@ -39,17 +48,18 @@ class TextureUniform extends NonEditableUniform {
 		glUniform1i(location, bindingSlotIndex);
 		Texture boundTexture = null;
 		SceneUniform defaultUniformValue = context.getDefaultUniform(name);
-		if (useImagePassInputIfPossible && EntryImage.isImagePass()) {
-			boundTexture = EntryImage.getImagePassInputTexture();
-			currentlyBoundTextureName = "image pass input";
-		}
+
 		if (boundTexture == null && defaultUniformValue != null) {
 			boundTexture = context.getRenderTargetReadableTexture(name, defaultUniformValue.value);
 			currentlyBoundTextureName = "render target '" + defaultUniformValue.value + "'";
 		}
+		if (boundTexture == null && inputTextureSlot >= 0) {
+			boundTexture = ImageInputFiles.singleton.getInputTexture(inputTextureSlot);
+			currentlyBoundTextureName = "input" + inputTextureSlot;
+		}
 		if (boundTexture == null) {
-			boundTexture = texture;
-			currentlyBoundTextureName = textureName;
+			boundTexture = fixedInputTexture;
+			currentlyBoundTextureName = fixedTextureName;
 		}
 		if (boundTexture == null) {
 			boundTexture = Texture.getMissingTexture();

@@ -60,9 +60,9 @@ public class Main {
 		@Option(name = "--debug-resolved-shaders", desc = "Write the resolved version of the shaders to a file, useful to debug #include")
 		public boolean debugResolvedShaders;
 		@Option(name = "--width", shorthand = "-w", desc = "Sets the initial window width")
-		public int winWidth = 500 * 16/9;
+		public int winWidth = 960;
 		@Option(name = "--height", shorthand = "-h", desc = "Sets the initial window height")
-		public int winHeight = 500;
+		public int winHeight = 540;
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
 		public BackgroundType background = BackgroundType.NORMAL;
 		
@@ -87,7 +87,7 @@ public class Main {
 		public boolean vsync;
 		@Option(name = "--fps", desc = "Target maximum fps (frames per second), or exact fps for video rendering")
 		public float targetFPS = 60;
-		@Option(name = "--nogui", desc = "Removes the uniforms gui")
+		@Option(name = "--nogui", desc = "Completely removes the user interface")
 		public boolean noGui = false;
 		@Option(name = "--reset-time-on-update", shorthand = "-r", desc = "Resets the iTime uniform when shaders are updated")
 		public boolean resetTimeOnUpdate = false;
@@ -163,10 +163,11 @@ public class Main {
 		GLWindow.dispose();
 	}
 	
-	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
+	@Argument(name = "fragment", desc = "The fragment shader file")
+	@Argument(name = "input files", desc = "Any number of input image/videos that can be used with sampler2D")
 	@EntryPoint(path = "run", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
-	public static void runDisplay(RunOptions options, File fragment) {
-		EntryRun.run(options, fragment);
+	public static void runDisplay(RunOptions options, File fragment, File... inputFiles) {
+		EntryRun.run(options, fragment, inputFiles);
 	}
 	
 	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")

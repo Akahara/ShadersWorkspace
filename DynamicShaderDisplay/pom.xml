@@ -117,6 +117,18 @@
             <systemPath>${project.basedir}/lib/fr.wonder.commons.systems.jar</systemPath>
         </dependency>
 
+        <dependency>
+            <groupId>com.github.zakgof</groupId>
+            <artifactId>velvet-video</artifactId>
+            <version>0.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.zakgof</groupId>
+            <artifactId>velvet-video-natives</artifactId>
+            <version>0.2.8.full</version>
+        </dependency>
+
+
     </dependencies>
 
 

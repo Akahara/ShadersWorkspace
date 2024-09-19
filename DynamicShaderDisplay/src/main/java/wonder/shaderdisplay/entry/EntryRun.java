@@ -35,15 +35,17 @@ public class EntryRun extends SetupUtils {
         Time.setFps(options.targetFPS);
     }
 
-    public static void run(Main.RunOptions options, File fragment) {
+    public static void run(Main.RunOptions options, File fragment, File... inputFiles) {
         Main.logger.info("-- Running display --");
 
         Display display;
         Scene scene;
+        ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles);
 
         try {
             loadCommonOptions(options);
             display = createDisplay(options.displayOptions, true, options.vsync);
+            imageInputFiles.startReadingFiles();
             scene = createScene(options.displayOptions, fragment);
             scene.prepareSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
         } catch (BadInitException e) {
@@ -102,6 +104,8 @@ public class EntryRun extends SetupUtils {
 
                 // -------- draw frame ---------
 
+                imageInputFiles.update();
+
                 // render the actual frame
                 if (!Time.isPaused() || Time.justChanged() || userControls.justMoved())
                     display.renderer.render(scene);
@@ -134,8 +138,9 @@ public class EntryRun extends SetupUtils {
                 if (userControls.poolShouldTakeScreenshot())
                     userControls.takeScreenshot(scene, options.displayOptions);
 
-                workTime += System.nanoTime() - current;
-                current = System.nanoTime();
+                long endNano = System.nanoTime();
+                workTime += endNano - current;
+                current = endNano;
                 if (current < nextFrame)
                     ProcessUtils.sleep((nextFrame - current) / (int) 1E6);
                 nextFrame += (long) (1E9 / options.targetFPS);
