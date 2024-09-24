@@ -1,9 +1,9 @@
 package wonder.shaderdisplay;
 
+import fr.wonder.argparser.ArgParser;
+import fr.wonder.argparser.annotations.*;
 import fr.wonder.commons.loggers.Logger;
 import fr.wonder.commons.loggers.SimpleLogger;
-import fr.wonder.commons.systems.argparser.ArgParser;
-import fr.wonder.commons.systems.argparser.annotations.*;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.entry.EntryImage;
 import wonder.shaderdisplay.entry.EntryRun;
@@ -120,10 +120,6 @@ public class Main {
 		public float framerate = 60;
 		@Option(name = "--duration", shorthand = "-d", desc = "Output video duration in seconds, either -d or -l must be specified")
 		public float videoDuration;
-		@Option(name = "--ffmpeg-path", desc = "The path to the ffmpeg executable, defaults to \"ffmpeg\" meaning ffmpeg must be on the PATH")
-		public String ffmpegPath = "ffmpeg";
-		@Option(name = "--ffmpeg-options", desc = "Options passed to ffmpeg, wrap with quotes")
-		public String ffmpegOptions = "";
 		@Option(name = "--output", shorthand = "-o", valueName = "file", desc = "Output file path, defaults to \"video.mp4\"")
 		public File outputFile = new File("video.mp4");
 		@Option(name = "--preview", shorthand = "-p", desc = "Show the window during generation")
@@ -156,15 +152,15 @@ public class Main {
 		EntrySnippets.run(options);
 	}
 
-	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debuging")
+	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debugging")
 	public static void systemInformation() {
 		GLWindow.createWindow(1, 1, false, null, true);
 		GLWindow.printSystemInformation();
 		GLWindow.dispose();
 	}
 	
-	@Argument(name = "fragment", desc = "The fragment shader file")
-	@Argument(name = "input files", desc = "Any number of input image/videos that can be used with sampler2D")
+	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
+	@Argument(name = "input files", desc = "Any number of input image/videos that can be used with sampler2D", defaultValue = Argument.DEFAULT_EMPTY)
 	@EntryPoint(path = "run", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
 	public static void runDisplay(RunOptions options, File fragment, File... inputFiles) {
 		EntryRun.run(options, fragment, inputFiles);

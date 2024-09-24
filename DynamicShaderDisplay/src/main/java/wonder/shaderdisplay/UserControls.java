@@ -15,12 +15,12 @@ import java.util.regex.PatternSyntaxException;
 import javax.imageio.ImageIO;
 
 import fr.wonder.commons.files.FilesUtils;
-import fr.wonder.commons.systems.argparser.ArgParser;
-import fr.wonder.commons.systems.argparser.InvalidDeclarationError;
-import fr.wonder.commons.systems.argparser.annotations.Argument;
-import fr.wonder.commons.systems.argparser.annotations.EntryPoint;
-import fr.wonder.commons.systems.argparser.annotations.Option;
-import fr.wonder.commons.systems.argparser.annotations.OptionClass;
+import fr.wonder.argparser.ArgParser;
+import fr.wonder.argparser.InvalidDeclarationError;
+import fr.wonder.argparser.annotations.Argument;
+import fr.wonder.argparser.annotations.EntryPoint;
+import fr.wonder.argparser.annotations.Option;
+import fr.wonder.argparser.annotations.OptionClass;
 import imgui.ImGui;
 import static org.lwjgl.glfw.GLFW.*;
 

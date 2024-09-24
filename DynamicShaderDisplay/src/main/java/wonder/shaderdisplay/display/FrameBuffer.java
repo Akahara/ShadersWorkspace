@@ -25,28 +25,21 @@ public class FrameBuffer {
 	public void addAttachment(Texture texture) {
 		if (isBound())
 			throw new IllegalStateException("Cannot modify a bound FBO");
-		if (!attachments.isEmpty() && (texture.getWidth() != attachments.get(0).getWidth() || texture.getHeight() != attachments.get(0).getHeight()))
+		Texture anyTexture = attachments.isEmpty() ? depthAttachment : attachments.get(0);
+		if (anyTexture != null && (texture.getWidth() != anyTexture.getWidth() || texture.getHeight() != anyTexture.getHeight()))
 			throw new IllegalArgumentException("Another texture with different size is already bound to an FBO");
 
 		glBindFramebuffer(GL_FRAMEBUFFER, id);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachments.size(), GL_TEXTURE_2D, texture.getId(), 0);
+		if (texture.isDepth()) {
+			if (depthAttachment != null)
+				throw new IllegalStateException("Cannot add two depth attachments");
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texture.getId(), 0);
+		} else {
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachments.size(), GL_TEXTURE_2D, texture.getId(), 0);
+			attachments.add(texture);
+		}
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			throw new IllegalStateException("Incomplete frame buffer " + glCheckFramebufferStatus(GL_FRAMEBUFFER));
-		attachments.add(texture);
-	}
-
-	public void addDepthAttachment(Texture depthTexture) {
-		if (isBound())
-			throw new IllegalStateException("Cannot modify a bound FBO");
-		if (depthAttachment != null)
-			throw new IllegalStateException("Cannot add two depth attachments");
-
-		depthAttachment = depthTexture;
-		glBindFramebuffer(GL_FRAMEBUFFER, id);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture.getId(), 0);
-		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			throw new IllegalStateException("Incomplete frame buffer " + glCheckFramebufferStatus(GL_FRAMEBUFFER));
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 	
 	public void clearAttachments() {

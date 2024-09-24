@@ -86,10 +86,7 @@ public class TexturesSwapChain {
 	public void clearTextures() {
 		for (SwapTexture swap : textures.values()) {
 			fbo.clearAttachments();
-			if (swap.base.type == SceneRenderTarget.RenderTargetType.DEPTH)
-				fbo.addDepthAttachment(swap.mainTexture);
-			else
-				fbo.addAttachment(swap.mainTexture);
+			fbo.addAttachment(swap.mainTexture);
 			fbo.bind();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			fbo.unbind();
@@ -123,11 +120,7 @@ public class TexturesSwapChain {
 		fbo.clearAttachments();
 		for (String rtName : layer.outRenderTargets) {
 			SwapTexture swap = textures.get(rtName);
-			if (swap.base.type == SceneRenderTarget.RenderTargetType.DEPTH) {
-				fbo.addDepthAttachment(swap.mainTexture);
-			} else {
-				fbo.addAttachment(swap.mainTexture);
-			}
+			fbo.addAttachment(swap.mainTexture);
 		}
 		fbo.bind();
 	}

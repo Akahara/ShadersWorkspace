@@ -27,11 +27,7 @@ public class Renderer {
 				glClearDepth(layer.clearDepth);
 				for (String rt : layer.outRenderTargets) {
 					Texture texture = scene.swapChain.getAttachment(rt);
-					if (texture.isDepth()) {
-						clearFBO.addDepthAttachment(texture);
-					} else {
-						clearFBO.addAttachment(texture);
-					}
+					clearFBO.addAttachment(texture);
 					clearFBO.bind();
 					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 					clearFBO.unbind();

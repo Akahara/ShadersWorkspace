@@ -12,7 +12,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.file.InvalidPathException;
 import java.util.HashMap;
 import java.util.Map;
@@ -113,22 +112,26 @@ public class Texture {
 		Main.logger.debug("Unloaded textures");
 	}
 
-	public Texture(BufferedImage image) {
-		this.width = image.getWidth();
-		this.height = image.getHeight();
+	public Texture(int width, int height, int[] data) {
+		this.width = width;
+		this.height = height;
 		this.isDepth = false;
-		
 		this.id = glGenTextures();
+
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glBindTexture(GL_TEXTURE_2D, id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, loadTextureData(image, false));
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		glBindTexture(GL_TEXTURE_2D, 0);
-		
+
 		aliveTextureCount++;
+	}
+
+	public Texture(BufferedImage image) {
+		this(image.getWidth(), image.getHeight(), loadTextureData(image, false));
 	}
 
 	private Texture(int width, int height, int id, boolean isDepth) {
@@ -136,22 +139,6 @@ public class Texture {
 		this.width = width;
 		this.height = height;
 		this.isDepth = isDepth;
-	}
-
-	public Texture(int width, int height, ByteBuffer rgba8Buffer) {
-		this.id = glGenTextures();
-		this.width = width;
-		this.height = height;
-		this.isDepth = false;
-		glBindTexture(GL_TEXTURE_2D, id);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, rgba8Buffer);
-		glBindTexture(GL_TEXTURE_2D, 0);
-		
-		aliveTextureCount++;
 	}
 	
 	public Texture(int width, int height) {
@@ -186,6 +173,12 @@ public class Texture {
 		}
 		
 		return pixelsData;
+	}
+
+	public void setData(int[] data) {
+		glBindTexture(GL_TEXTURE_2D, id);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	
 	public void dispose() {

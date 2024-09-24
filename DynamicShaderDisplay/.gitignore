@@ -20,4 +20,5 @@ out/
 /*.avi
 /*.json
 /*.scene
+dependency-reduced-pom.xml
 imgui.ini

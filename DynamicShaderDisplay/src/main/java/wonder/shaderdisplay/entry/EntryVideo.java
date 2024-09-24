@@ -1,9 +1,9 @@
 package wonder.shaderdisplay.entry;
 
-import com.zakgof.velvetvideo.*;
-import com.zakgof.velvetvideo.impl.VelvetVideoLib;
 import fr.wonder.commons.exceptions.UnreachableException;
-import fr.wonder.commons.systems.process.ProcessUtils;
+import io.humble.video.*;
+import io.humble.video.awt.MediaPictureConverter;
+import io.humble.video.awt.MediaPictureConverterFactory;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.GLWindow;
@@ -14,6 +14,7 @@ import wonder.shaderdisplay.scene.SceneRenderTarget;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 
 import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
@@ -58,28 +59,83 @@ public class EntryVideo extends SetupUtils {
         BufferedImage frame = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_3BYTE_BGR);
         int[] buffer = new int[videoWidth*videoHeight];
 
-        IVelvetVideoLib lib = VelvetVideoLib.getInstance();
-        IVideoEncoderBuilder encoderBuilder = lib.videoEncoder("libx264").dimensions(videoWidth, videoHeight);
-        try (IMuxer muxer = lib.muxer("mp4").videoEncoder(encoderBuilder).build(options.outputFile)) {
-            IVideoEncoderStream videoEncoder = muxer.videoEncoder(0);
 
-            for(int f = options.firstFrame; f < options.lastFrame && !GLWindow.shouldDispose(); f++) {
-                Time.setFrame(f);
-                display.renderer.render(scene);
-                scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, buffer, options.displayOptions.background);
-                frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
-                videoEncoder.encode(frame);
-                ProcessUtils.printProgressbar(f-options.firstFrame, options.lastFrame-options.firstFrame, "Writing frames");
 
-                if (options.preview) {
-                    Texture backbuffer = scene.swapChain.getAttachment(SceneRenderTarget.DEFAULT_RT.name);
-                    WindowBlit.blitToScreen(backbuffer, options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
-                    glfwSwapBuffers(GLWindow.getWindow());
-                    glfwPollEvents();
-                }
+        Muxer muxer = Muxer.make(options.outputFile.getAbsolutePath(), null, "mp4");
+        MuxerFormat format = muxer.getFormat();
+        Codec codec = Codec.findEncodingCodec(format.getDefaultVideoCodecId());
+        Encoder encoder = Encoder.make(codec);
+        MediaPacket packet = MediaPacket.make();
+
+        PixelFormat.Type pixelFormat = PixelFormat.Type.PIX_FMT_YUV420P;
+        Rational framerate = Rational.make(options.framerate);
+        encoder.setWidth(videoWidth);
+        encoder.setHeight(videoHeight);
+        encoder.setPixelFormat(pixelFormat);
+        encoder.setTimeBase(framerate);
+
+        if (format.getFlag(MuxerFormat.Flag.GLOBAL_HEADER))
+            encoder.setFlag(Encoder.Flag.FLAG_GLOBAL_HEADER, true);
+
+        encoder.open(null, null);
+        muxer.addNewStream(encoder);
+        try {
+            muxer.open(null, null);
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        MediaPictureConverter converter = null;
+        MediaPicture picture = MediaPicture.make(videoWidth, videoHeight, pixelFormat);
+        picture.setTimeBase(framerate);
+
+        for(int f = options.firstFrame; f < options.lastFrame && !GLWindow.shouldDispose(); f++) {
+            Time.setFrame(f);
+            display.renderer.render(scene);
+            scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, buffer, options.displayOptions.background);
+            frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
+
+            BufferedImage screen = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_3BYTE_BGR);
+            screen.setRGB(0, 0, videoWidth, videoHeight, buffer, 0, videoWidth);
+            if (converter == null)
+                converter = MediaPictureConverterFactory.createConverter(screen, picture);
+            converter.toPicture(picture, screen, f - options.firstFrame);
+
+            do {
+                encoder.encode(packet, picture);
+                if (packet.isComplete())
+                    muxer.write(packet, false);
+            } while (packet.isComplete());
+
+            printProgressbar(f-options.firstFrame, options.lastFrame-options.firstFrame, "Writing frames");
+
+            if (options.preview) {
+                Texture backbuffer = scene.swapChain.getAttachment(SceneRenderTarget.DEFAULT_RT.name);
+                WindowBlit.blitToScreen(backbuffer, options.displayOptions.background == Main.DisplayOptions.BackgroundType.NORMAL);
+                glfwSwapBuffers(GLWindow.getWindow());
+                glfwPollEvents();
             }
         }
 
+        do {
+            encoder.encode(packet, null);
+            if (packet.isComplete())
+                muxer.write(packet,  false);
+        } while (packet.isComplete());
+
+        muxer.close();
+
         Main.exit();
+    }
+
+    private static void printProgressbar(int current, int max, String infoText) {
+        boolean isEnded = current == max;
+        String maxStr = String.valueOf(max);
+        String currentStr = String.format("% " + maxStr.length() + "d", current);
+        int barLength = 32 - infoText.length() - 4 - maxStr.length()*2;
+        int filled = current * barLength / max;
+        int empty = barLength - filled - (isEnded ? 0 : 1);
+        System.out.printf("[%s%s%s] %s/%s %s\r%s",
+                "=".repeat(filled), isEnded?"":">", "-".repeat(empty), currentStr, maxStr, infoText, isEnded?"\n":"");
     }
 }

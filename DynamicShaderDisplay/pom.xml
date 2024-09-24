@@ -7,18 +7,6 @@
     <groupId>fr.wonder</groupId>
     <artifactId>DynamicShaderDisplay</artifactId>
     <version>3.2</version>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>16</source>
-                    <target>16</target>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 
     <properties>
         <lwjgl.version>3.3.2</lwjgl.version>
@@ -30,7 +18,76 @@
         <profile><id>lwjgl-natives-macos-x86_64</id><activation><os><family>mac</family><arch>x86_64</arch></os></activation><properties><lwjgl.natives>natives-macos</lwjgl.natives></properties></profile>
         <profile><id>lwjgl-natives-macos-aarch64</id><activation><os><family>mac</family><arch>aarch64</arch></os></activation><properties><lwjgl.natives>natives-macos-arm64</lwjgl.natives></properties></profile>
         <profile><id>lwjgl-natives-windows-amd64</id><activation><os><family>windows</family><arch>amd64</arch></os></activation><properties><lwjgl.natives>natives-windows</lwjgl.natives></properties></profile>
+
+        <profile><id>humblevideo-natives-windows-</id><activation><os><family>windows</family></os></activation><properties><humblevideo.natives>x86_64-w64-mingw32</humblevideo.natives></properties></profile>
     </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>16</source>
+                    <target>16</target>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>wonder.shaderdisplay.Main</Main-Class>
+                                        <Specification-Title>${project.artifactId}</Specification-Title>
+                                        <Specification-Version>${project.version}</Specification-Version>
+                                        <Implementation-Title>${project.artifactId}</Implementation-Title>
+                                        <Implementation-Version>${project.version}</Implementation-Version>
+                                        <Implementation-Vendor-Id>${project.groupId}</Implementation-Vendor-Id>
+                                        <Humble-Native-App>humble-video</Humble-Native-App>
+                                        <Humble-Native-Root>.</Humble-Native-Root>
+                                        <Humble-Native-Paths>.</Humble-Native-Paths>
+                                        <Humble-Native-Bundles>${humblevideo.natives}</Humble-Native-Bundles>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <repositories>
+        <repository>
+            <id>fr.wonder.commons</id>
+            <name>wonder-commons</name>
+            <url>file://${project.basedir}/lib</url>
+        </repository>
+        <repository>
+            <id>fr.wonder.argparser</id>
+            <name>wonder-argparser</name>
+            <url>file://${project.basedir}/lib</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -102,33 +159,21 @@
         </dependency>
 
         <dependency>
-            <groupId>fr.wonder.commons</groupId>
+            <groupId>fr.wonder</groupId>
             <artifactId>wonder-commons</artifactId>
             <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/fr.wonder.commons.jar</systemPath>
         </dependency>
-
         <dependency>
-            <groupId>fr.wonder.commons.systems</groupId>
-            <artifactId>wonder-systems</artifactId>
+            <groupId>fr.wonder</groupId>
+            <artifactId>wonder-argparser</artifactId>
             <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/fr.wonder.commons.systems.jar</systemPath>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zakgof</groupId>
-            <artifactId>velvet-video</artifactId>
-            <version>0.5.2</version>
+            <groupId>io.humble</groupId>
+            <artifactId>humble-video-all</artifactId>
+            <version>0.3.0</version>
         </dependency>
-        <dependency>
-            <groupId>com.github.zakgof</groupId>
-            <artifactId>velvet-video-natives</artifactId>
-            <version>0.2.8.full</version>
-        </dependency>
-
-
     </dependencies>
 
 

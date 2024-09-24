@@ -1,7 +1,6 @@
 package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.UnreachableException;
-import fr.wonder.commons.systems.process.ProcessUtils;
 import imgui.ImGui;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
@@ -118,13 +117,12 @@ public class EntryRun extends SetupUtils {
 
                 // update time *after* having drawn the frame and *before* drawing controls
                 // that way time can be set by the controls and not be modified until next frame
-                long current = System.nanoTime();
-                float realDeltaTime = (current - shaderLastNano) / (float) 1E9;
+                long endNano = System.nanoTime();
+                float realDeltaTime = (endNano - shaderLastNano) / (float) 1E9;
                 if (options.frameExact)
                     Time.stepFrame(1);
                 else
                     Time.step(realDeltaTime);
-                shaderLastNano = current;
                 userControls.step(realDeltaTime);
 
                 if (imgui != null)
@@ -138,20 +136,19 @@ public class EntryRun extends SetupUtils {
                 if (userControls.poolShouldTakeScreenshot())
                     userControls.takeScreenshot(scene, options.displayOptions);
 
-                long endNano = System.nanoTime();
-                workTime += endNano - current;
-                current = endNano;
-                if (current < nextFrame)
-                    ProcessUtils.sleep((nextFrame - current) / (int) 1E6);
+                workTime += endNano - shaderLastNano;
+                if (endNano < nextFrame)
+                    Thread.sleep((nextFrame - endNano) / (int) 1E6);
                 nextFrame += (long) (1E9 / options.targetFPS);
                 frames++;
-                if (current > lastSec + 1E9) {
+                if (endNano > lastSec + 1E9) {
                     windowTitleSupplier.millisPerFrame = workTime / 1E6 / frames;
                     windowTitleSupplier.currentFPS = frames;
-                    lastSec = current;
+                    lastSec = endNano;
                     workTime = 0;
                     frames = 0;
                 }
+                shaderLastNano = endNano;
 
                 GLWindow.setWindowTitle(windowTitleSupplier.getTitle());
             }
