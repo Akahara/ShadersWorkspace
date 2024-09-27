@@ -103,8 +103,6 @@ public class EntryRun extends SetupUtils {
 
                 // -------- draw frame ---------
 
-                imageInputFiles.update();
-
                 // render the actual frame
                 if (!Time.isPaused() || Time.justChanged() || userControls.justMoved())
                     display.renderer.render(scene);

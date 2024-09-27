@@ -77,8 +77,8 @@ public class TexturesSwapChain {
 				swap.mainTexture = Texture.createDepthTexture(texW, texH);
 				swap.copyForWRPassTexture = Texture.createDepthTexture(texW, texH);
 			} else {
-				swap.mainTexture = new Texture(texW, texH);
-				swap.copyForWRPassTexture = new Texture(texW, texH);
+				swap.mainTexture = new Texture(texW, texH, Texture.InternalTextureFormat.RGBA32F);
+				swap.copyForWRPassTexture = new Texture(texW, texH, Texture.InternalTextureFormat.RGBA32F);
 			}
 		}
 	}

@@ -14,7 +14,7 @@ public class PixelBuffer {
         this.size = size;
 
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, id);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, size, GL_STREAM_DRAW);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, size, GL_DYNAMIC_DRAW);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
     }
 
@@ -28,7 +28,7 @@ public class PixelBuffer {
 
     public ByteBuffer map() {
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, id);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, size, GL_STREAM_DRAW);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, size, GL_DYNAMIC_DRAW);
         return glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
     }
 

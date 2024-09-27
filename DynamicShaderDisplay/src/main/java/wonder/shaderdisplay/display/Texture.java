@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.InvalidPathException;
 import java.util.HashMap;
 import java.util.Map;
@@ -122,9 +123,9 @@ public class Texture {
 		glBindTexture(GL_TEXTURE_2D, id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, data);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		aliveTextureCount++;
@@ -140,9 +141,33 @@ public class Texture {
 		this.height = height;
 		this.isDepth = isDepth;
 	}
+
+	public enum InternalTextureFormat {
+
+		RGBA8(GL_RGBA8),
+		RGBA32F(GL_RGBA32F);
+
+		final int glId;
+
+		InternalTextureFormat(int glId) {
+			this.glId = glId;
+		}
+	}
 	
-	public Texture(int width, int height) {
-		this(width, height, null);
+	public Texture(int width, int height, InternalTextureFormat format) {
+		this.width = width;
+		this.height = height;
+		this.id = glGenTextures();
+		this.isDepth = false;
+
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glBindTexture(GL_TEXTURE_2D, id);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, format.glId, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	
 	public static int[] loadTextureData(BufferedImage image, boolean flipVertically) {
@@ -175,15 +200,8 @@ public class Texture {
 		return pixelsData;
 	}
 
-	public void setData(int[] data) {
-		glBindTexture(GL_TEXTURE_2D, id);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
-	
 	public void dispose() {
 		glDeleteTextures(id);
-		
 		aliveTextureCount--;
 	}
 	

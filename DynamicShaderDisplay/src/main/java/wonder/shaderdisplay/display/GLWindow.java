@@ -8,6 +8,7 @@ import static org.lwjgl.opengl.GL30.glGetIntegeri;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_COUNT;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS;
 import static org.lwjgl.opengl.GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE;
+import static org.lwjgl.opengl.GL43C.glDebugMessageCallback;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.awt.image.BufferedImage;
@@ -29,6 +30,7 @@ import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLCapabilities;
+import org.lwjgl.opengl.GLDebugMessageCallback;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 import wonder.shaderdisplay.Main;
@@ -70,12 +72,24 @@ public class GLWindow {
 			glfwFocusWindow(window);
 		}
 
-		GL.createCapabilities();
+		GLCapabilities caps = GL.createCapabilities();
 
 		if(verboseGLFW) {
 			Callback errorCallback = GLUtil.setupDebugMessageCallback(System.err);
 			if(errorCallback != null)
 				closeableCallbacks.add(errorCallback);
+
+			if (caps.OpenGL43) {
+				GLDebugMessageCallback oldProc = GLDebugMessageCallback.create(glGetPointer(GL_DEBUG_CALLBACK_FUNCTION));
+				GLDebugMessageCallback proc = GLDebugMessageCallback.create((source, type, id, severity, length, message, userParam) -> {
+					boolean submit = true;
+					submit &= severity != GL_DEBUG_SEVERITY_NOTIFICATION; // PBO streaming using video memory
+					submit &= id != 0x20052; // "Pixel transfer is synchronized with 3D rendering"
+					if (submit)
+						oldProc.invoke(source, type, id, severity, length, message, userParam);
+				});
+				glDebugMessageCallback(proc, NULL);
+			}
 		}
 
 		glViewport(0, 0, width, height);
