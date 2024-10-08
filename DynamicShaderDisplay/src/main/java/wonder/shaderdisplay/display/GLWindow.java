@@ -35,6 +35,7 @@ import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 import wonder.shaderdisplay.Main;
 
+@SuppressWarnings("resource")
 public class GLWindow {
 	
 	private static long window;
@@ -97,6 +98,8 @@ public class GLWindow {
 		glPointSize(3);
 		
 		glfwSetWindowSizeCallback(window, (win, w, h) -> {
+			if (w == 0 || h == 0)
+				return; // Skip event if window was minimized
 			glViewport(0, 0, w, h);
 			winWidth = w;
 			winHeight = h;

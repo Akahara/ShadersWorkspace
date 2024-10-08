@@ -1,6 +1,8 @@
 package wonder.shaderdisplay;
 
 import fr.wonder.commons.files.FilesUtils;
+import fr.wonder.commons.loggers.Logger;
+import fr.wonder.commons.loggers.SimpleLogger;
 import io.humble.video.*;
 import io.humble.video.awt.MediaPictureConverter;
 import io.humble.video.awt.MediaPictureConverterFactory;
@@ -21,10 +23,14 @@ public class ImageInputFiles {
 
     private final File[] inputFiles;
     private final InputImageStream[] streams;
+    private final boolean useVideoFramerate;
+    private boolean hasInputVideo;
+    private float videoFramerate;
 
-    public ImageInputFiles(File[] files) {
+    public ImageInputFiles(File[] files, boolean useVideoFramerate) {
         this.inputFiles = files;
         this.streams = new InputImageStream[files.length];
+        this.useVideoFramerate = useVideoFramerate;
     }
 
     public void startReadingFiles() throws BadInitException {
@@ -36,19 +42,25 @@ public class ImageInputFiles {
                 throw new BadInitException("Input file '" + file + "' does not exist");
 
             switch (extension) {
-                case "mp4", "avi", "webm" -> {
+                case "mp4", "webm", "avi" -> {
                     Main.logger.debug("Trying to read '" + file + "' as a video stream");
-                    streams[i] = new VideoStream(file);
+                    VideoStream stream = new VideoStream(file);
+                    stream.startReadingVideo();
+                    streams[i] = stream;
+                    float framerate = stream.getFramerate();
+                    if (useVideoFramerate && videoFramerate != 0 && videoFramerate != framerate)
+                        Main.logger.warn("Two different input videos have different frame rates");
+                    this.hasInputVideo = true;
+                    this.videoFramerate = framerate;
                 }
                 default -> {
                     Main.logger.debug("Trying to read '" + file + "' as an image file");
-                    streams[i] = new FixedImageStream(file);
+                    FixedImageStream stream = new FixedImageStream(file);
+                    stream.readImage();
+                    streams[i] = stream;
                 }
             }
         }
-
-        for (InputImageStream stream : streams)
-            stream.open();
     }
 
     public Texture getInputTexture(int inputTextureSlot) {
@@ -57,11 +69,17 @@ public class ImageInputFiles {
                 : streams[inputTextureSlot].getTexture();
     }
 
+    public boolean hasInputVideo() {
+        return hasInputVideo;
+    }
+
+    public float getCommonVideoFramerate() {
+        return videoFramerate;
+    }
 }
 
 interface InputImageStream {
 
-    void open() throws BadInitException;
     void close();
     Texture getTexture();
 
@@ -76,8 +94,7 @@ class FixedImageStream implements InputImageStream {
         this.file = textureFile;
     }
 
-    @Override
-    public void open() throws BadInitException {
+    public void readImage() throws BadInitException {
         this.texture = Texture.loadTexture(file);
         if (texture == Texture.getMissingTexture())
             throw new BadInitException("Could not load texture from '" + file.getAbsolutePath() + "'");
@@ -97,30 +114,42 @@ class FixedImageStream implements InputImageStream {
 
 class VideoStream implements InputImageStream {
 
+    static final int LEVEL_VDEBUG = Logger.LEVEL_DEBUG-100;
+
     final File videoFile;
+    final Logger logger;
 
     Texture currentFrame;
     PixelBuffer pbo;
 
+    static class LoadedFrame {
+        int frameNum;
+        int[] data;
+    }
+
     static final int CONCURRENT_LOADED_FRAMES = 10;
-    List<int[]> loadedFrames = new ArrayList<>();
-    int loadedFramesOrigin = 0;
-    int videoFrameDuration;
+    List<LoadedFrame> loadedFrames = new ArrayList<>();
+    int pboStoredFrame = -1;
+    int textureStoredFrame = -1;
+    int nextFrameSeekInVideoStream = -1;
 
     Demuxer demuxer;
     MediaPicture workingPicture;
     BufferedImage workingImage;
     MediaPacket workingPacket;
     int videoStreamId = -1;
+    float videoFramerate;
+    int videoFrameDuration;
+    double presentationTimeToFrames;
     Decoder videoDecoder;
     MediaPictureConverter pictureConverter;
 
     public VideoStream(File videoFile) {
         this.videoFile = videoFile;
+        this.logger = new SimpleLogger(videoFile.getName(), Logger.LEVEL_ERROR);
     }
 
-    @Override
-    public void open() throws BadInitException {
+    public void startReadingVideo() throws BadInitException {
         demuxer = Demuxer.make();
         workingPacket = MediaPacket.make();
 
@@ -129,8 +158,17 @@ class VideoStream implements InputImageStream {
 
             int numStreams = demuxer.getNumStreams();
             for(int i = 0; i < numStreams; i++) {
-                Decoder decoder = demuxer.getStream(i).getDecoder();
+                DemuxerStream stream = demuxer.getStream(i);
+                Decoder decoder = stream.getDecoder();
                 if (decoder != null && decoder.getCodecType() == MediaDescriptor.Type.MEDIA_VIDEO) {
+                    Rational streamFrameRate = stream.getFrameRate();
+                    Rational streamTimeBase = stream.getTimeBase();
+
+                    presentationTimeToFrames = streamTimeBase.multiply(streamFrameRate).getDouble();
+                    videoFramerate = (float) stream.getFrameRate().getValue();
+                    videoFrameDuration = (int) (stream.getDuration() * presentationTimeToFrames);
+                    if (stream.getDuration() == Global.NO_PTS)
+                        videoFrameDuration = (int) (streamTimeBase.getValue() * demuxer.getDuration() * videoFramerate / 1000);
                     videoStreamId = i;
                     videoDecoder = decoder;
                     break;
@@ -146,7 +184,6 @@ class VideoStream implements InputImageStream {
         videoDecoder.open(null, null);
 
         int w = videoDecoder.getWidth(), h = videoDecoder.getHeight();
-        videoFrameDuration = videoDecoder.getFrameCount();
         workingPicture = MediaPicture.make(w, h, videoDecoder.getPixelFormat());
         pictureConverter = MediaPictureConverterFactory.createConverter(MediaPictureConverterFactory.HUMBLE_BGR_24, workingPicture);
         pbo = new PixelBuffer(w * h * 4);
@@ -156,39 +193,121 @@ class VideoStream implements InputImageStream {
     }
 
     private void videoStreamingLoop() {
-        int currentFrame = 0;
-
         try {
-            while (demuxer.read(workingPacket) >= 0) {
-                if (workingPacket.getStreamIndex() == videoStreamId) {
-                    int offset = 0;
-                    int bytesRead = 0;
-                    do {
-                        bytesRead += videoDecoder.decode(workingPicture, workingPacket, offset);
-                        if (loadFrame(currentFrame, workingPicture))
-                            currentFrame++;
-                        offset += bytesRead;
-                    } while (offset < workingPacket.getSize());
+            while (true) {
+                int seekFrame = -1;
+                synchronized (this) {
+                    if (nextFrameSeekInVideoStream >= 0) {
+                        seekFrame = nextFrameSeekInVideoStream;
+                        nextFrameSeekInVideoStream = -1;
+                    }
+                }
+
+                if (seekFrame >= 0) {
+                    logger.debug("Jumping in video stream to frame " + seekFrame);
+                    offset = bytesRead = 0;
+                    continueReading = false;
+                    if (!doSeek(seekFrame))
+                        doSeek(0);
+                }
+
+                if (!readVideoStreamUntilNextFrame()) {
+                    // Loop arround to frame 0
+                    doSeek(0);
                 }
             }
-
-            while (true) {
-                videoDecoder.decode(workingPicture, null, 0);
-                if (!workingPicture.isComplete())
-                    break;
-                if (loadFrame(currentFrame, workingPicture))
-                    currentFrame++;
-            }
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private boolean loadFrame(int frame, MediaPicture picture) {
+    private boolean doSeek(int upToFrame) throws IOException, InterruptedException {
+        int r = demuxer.seek(videoStreamId, 0, upToFrame, upToFrame, Demuxer.SeekFlag.SEEK_FRAME.swigValue());
+        if (r != 0) logger.warn("Could not seek?");
+        videoDecoder.flush();
+
+        long upToPoints = (long) (upToFrame / presentationTimeToFrames);
+
+        while (demuxer.read(workingPacket) >= 0) {
+            if (workingPacket.getStreamIndex() == videoStreamId) {
+                continueReading = true;
+                offset = bytesRead = 0;
+                do {
+                    bytesRead += videoDecoder.decode(workingPicture, workingPacket, offset);
+                    offset += bytesRead;
+                    long picturePts = workingPicture.getPts();
+                    if (!workingPicture.isComplete())
+                        continue;
+
+                    logger.log("Skipping frame " + upToPoints + " / " + picturePts, LEVEL_VDEBUG);
+                    if (picturePts >= upToPoints)
+                        return loadFrame(workingPicture);
+                } while (offset < workingPacket.getSize());
+                continueReading = false;
+            }
+        }
+
+        while (true) {
+            videoDecoder.decode(workingPicture, null, 0);
+            if (!workingPicture.isComplete())
+                break;
+            long picturePts = workingPicture.getPts();
+            logger.log("Skipping late frame " + upToPoints + " / " + picturePts, LEVEL_VDEBUG);
+            if (picturePts >= upToPoints) {
+                return loadFrame(workingPicture);
+            }
+        }
+
+        logger.warn("Could not seek to frame " + upToFrame);
+        return false;
+    }
+
+    int offset = 0;
+    int bytesRead = 0;
+    boolean continueReading = false;
+
+    private boolean readVideoStreamUntilNextFrame() throws IOException, InterruptedException {
+        if (continueReading) {
+            while (offset < workingPacket.getSize()) {
+                bytesRead += videoDecoder.decode(workingPicture, workingPacket, offset);
+                offset += bytesRead;
+                if (loadFrame(workingPicture))
+                    return true;
+            }
+            continueReading = false;
+        }
+
+        while (demuxer.read(workingPacket) >= 0) {
+            if (workingPacket.getStreamIndex() == videoStreamId) {
+                continueReading = true;
+                offset = bytesRead = 0;
+                do {
+                    bytesRead += videoDecoder.decode(workingPicture, workingPacket, offset);
+                    offset += bytesRead;
+                    if (loadFrame(workingPicture))
+                        return true;
+                } while (offset < workingPacket.getSize());
+                continueReading = false;
+            }
+        }
+
+        while (true) {
+            videoDecoder.decode(workingPicture, null, 0);
+            if (!workingPicture.isComplete())
+                return false;
+            if (loadFrame(workingPicture))
+                return true;
+        }
+    }
+
+    private boolean loadFrame(MediaPicture picture) {
         if (!picture.isComplete())
             return false;
+
         workingImage = pictureConverter.toImage(workingImage, workingPicture);
-        int[] pixelData = Texture.loadTextureData(workingImage, false);
+        LoadedFrame frame = new LoadedFrame();
+        frame.data = Texture.loadTextureData(workingImage, false);
+        frame.frameNum = (int) Math.round(picture.getPts() * presentationTimeToFrames);
 
         synchronized (this) {
             if (loadedFrames.size() >= CONCURRENT_LOADED_FRAMES) {
@@ -197,18 +316,26 @@ class VideoStream implements InputImageStream {
                 } catch (InterruptedException x) {
                 }
             }
-            int expectedFrame = loadedFramesOrigin + loadedFrames.size();
-            if (expectedFrame != frame) {
-                System.err.println("Frame error, loaded " + frame + " but queue was waiting for " + expectedFrame);
-                return false;
+
+            if (nextFrameSeekInVideoStream >= 0) {
+                logger.debug("Frame that was being loaded has been dropped after a time update");
+                return true;
             }
-            loadedFrames.add(pixelData);
+
+            loadedFrames.add(frame);
             if (loadedFrames.size() == 1)
                 this.notify();
-            System.out.println("Loaded frame " + frame + ", buffer has " + loadedFrames.size() + " from " + loadedFramesOrigin);
         }
 
         return true;
+    }
+
+    private int getRealFrameAsVideoFrame() {
+        int frame = (int) (Time.getTime() * videoFramerate);
+        frame %= videoFrameDuration;
+        if (frame < 0)
+            frame += videoFrameDuration;
+        return frame;
     }
 
     @Override
@@ -216,33 +343,58 @@ class VideoStream implements InputImageStream {
         try {
             demuxer.close();
         } catch (InterruptedException | IOException e) {
-            Main.logger.err("Failed to close a video stream for '" + videoFile.getAbsolutePath() + "'?");
+            logger.err("Failed to close the video stream?");
         }
     }
 
     @Override
     public Texture getTexture() {
-        pbo.copyToTexture(currentFrame);
-        loadNextFrameIntoPBO();
+        if (Time.justChanged()) {
+            synchronized (this) {
+                nextFrameSeekInVideoStream = getRealFrameAsVideoFrame();
+                loadedFrames.clear();
+                this.notify();
+            }
+        }
+
+        int currentFrameNum = getRealFrameAsVideoFrame();
+        if (textureStoredFrame != currentFrameNum) {
+            if (pboStoredFrame != currentFrameNum) {
+                loadNextFrameIntoPBO();
+                if (pboStoredFrame != currentFrameNum)
+                    logger.warn("Unexpected frame displayed " + pboStoredFrame + " vs " + currentFrameNum);
+            }
+            pbo.copyToTexture(currentFrame);
+            textureStoredFrame = pboStoredFrame;
+            loadNextFrameIntoPBO();
+        }
         return currentFrame;
     }
 
+    int readNum = 0;
     private void loadNextFrameIntoPBO() {
         ByteBuffer buf = pbo.map();
         synchronized (this) {
             if (loadedFrames.isEmpty()) {
-                System.out.println("Frame throttling, empty buffer");
+                logger.debug("Frame throttling, empty buffer");
                 try {
                     this.wait();
                 } catch (InterruptedException x) {
                 }
             }
-            if (!loadedFrames.isEmpty())
-                buf.asIntBuffer().put(loadedFrames.remove(0));
-            loadedFramesOrigin++;
+            if (!loadedFrames.isEmpty()) {
+                LoadedFrame frame = loadedFrames.remove(0);
+                logger.log("Reading frame " + frame.frameNum + " (" + (readNum++) + ")", LEVEL_VDEBUG);
+                buf.asIntBuffer().put(frame.data);
+                pboStoredFrame = frame.frameNum;
+            }
             if (loadedFrames.size() < CONCURRENT_LOADED_FRAMES)
                 this.notify();
         }
         pbo.unmap();
+    }
+
+    public float getFramerate() {
+        return videoFramerate;
     }
 }

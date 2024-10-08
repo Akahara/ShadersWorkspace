@@ -4,6 +4,7 @@ import fr.wonder.commons.exceptions.UnreachableException;
 import io.humble.video.*;
 import io.humble.video.awt.MediaPictureConverter;
 import io.humble.video.awt.MediaPictureConverterFactory;
+import wonder.shaderdisplay.ImageInputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.GLWindow;
@@ -37,10 +38,11 @@ public class EntryVideo extends SetupUtils {
         Time.setFps(options.framerate);
     }
 
-    public static void run(Main.VideoOptions options, File fragment) {
+    public static void run(Main.VideoOptions options, File fragment, File... inputFiles) {
         Main.logger.info("-- Running video generation --");
 
         int videoWidth = options.displayOptions.winWidth, videoHeight = options.displayOptions.winHeight;
+        ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, false);
         Display display;
         Scene scene;
 
@@ -48,6 +50,7 @@ public class EntryVideo extends SetupUtils {
             loadCommonOptions(options);
 
             display = createDisplay(options.displayOptions, options.preview, false);
+            imageInputFiles.startReadingFiles();
             scene = createScene(options.displayOptions, fragment);
             scene.prepareSwapChain(videoWidth, videoHeight);
         } catch (BadInitException e) {
@@ -59,8 +62,6 @@ public class EntryVideo extends SetupUtils {
         BufferedImage frame = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_3BYTE_BGR);
         int[] buffer = new int[videoWidth*videoHeight];
 
-
-
         Muxer muxer = Muxer.make(options.outputFile.getAbsolutePath(), null, "mp4");
         MuxerFormat format = muxer.getFormat();
         Codec codec = Codec.findEncodingCodec(format.getDefaultVideoCodecId());
@@ -68,7 +69,7 @@ public class EntryVideo extends SetupUtils {
         MediaPacket packet = MediaPacket.make();
 
         PixelFormat.Type pixelFormat = PixelFormat.Type.PIX_FMT_YUV420P;
-        Rational framerate = Rational.make(options.framerate);
+        Rational framerate = Rational.make(1 / options.framerate);
         encoder.setWidth(videoWidth);
         encoder.setHeight(videoHeight);
         encoder.setPixelFormat(pixelFormat);
@@ -107,7 +108,7 @@ public class EntryVideo extends SetupUtils {
                     muxer.write(packet, false);
             } while (packet.isComplete());
 
-            printProgressbar(f-options.firstFrame, options.lastFrame-options.firstFrame, "Writing frames");
+            printProgressbar(f-options.firstFrame + 1, options.lastFrame-options.firstFrame);
 
             if (options.preview) {
                 Texture backbuffer = scene.swapChain.getAttachment(SceneRenderTarget.DEFAULT_RT.name);
@@ -122,20 +123,21 @@ public class EntryVideo extends SetupUtils {
             if (packet.isComplete())
                 muxer.write(packet,  false);
         } while (packet.isComplete());
-
         muxer.close();
+
+        Main.logger.info("Successfully wrote " + options.outputFile);
 
         Main.exit();
     }
 
-    private static void printProgressbar(int current, int max, String infoText) {
+    private static void printProgressbar(int current, int max) {
         boolean isEnded = current == max;
         String maxStr = String.valueOf(max);
         String currentStr = String.format("% " + maxStr.length() + "d", current);
-        int barLength = 32 - infoText.length() - 4 - maxStr.length()*2;
+        int barLength = 32 - "Writing frames".length() - 4 - maxStr.length()*2;
         int filled = current * barLength / max;
         int empty = barLength - filled - (isEnded ? 0 : 1);
-        System.out.printf("[%s%s%s] %s/%s %s\r%s",
-                "=".repeat(filled), isEnded?"":">", "-".repeat(empty), currentStr, maxStr, infoText, isEnded?"\n":"");
+        System.out.printf("[%s%s%s] %s/%s Writing frames\r%s",
+                "=".repeat(filled), isEnded?"":">", "-".repeat(empty), currentStr, maxStr, isEnded?"\n":"");
     }
 }

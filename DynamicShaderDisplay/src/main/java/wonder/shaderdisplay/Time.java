@@ -42,12 +42,12 @@ public class Time {
 	}
 	
 	public static void step(float realDelta) {
-		if(!paused)
+		if (!paused)
 			time += realDelta;
 	}
 
 	public static void stepFrame(int frameCount) {
-		if(!paused)
+		if (!paused)
 			setFrame(getFrame()+frameCount);
 	}
 	
@@ -63,11 +63,19 @@ public class Time {
 
 	public static void renderControls() {
 		justChanged = false;
+
+		// When rendering video, show time controls even if there is no time uniform
+		boolean hasVideoInput = ImageInputFiles.singleton != null && ImageInputFiles.singleton.hasInputVideo();
+		shouldRenderTime |= hasVideoInput;
+		shouldRenderFrames |= hasVideoInput;
+
 		if(!shouldRenderFrames && !shouldRenderTime)
 			return;
 		
-		if(ImGui.button("Reset iTime"))
+		if(ImGui.button("Reset iTime")) {
 			time = 0;
+			justChanged = true;
+		}
 		ImGui.sameLine();
 		if(ImGui.checkbox("Pause iTime", paused))
 			paused = !paused;
@@ -77,7 +85,7 @@ public class Time {
 		if(shouldRenderTime) {
 			float[] ptr = { time };
 			shouldRenderTime = false;
-			if(ImGui.dragFloat(timeUniformName, ptr, .01f)) {
+			if(ImGui.dragFloat(timeUniformName == null ? "Time" : timeUniformName, ptr, .01f)) {
 				setTime(ptr[0]);
 				justChanged = true;
 			}
@@ -85,7 +93,7 @@ public class Time {
 		if(shouldRenderFrames) {
 			int[] ptr = { getFrame() };
 			shouldRenderFrames = false;
-			if(ImGui.dragInt(frameUniformName, ptr)) {
+			if(ImGui.dragInt(frameUniformName == null ? "Frame" : frameUniformName, ptr)) {
 				setFrame(ptr[0]);
 				justChanged = true;
 			}

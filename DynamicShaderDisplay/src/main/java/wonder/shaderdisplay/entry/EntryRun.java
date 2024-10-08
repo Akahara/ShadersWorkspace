@@ -39,12 +39,17 @@ public class EntryRun extends SetupUtils {
 
         Display display;
         Scene scene;
-        ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles);
+        ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, options.frameExact);
 
         try {
             loadCommonOptions(options);
             display = createDisplay(options.displayOptions, true, options.vsync);
             imageInputFiles.startReadingFiles();
+            if (imageInputFiles.hasInputVideo() && options.frameExact) {
+                options.targetFPS = imageInputFiles.getCommonVideoFramerate();
+                Time.setFps(options.targetFPS);
+                Main.logger.info("Using input video framerate: " + options.targetFPS);
+            }
             scene = createScene(options.displayOptions, fragment);
             scene.prepareSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
         } catch (BadInitException e) {
@@ -63,6 +68,7 @@ public class EntryRun extends SetupUtils {
 
             Main.logger.info("Running shader");
 
+            long frameDuration = (long) (1E9 / options.targetFPS);
             long shaderLastNano = System.nanoTime();
             long nextFrame = System.nanoTime();
             long lastSec = System.nanoTime();
@@ -134,10 +140,14 @@ public class EntryRun extends SetupUtils {
                 if (userControls.poolShouldTakeScreenshot())
                     userControls.takeScreenshot(scene, options.displayOptions);
 
-                workTime += endNano - shaderLastNano;
+                long sleepBegin = System.nanoTime();
                 if (endNano < nextFrame)
                     Thread.sleep((nextFrame - endNano) / (int) 1E6);
-                nextFrame += (long) (1E9 / options.targetFPS);
+                workTime += endNano - shaderLastNano - (System.nanoTime() - sleepBegin);
+                nextFrame += frameDuration;
+                long sleepEnd = System.nanoTime();
+                if (nextFrame + frameDuration * 4 < sleepEnd)
+                    nextFrame = sleepEnd + frameDuration; // Don't try to catch up if we are way too late
                 frames++;
                 if (endNano > lastSec + 1E9) {
                     windowTitleSupplier.millisPerFrame = workTime / 1E6 / frames;

@@ -167,9 +167,10 @@ public class Main {
 	}
 	
 	@Argument(name = "fragment", desc = "The fragment shader file", defaultValue = "shader.fs")
+	@Argument(name = "input files", desc = "Any number of input image/videos that can be used with sampler2D", defaultValue = Argument.DEFAULT_EMPTY)
 	@EntryPoint(path = "video", help = "Creates a window running the specified fragment shader. Other shaders may be specified with options.")
-	public static void generateVideo(VideoOptions options, File fragment) {
-		EntryVideo.run(options, fragment);
+	public static void generateVideo(VideoOptions options, File fragment, File... inputFiles) {
+		EntryVideo.run(options, fragment, inputFiles);
 	}
 	
 	@Argument(name = "fragment", desc = "The fragment shader file")
