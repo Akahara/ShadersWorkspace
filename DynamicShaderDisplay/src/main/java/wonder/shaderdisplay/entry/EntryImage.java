@@ -2,9 +2,9 @@ package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.UnreachableException;
 import fr.wonder.commons.files.FilesUtils;
+import wonder.shaderdisplay.ImageInputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
-import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
 import wonder.shaderdisplay.uniforms.ResolutionUniform;
@@ -16,13 +16,8 @@ import java.io.IOException;
 
 public class EntryImage extends SetupUtils {
 
-    private static Texture imagePassInputTexture = null;
-
-    public static boolean isImagePass() { return imagePassInputTexture != null; }
-    public static Texture getImagePassInputTexture() { return imagePassInputTexture; }
-
     protected static void loadCommonOptions(Main.ImagePassOptions options) throws BadInitException {
-        loadCommonOptions(options.displayOptions);
+        loadCommonOptions(options.displayOptions, null);
     }
 
     public static void run(Main.ImagePassOptions options, File fragment, File[] inputFiles) {
@@ -56,15 +51,23 @@ public class EntryImage extends SetupUtils {
                 continue;
             }
 
+            int outputWidth = options.displayOptions.winWidth;
+            int outputHeight = options.displayOptions.winHeight;
+
             try {
-                imagePassInputTexture = new Texture(ImageIO.read(inputFile));
-            } catch (IOException e) {
+                if (ImageInputFiles.singleton != null)
+                    ImageInputFiles.singleton.dispose();
+                ImageInputFiles.singleton = new ImageInputFiles(new File[] { inputFile }, false);
+                ImageInputFiles.singleton.startReadingFiles();
+                if (options.displayOptions.sizeToInput) {
+                    int[] resolution = ImageInputFiles.singleton.getFirstInputFileResolution();
+                    outputWidth = resolution[0];
+                    outputHeight = resolution[1];
+                }
+            } catch (BadInitException e) {
                 Main.logger.err("Could not read file '" + inputFile.getPath() + "': " + e.getMessage());
                 continue;
             }
-
-            int outputWidth = options.sizeToImage ? imagePassInputTexture.getWidth() : options.displayOptions.winWidth;
-            int outputHeight = options.sizeToImage ? imagePassInputTexture.getHeight() : options.displayOptions.winHeight;
             scene.prepareSwapChain(outputWidth, outputHeight);
             BufferedImage frameImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
             int[] frameCpuBuffer = new int[outputWidth*outputHeight];
@@ -89,8 +92,6 @@ public class EntryImage extends SetupUtils {
             } catch (IOException e) {
                 Main.logger.err("Could not write file '" + outputFile.getPath() + "': " + e.getMessage());
             }
-
-            imagePassInputTexture.dispose();
         }
     }
 }

@@ -14,6 +14,7 @@ import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.entry.BadInitException;
+import wonder.shaderdisplay.scene.SceneLayer.RenderState.BlendMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -116,7 +117,7 @@ public class SceneParser {
             loadMesh(rootFile, serializedLayer.root, serializedLayer.model),
             serializedLayer.macros,
             serializedLayer.uniforms,
-            serializedLayer.makeRenderState(),
+            serializedLayer.makeRenderState(errors),
             serializedLayer.targets
         );
 
@@ -183,11 +184,11 @@ public class SceneParser {
 
     private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, List<SceneRenderTarget> renderTargets, JsonBlitPass pass) {
         return groupRenderTargetsBySize(renderTargets, pass.targets).stream()
-                .map(set -> makeBlitLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass.source))
+                .map(set -> makeBlitLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass))
                 .collect(Collectors.toList());
     }
 
-    private static SceneLayer makeBlitLayer(ErrorWrapper errors, String[] renderTargets, String source) {
+    private static SceneLayer makeBlitLayer(ErrorWrapper errors, String[] renderTargets, JsonBlitPass pass) {
         Stream<Macro> macros = IntStream.range(0, renderTargets.length).mapToObj(i -> new Macro("BLIT_TARGET_"+i));
 
         // TODO blit depth textures
@@ -198,14 +199,10 @@ public class SceneParser {
                 .setFixedPrimarySourceName("blit_pass")
                 .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
                 .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
-            Mesh.fullscreenTriangle(),
+            Mesh.makeFullscreenTriangleMesh(),
             macros.toArray(Macro[]::new),
-            new SceneUniform[] { new SceneUniform("u_source", source) },
-            new SceneLayer.RenderState()
-                .setBlending(false)
-                .setCulling(SceneLayer.RenderState.Culling.NONE)
-                .setDepthTest(false)
-                .setDepthWrite(false),
+            new SceneUniform[] { new SceneUniform("u_source", pass.source) },
+            pass.makeRenderState(errors),
             renderTargets
         );
 
@@ -224,10 +221,12 @@ public class SceneParser {
 
     private static Mesh loadMesh(File sceneFile, String optRoot, String nameOrPath) throws IOException {
         if (nameOrPath == null)
-            return Mesh.fullscreenTriangle();
+            return Mesh.makeFullscreenTriangleMesh();
         switch (nameOrPath) {
         case "fullscreen":
-            return Mesh.fullscreenTriangle();
+            return Mesh.makeFullscreenTriangleMesh();
+        case "line":
+            return Mesh.makeLineMesh();
         default:
             try {
                 return Mesh.parseFile(asOptionalPath(sceneFile, optRoot, nameOrPath));
@@ -302,18 +301,52 @@ class JsonScene {
 class JsonSceneLayer {
     public boolean depthTest = false;
     public boolean depthWrite = false;
-    public boolean blending = true;
+    public BlendMode[] blendFactors = null;
+    public BlendModeTemplate blending = null;
     public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
 
-    public SceneLayer.RenderState makeRenderState() {
+    public SceneLayer.RenderState makeRenderState(ErrorWrapper errors) {
         SceneLayer.RenderState renderState = new SceneLayer.RenderState();
         renderState.isDepthWriteEnabled = depthWrite;
         renderState.isDepthTestEnabled = depthTest;
-        renderState.isBlendingEnabled = blending;
         renderState.culling = culling;
+
+        if (blending != null && blendFactors != null)
+            errors.add("The blend state cannot be specified by both 'blending' and 'blendFactors'");
+        if (blending != null) {
+            switch (blending) {
+                case NONE -> {}
+                case ADDITIVE -> {
+                    renderState.blendSrcRGB = BlendMode.ONE;
+                    renderState.blendDstRGB = BlendMode.ONE;
+                    renderState.blendSrcA   = BlendMode.ONE;
+                    renderState.blendDstA   = BlendMode.ONE;
+                }
+                case ALPHA -> {
+                    renderState.blendSrcRGB = BlendMode.SRC_ALPHA;
+                    renderState.blendDstRGB = BlendMode.ONE_MINUS_SRC_ALPHA;
+                    renderState.blendSrcA   = BlendMode.ONE;
+                    renderState.blendDstA   = BlendMode.ONE_MINUS_SRC_ALPHA;
+                }
+            }
+        } else if (blendFactors != null && blendFactors.length != 0) {
+            if (blendFactors.length != 1 && blendFactors.length != 2 && blendFactors.length != 4)
+                errors.add("'blendFactors' should be [coef] or [coefRGB, coefA] or [srcRGB, dstRGB, srcA, dstA]");
+            renderState.blendSrcRGB = blendFactors[0];
+            renderState.blendDstRGB = blendFactors.length >= 2 ? blendFactors[1] : blendFactors[0];
+            renderState.blendSrcA = blendFactors.length >= 4 ? blendFactors[2] : blendFactors[0];
+            renderState.blendDstA = blendFactors.length >= 4 ? blendFactors[3] : (blendFactors.length >= 2 ? blendFactors[1] : blendFactors[0]);
+        }
         return renderState;
+    }
+
+    enum BlendModeTemplate {
+        NONE, ADDITIVE, ALPHA;
+
+        @JsonValue
+        public String serialName() { return name().toLowerCase(); }
     }
 }
 

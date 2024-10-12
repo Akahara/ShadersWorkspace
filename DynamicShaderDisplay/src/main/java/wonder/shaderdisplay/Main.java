@@ -63,6 +63,8 @@ public class Main {
 		public int winWidth = 960;
 		@Option(name = "--height", shorthand = "-h", desc = "Sets the initial window height")
 		public int winHeight = 540;
+		@Option(name = "--size-to-input", shorthand = "-s", desc = "Use the resolution of the first input texture/video")
+		public boolean sizeToInput;
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
 		public BackgroundType background = BackgroundType.NORMAL;
 		
@@ -142,9 +144,7 @@ public class Main {
 		public int runFromFrame = NO_RUN_FROM_FRAME;
 		@Option(name = "--screenshot-frame", shorthand = "-f", valueName = "frame", desc = "Take the screenshot at frame <frame>, previous frames are not simulated if --run-from is not specified")
 		public int screenshotFrame;
-		@Option(name = "--size-to-image", shorthand = "-s", desc = "Size the shader input to the input image instead of using a fixed size window")
-		public boolean sizeToImage = false;
-		
+
 	}
 	
 	@EntryPoint(path = "snippets", help = "Prints a set of useful glsl snippets, filter with -f and print code with -c")

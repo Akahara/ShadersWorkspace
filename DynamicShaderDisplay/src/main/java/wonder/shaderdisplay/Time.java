@@ -37,6 +37,16 @@ public class Time {
 		time = (frame+.5f) / fps;
 	}
 
+	public static void jumpToTime(float time) {
+		setTime(time);
+		justChanged = true;
+	}
+
+	public static void jumpToFrame(int frame) {
+		setFrame(frame);
+		justChanged = true;
+	}
+
 	public static void setFps(float fps) {
 		Time.fps = fps;
 	}
@@ -72,10 +82,8 @@ public class Time {
 		if(!shouldRenderFrames && !shouldRenderTime)
 			return;
 		
-		if(ImGui.button("Reset iTime")) {
-			time = 0;
-			justChanged = true;
-		}
+		if(ImGui.button("Reset iTime"))
+			jumpToFrame(0);
 		ImGui.sameLine();
 		if(ImGui.checkbox("Pause iTime", paused))
 			paused = !paused;
@@ -85,10 +93,8 @@ public class Time {
 		if(shouldRenderTime) {
 			float[] ptr = { time };
 			shouldRenderTime = false;
-			if(ImGui.dragFloat(timeUniformName == null ? "Time" : timeUniformName, ptr, .01f)) {
-				setTime(ptr[0]);
-				justChanged = true;
-			}
+			if(ImGui.dragFloat(timeUniformName == null ? "Time" : timeUniformName, ptr, .01f))
+				jumpToTime(ptr[0]);
 		}
 		if(shouldRenderFrames) {
 			int[] ptr = { getFrame() };

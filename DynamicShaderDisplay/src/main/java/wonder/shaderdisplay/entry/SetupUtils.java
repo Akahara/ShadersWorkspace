@@ -3,6 +3,7 @@ package wonder.shaderdisplay.entry;
 import fr.wonder.commons.exceptions.ErrorWrapper;
 import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
+import wonder.shaderdisplay.ImageInputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Resources;
 import wonder.shaderdisplay.display.*;
@@ -20,15 +21,28 @@ public class SetupUtils {
 
     }
 
-    protected static void loadCommonOptions(Main.DisplayOptions options) throws BadInitException {
+    protected static void loadCommonOptions(Main.DisplayOptions options, ImageInputFiles inputFiles) throws BadInitException {
         Main.logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
         ShaderCompiler.setDebugResolvedShaders(options.debugResolvedShaders);
+
+        if (options.sizeToInput) {
+            int[] s = inputFiles == null ? null : inputFiles.getFirstInputFileResolution();
+            if (s == null) {
+                Main.logger.warn("Cannot set the window size to an input's, there are no inputs");
+            } else {
+                options.winWidth = s[0];
+                options.winHeight = s[1];
+            }
+        }
+
+        if (options.winWidth <= 0 || options.winHeight <= 0)
+            throw new BadInitException("The window width and height must be >0");
     }
 
-    protected static Display createDisplay(Main.DisplayOptions options, boolean windowVisible, boolean useVSync) {
+    protected static Display createDisplay(Main.DisplayOptions options, boolean windowVisible, boolean useVSync) throws BadInitException {
         Display display = new Display();
-
         Main.logger.info("Creating window");
+
         GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, options.forcedGLVersion, options.verbose);
         GLWindow.setVSync(useVSync);
         GLWindow.setTaskBarIcon("/icon.png");
@@ -54,7 +68,6 @@ public class SetupUtils {
             } catch (IOException e) {
                 throw new BadInitException(sceneFile + " does not exist and could not be created");
             }
-
         }
 
         if (sceneFile.getName().endsWith(".fs"))
@@ -86,7 +99,7 @@ public class SetupUtils {
                 .setFile(ShaderType.COMPUTE, options.computeShaderFile)
                 .setFile(ShaderType.FRAGMENT, fragmentFile)
                 .completeWithDefaultSources(),
-            Mesh.fullscreenTriangle(),
+            Mesh.makeFullscreenTriangleMesh(),
             new Macro[0],
             new SceneUniform[0],
             new SceneLayer.RenderState(),

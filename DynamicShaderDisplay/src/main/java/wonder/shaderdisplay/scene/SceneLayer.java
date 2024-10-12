@@ -7,6 +7,8 @@ import wonder.shaderdisplay.uniforms.UniformsContext;
 import java.io.File;
 import java.util.Objects;
 
+import static org.lwjgl.opengl.GL11.*;
+
 public class SceneLayer {
 
     public final SceneType sceneType;
@@ -54,18 +56,33 @@ public class SceneLayer {
 
         public static final RenderState DEFAULT = new RenderState();
 
-        public boolean isBlendingEnabled = true;
+        public BlendMode blendSrcRGB, blendSrcA, blendDstRGB, blendDstA;
         public boolean isDepthTestEnabled = true;
         public boolean isDepthWriteEnabled = true;
         public Culling culling = Culling.BACK;
 
-        public RenderState setBlending(boolean enabled) { this.isBlendingEnabled = enabled; return this; }
-        public RenderState setDepthTest(boolean enabled) { this.isDepthTestEnabled = enabled; return this; }
-        public RenderState setDepthWrite(boolean enabled) { this.isDepthWriteEnabled = enabled; return this; }
-        public RenderState setCulling(Culling culling) { this.culling = culling; return this; }
-
         public enum Culling {
             BACK, FRONT, NONE;
+
+            @JsonValue
+            public String serialName() { return name().toLowerCase(); }
+        }
+
+        public enum BlendMode {
+            ZERO(GL_ZERO),
+            ONE(GL_ONE),
+            SRC_COLOR(GL_SRC_COLOR),
+            ONE_MINUS_SRC_COLOR(GL_ONE_MINUS_SRC_COLOR),
+            SRC_ALPHA(GL_SRC_ALPHA),
+            ONE_MINUS_SRC_ALPHA(GL_ONE_MINUS_SRC_ALPHA),
+            DST_ALPHA(GL_DST_ALPHA),
+            ONE_MINUS_DST_ALPHA(GL_ONE_MINUS_DST_ALPHA);
+
+            public final int glBlendMode;
+
+            BlendMode(int glBlendMode) {
+                this.glBlendMode = glBlendMode;
+            }
 
             @JsonValue
             public String serialName() { return name().toLowerCase(); }

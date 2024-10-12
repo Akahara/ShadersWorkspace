@@ -17,24 +17,29 @@ import static org.lwjgl.opengl.GL30.*;
 public class Mesh {
 
     private final File sourceFile;
+    private final Topology topology;
     private final int vbo, ibo, vao;
     private final int indexCount;
 
-    public Mesh(File sourceFile, float[] vertexData, int[] indices) {
+    public Mesh(File sourceFile, float[] vertexData, int[] indices, Topology topology) {
         this.sourceFile = sourceFile;
-        indexCount = indices.length;
+        this.indexCount = indices.length;
+        this.topology = topology;
+
+        if (indices.length % topology.vertexCount != 0)
+            throw new IllegalArgumentException("Invalid number of indices, expected a multiple of " + topology.vertexCount);
 
         ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(vertexData);
         ByteBuffer shaderStorageIndicesData  = BufferUtils.fromInts(indices);
 
-        vao = glGenVertexArrays();
+        this.vao = glGenVertexArrays();
         glBindVertexArray(vao);
 
-        vbo = glGenBuffers();
+        this.vbo = glGenBuffers();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, shaderStorageVerticesData, GL_DYNAMIC_DRAW);
 
-        ibo = glGenBuffers();
+        this.ibo = glGenBuffers();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, shaderStorageIndicesData, GL_DYNAMIC_DRAW);
 
@@ -48,7 +53,6 @@ public class Mesh {
         glVertexAttribPointer(0, 4, GL_FLOAT, false, stride*4, 4*0);
         glVertexAttribPointer(1, 3, GL_FLOAT, false, stride*4, 4*4);
         glVertexAttribPointer(2, 2, GL_FLOAT, false, stride*4, 4*(4+3));
-
         glBindVertexArray(0);
     }
 
@@ -58,9 +62,23 @@ public class Mesh {
         this.vao = 0;
         this.vbo = 0;
         this.indexCount = 0;
+        this.topology = Topology.TRIANGLE_LIST;
     }
 
-    public static Mesh fullscreenTriangle() {
+    public enum Topology {
+        TRIANGLE_LIST(3, GL_TRIANGLES),
+        LINE_LIST(2, GL_LINES);
+
+        final int vertexCount;
+        final int glType;
+
+        Topology(int vertexCount, int glType) {
+            this.vertexCount = vertexCount;
+            this.glType = glType;
+        }
+    }
+
+    public static Mesh makeFullscreenTriangleMesh() {
         return new Mesh(
             null,
             new float[] {
@@ -68,7 +86,20 @@ public class Mesh {
                 +3,-1,0,1, 0,0,0, 2,0,
                 -1,+3,0,1, 0,0,0, 0,2,
             },
-            new int[] { 0,1,2 }
+            new int[] { 0,1,2 },
+            Topology.TRIANGLE_LIST
+        );
+    }
+
+    public static Mesh makeLineMesh() {
+        return new Mesh(
+            null,
+            new float[] {
+                0,0,0,1, 0,0,0, 0,0,
+                1,0,0,1, 0,0,0, 1,0,
+            },
+            new int[] { 0, 1 },
+            Topology.LINE_LIST
         );
     }
 
@@ -130,7 +161,7 @@ public class Mesh {
         int[] rawIndexData = indexData.stream().mapToInt(i -> i).toArray();
 
         Main.logger.info("Successfully loaded mesh " + file);
-        return new Mesh(file, rawVertexData, rawIndexData);
+        return new Mesh(file, rawVertexData, rawIndexData, Topology.TRIANGLE_LIST);
     }
 
     public static Mesh emptyMesh() {
@@ -149,7 +180,7 @@ public class Mesh {
 
     public void makeDrawCall() {
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+        glDrawElements(topology.glType, indexCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
 }

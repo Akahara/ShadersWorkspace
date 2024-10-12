@@ -41,11 +41,17 @@ public class Renderer {
 	}
 
 	private void setupRenderState(SceneLayer.RenderState rs) {
-		if (rs.isBlendingEnabled)
+		if (rs.blendSrcA != null) {
 			glEnable(GL_BLEND);
-		else
+			glBlendFuncSeparate(
+					rs.blendSrcRGB.glBlendMode,
+					rs.blendDstRGB.glBlendMode,
+					rs.blendSrcA.glBlendMode,
+					rs.blendDstRGB.glBlendMode);
+
+		} else {
 			glDisable(GL_BLEND);
-		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+		}
 
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(rs.isDepthTestEnabled ? GL_LESS : GL_ALWAYS);

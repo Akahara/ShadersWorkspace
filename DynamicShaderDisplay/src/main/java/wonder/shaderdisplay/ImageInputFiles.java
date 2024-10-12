@@ -10,6 +10,7 @@ import wonder.shaderdisplay.display.PixelBuffer;
 import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.entry.BadInitException;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -21,21 +22,15 @@ public class ImageInputFiles {
 
     public static ImageInputFiles singleton;
 
-    private final File[] inputFiles;
     private final InputImageStream[] streams;
-    private final boolean useVideoFramerate;
     private boolean hasInputVideo;
     private float videoFramerate;
 
-    public ImageInputFiles(File[] files, boolean useVideoFramerate) {
-        this.inputFiles = files;
+    public ImageInputFiles(File[] files, boolean useVideoFramerate) throws BadInitException {
         this.streams = new InputImageStream[files.length];
-        this.useVideoFramerate = useVideoFramerate;
-    }
 
-    public void startReadingFiles() throws BadInitException {
-        for (int i = 0; i < inputFiles.length; i++) {
-            File file = inputFiles[i];
+        for (int i = 0; i < files.length; i++) {
+            File file = files[i];
             String extension = FilesUtils.getFileExtension(file);
 
             if (!file.isFile() || !file.exists())
@@ -45,7 +40,6 @@ public class ImageInputFiles {
                 case "mp4", "webm", "avi" -> {
                     Main.logger.debug("Trying to read '" + file + "' as a video stream");
                     VideoStream stream = new VideoStream(file);
-                    stream.startReadingVideo();
                     streams[i] = stream;
                     float framerate = stream.getFramerate();
                     if (useVideoFramerate && videoFramerate != 0 && videoFramerate != framerate)
@@ -56,11 +50,19 @@ public class ImageInputFiles {
                 default -> {
                     Main.logger.debug("Trying to read '" + file + "' as an image file");
                     FixedImageStream stream = new FixedImageStream(file);
-                    stream.readImage();
                     streams[i] = stream;
                 }
             }
         }
+    }
+
+    public int[] getFirstInputFileResolution() throws BadInitException {
+        return streams.length == 0 ? null : streams[0].getImageResolution();
+    }
+
+    public void startReadingFiles() throws BadInitException {
+        for (InputImageStream stream : streams)
+            stream.startReading();
     }
 
     public Texture getInputTexture(int inputTextureSlot) {
@@ -76,12 +78,21 @@ public class ImageInputFiles {
     public float getCommonVideoFramerate() {
         return videoFramerate;
     }
+
+    public void dispose() {
+        for (InputImageStream stream : streams)
+            stream.close();
+    }
 }
 
 interface InputImageStream {
 
-    void close();
+    // Does not create gl resources
+    int[] getImageResolution() throws BadInitException;
+
+    void startReading() throws BadInitException;
     Texture getTexture();
+    void close();
 
 }
 
@@ -94,7 +105,18 @@ class FixedImageStream implements InputImageStream {
         this.file = textureFile;
     }
 
-    public void readImage() throws BadInitException {
+    @Override
+    public int[] getImageResolution() throws BadInitException {
+        try {
+            BufferedImage img = ImageIO.read(file);
+            return new int[] { img.getWidth(), img.getHeight() };
+        } catch (IOException e) {
+            throw new BadInitException(e);
+        }
+    }
+
+    @Override
+    public void startReading() throws BadInitException {
         this.texture = Texture.loadTexture(file);
         if (texture == Texture.getMissingTexture())
             throw new BadInitException("Could not load texture from '" + file.getAbsolutePath() + "'");
@@ -118,6 +140,8 @@ class VideoStream implements InputImageStream {
 
     final File videoFile;
     final Logger logger;
+
+    int videoWidth, videoHeight;
 
     Texture currentFrame;
     PixelBuffer pbo;
@@ -144,14 +168,11 @@ class VideoStream implements InputImageStream {
     Decoder videoDecoder;
     MediaPictureConverter pictureConverter;
 
-    public VideoStream(File videoFile) {
+    public VideoStream(File videoFile) throws BadInitException {
         this.videoFile = videoFile;
         this.logger = new SimpleLogger(videoFile.getName(), Logger.LEVEL_ERROR);
-    }
-
-    public void startReadingVideo() throws BadInitException {
-        demuxer = Demuxer.make();
-        workingPacket = MediaPacket.make();
+        this.demuxer = Demuxer.make();
+        this.workingPacket = MediaPacket.make();
 
         try {
             demuxer.open(videoFile.getAbsolutePath(), null, false, true, null, null);
@@ -182,13 +203,21 @@ class VideoStream implements InputImageStream {
             throw new BadInitException("Could not find video stream in container for '" + videoFile.getAbsolutePath() + "'");
 
         videoDecoder.open(null, null);
+        this.videoWidth = videoDecoder.getWidth();
+        this.videoHeight = videoDecoder.getHeight();
+        this.workingPicture = MediaPicture.make(videoWidth, videoHeight, videoDecoder.getPixelFormat());
+        this.pictureConverter = MediaPictureConverterFactory.createConverter(MediaPictureConverterFactory.HUMBLE_BGR_24, workingPicture);
+    }
 
-        int w = videoDecoder.getWidth(), h = videoDecoder.getHeight();
-        workingPicture = MediaPicture.make(w, h, videoDecoder.getPixelFormat());
-        pictureConverter = MediaPictureConverterFactory.createConverter(MediaPictureConverterFactory.HUMBLE_BGR_24, workingPicture);
-        pbo = new PixelBuffer(w * h * 4);
-        currentFrame = new Texture(w, h, Texture.InternalTextureFormat.RGBA8);
+    @Override
+    public int[] getImageResolution() {
+        return new int[] { videoWidth, videoHeight };
+    }
 
+    @Override
+    public void startReading() {
+        this.pbo = new PixelBuffer(videoWidth * videoHeight * 4);
+        this.currentFrame = new Texture(videoWidth, videoHeight, Texture.InternalTextureFormat.RGBA8);
         new Thread(this::videoStreamingLoop, "VideoStreaming").start();
     }
 

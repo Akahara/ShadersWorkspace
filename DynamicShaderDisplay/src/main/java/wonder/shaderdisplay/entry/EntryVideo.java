@@ -22,8 +22,8 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryVideo extends SetupUtils {
 
-    protected static void loadCommonOptions(Main.VideoOptions options) throws BadInitException {
-        loadCommonOptions(options.displayOptions);
+    protected static void loadCommonOptions(Main.VideoOptions options, ImageInputFiles inputFiles) throws BadInitException {
+        loadCommonOptions(options.displayOptions, inputFiles);
 
         if (options.framerate <= 0)
             throw new BadInitException("The framerate must be >0");
@@ -42,12 +42,12 @@ public class EntryVideo extends SetupUtils {
         Main.logger.info("-- Running video generation --");
 
         int videoWidth = options.displayOptions.winWidth, videoHeight = options.displayOptions.winHeight;
-        ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, false);
         Display display;
         Scene scene;
 
         try {
-            loadCommonOptions(options);
+            ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, false);
+            loadCommonOptions(options, imageInputFiles);
 
             display = createDisplay(options.displayOptions, options.preview, false);
             imageInputFiles.startReadingFiles();

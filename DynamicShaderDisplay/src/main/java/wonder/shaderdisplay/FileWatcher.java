@@ -106,7 +106,12 @@ public class FileWatcher {
 	
 	private void addWatchedPath(File toAdd, WatchableResourceAssociation association) {
 		toAdd = toAdd.getAbsoluteFile();
-		File parent = toAdd.getParentFile();
+		File parent;
+		try {
+			parent = toAdd.getParentFile().getCanonicalFile();
+		} catch (IOException e) {
+			throw new IllegalStateException("Could not resolve the parent of " + toAdd.getAbsolutePath());
+		}
 		if (toAdd.isDirectory()) {
 			throw new IllegalStateException(toAdd + " is a directory!");
 		} else if (!toAdd.exists()) {

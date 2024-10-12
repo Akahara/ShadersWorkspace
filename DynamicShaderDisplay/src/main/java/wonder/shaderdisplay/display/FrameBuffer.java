@@ -34,6 +34,7 @@ public class FrameBuffer {
 			if (depthAttachment != null)
 				throw new IllegalStateException("Cannot add two depth attachments");
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texture.getId(), 0);
+			depthAttachment = texture;
 		} else {
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachments.size(), GL_TEXTURE_2D, texture.getId(), 0);
 			attachments.add(texture);

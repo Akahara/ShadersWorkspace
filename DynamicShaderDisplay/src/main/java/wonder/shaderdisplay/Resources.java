@@ -33,14 +33,13 @@ public class Resources {
 	}
 
 	public static void setDefaultFragmentTemplate(Main.RunOptions.FragmentTemplate template) {
-		String templatePath = null;
-		switch (template) {
-			case FRAMEBUFFERS: templatePath = "/default_fragment_framebuffers.fs"; break;
-			case RAYCASTING:   templatePath = "/default_fragment_raycasting.fs";   break;
-			case SHADERTOY:    templatePath = "/default_fragment_shadertoy.fs";    break;
-			case STANDARD:     templatePath = "/default_fragment_standard.fs";     break;
-		}
-		DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()] = readResource(templatePath);
+		String templatePath = switch (template) {
+            case FRAMEBUFFERS -> "/default_fragment_framebuffers.fs";
+            case RAYCASTING -> "/default_fragment_raycasting.fs";
+            case SHADERTOY -> "/default_fragment_shadertoy.fs";
+            case STANDARD -> "/default_fragment_standard.fs";
+        };
+        DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()] = readResource(templatePath);
 	}
 
 	public static String readResource(String path) {

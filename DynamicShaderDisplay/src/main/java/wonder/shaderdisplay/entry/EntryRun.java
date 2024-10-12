@@ -22,8 +22,8 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryRun extends SetupUtils {
 
-    protected static void loadCommonOptions(Main.RunOptions options) throws BadInitException {
-        loadCommonOptions(options.displayOptions);
+    protected static void loadCommonOptions(Main.RunOptions options, ImageInputFiles inputFiles) throws BadInitException {
+        loadCommonOptions(options.displayOptions, inputFiles);
 
         if(options.targetFPS <= 0) {
             throw new BadInitException("Invalid fps: " + options.targetFPS);
@@ -39,10 +39,10 @@ public class EntryRun extends SetupUtils {
 
         Display display;
         Scene scene;
-        ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, options.frameExact);
 
         try {
-            loadCommonOptions(options);
+            ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, options.frameExact);
+            loadCommonOptions(options, imageInputFiles);
             display = createDisplay(options.displayOptions, true, options.vsync);
             imageInputFiles.startReadingFiles();
             if (imageInputFiles.hasInputVideo() && options.frameExact) {
@@ -86,7 +86,7 @@ public class EntryRun extends SetupUtils {
                         if (fileWatcher.requiresSceneRecompilation()) {
                             rewatchFiles = true;
                             Main.logger.info("Regenerating scene");
-                            scene = SceneParser.regenerateScene(fragment, scene);
+                            scene = SceneParser.regenerateScene(scene.sourceFile, scene);
                             scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());
                         }
                         ShaderCompiler.ShaderCompilationResult compilationResult = fileWatcher.processShaderRecompilation();
@@ -94,7 +94,7 @@ public class EntryRun extends SetupUtils {
                         if (compilationResult.success) {
                             UniformApplicationContext.resetLoggedBindingWarnings();
                             if (options.resetTimeOnUpdate)
-                                Time.setFrame(0);
+                                Time.jumpToFrame(0);
                             if (options.resetRenderTargetsOnUpdate)
                                 scene.clearSwapChainTextures();
                         }
