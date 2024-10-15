@@ -25,6 +25,7 @@ public class EntryImage extends SetupUtils {
 
         Display display;
         Scene scene;
+        fragment = getMainSceneFile(fragment);
 
         try {
             loadCommonOptions(options);

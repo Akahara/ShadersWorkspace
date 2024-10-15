@@ -5,9 +5,10 @@ import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.ImageInputFiles;
 import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.Resources;
+import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.scene.*;
+import wonder.shaderdisplay.serial.UserConfig;
 import wonder.shaderdisplay.uniforms.ResolutionUniform;
 
 import java.io.File;
@@ -25,6 +26,11 @@ public class SetupUtils {
         Main.logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
         ShaderCompiler.setDebugResolvedShaders(options.debugResolvedShaders);
 
+        // Window size priority:
+        // - if --size-to-input, use the first image/video input size
+        // - if --width/--height is specified, use that
+        // - use the previous instance config if possible to keep settings between restarts
+        // - use the default window size
         if (options.sizeToInput) {
             int[] s = inputFiles == null ? null : inputFiles.getFirstInputFileResolution();
             if (s == null) {
@@ -34,31 +40,48 @@ public class SetupUtils {
                 options.winHeight = s[1];
             }
         }
-
-        if (options.winWidth <= 0 || options.winHeight <= 0)
-            throw new BadInitException("The window width and height must be >0");
+        if (UserConfig.config != null && UserConfig.config.windowLocation != null) {
+            int[] location = UserConfig.config.windowLocation;
+            if (options.winWidth < 0) options.winWidth = location[2];
+            if (options.winHeight < 0) options.winHeight = location[3];
+        }
+        if (options.winWidth < 0) options.winWidth = Main.DisplayOptions.DEFAULT_WIN_WIDTH;
+        if (options.winHeight < 0) options.winHeight = Main.DisplayOptions.DEFAULT_WIN_HEIGHT;
     }
 
     protected static Display createDisplay(Main.DisplayOptions options, boolean windowVisible, boolean useVSync) throws BadInitException {
         Display display = new Display();
         Main.logger.info("Creating window");
 
-        GLWindow.createWindow(options.winWidth, options.winHeight, windowVisible, options.forcedGLVersion, options.verbose);
+        GLWindow.createWindow(options.winWidth, options.winHeight, options.forcedGLVersion, options.verbose);
         GLWindow.setVSync(useVSync);
         GLWindow.setTaskBarIcon("/icon.png");
+        if (UserConfig.config != null) {
+            int[] location = UserConfig.config.windowLocation;
+            if (location != null)
+                GLWindow.moveWindow(location[0], location[1]);
+            GLWindow.addLocationListener((x, y, w, h) -> UserConfig.config.windowLocation = new int[] { x, y, w, h });
+        }
         GLWindow.addResizeListener(ResolutionUniform::updateViewportSize);
         ResolutionUniform.updateViewportSize(options.winWidth, options.winHeight);
 
         display.renderer = new Renderer();
 
+        if (windowVisible)
+            GLWindow.showWindow();
+
         return display;
+    }
+
+    protected static File getMainSceneFile(File userInputFile) {
+        if (userInputFile.isDirectory())
+            return new File(userInputFile, "scene.json");
+        return userInputFile;
     }
 
     protected static Scene createScene(Main.DisplayOptions options, File sceneFile) throws BadInitException {
         Scene scene;
 
-        if (sceneFile.isDirectory())
-            sceneFile = new File(sceneFile, "scene.json");
         if (!sceneFile.isFile()) {
             try {
                 if (sceneFile.getName().endsWith(".fs"))

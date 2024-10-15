@@ -12,6 +12,8 @@ import wonder.shaderdisplay.display.WindowBlit;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
+import wonder.shaderdisplay.serial.Resources;
+import wonder.shaderdisplay.serial.UserConfig;
 import wonder.shaderdisplay.uniforms.UniformApplicationContext;
 import wonder.shaderdisplay.uniforms.ViewUniform;
 
@@ -34,13 +36,15 @@ public class EntryRun extends SetupUtils {
         Time.setFps(options.targetFPS);
     }
 
-    public static void run(Main.RunOptions options, File fragment, File... inputFiles) {
+    public static void run(Main.RunOptions options, File sceneFile, File... inputFiles) {
         Main.logger.info("-- Running display --");
 
         Display display;
         Scene scene;
+        sceneFile = getMainSceneFile(sceneFile);
 
         try {
+            UserConfig.loadConfig(sceneFile);
             ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, options.frameExact);
             loadCommonOptions(options, imageInputFiles);
             display = createDisplay(options.displayOptions, true, options.vsync);
@@ -50,8 +54,9 @@ public class EntryRun extends SetupUtils {
                 Time.setFps(options.targetFPS);
                 Main.logger.info("Using input video framerate: " + options.targetFPS);
             }
-            scene = createScene(options.displayOptions, fragment);
+            scene = createScene(options.displayOptions, sceneFile);
             scene.prepareSwapChain(options.displayOptions.winWidth, options.displayOptions.winHeight);
+            scene.applyUserConfig();
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
             Main.exit();
@@ -60,7 +65,7 @@ public class EntryRun extends SetupUtils {
 
         try {
             FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
-            ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem();
+            ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem(sceneFile);
             UserControls userControls = new UserControls();
             Resources.scanForAndLoadSnippets();
             fileWatcher.startWatching();
@@ -74,7 +79,7 @@ public class EntryRun extends SetupUtils {
             long lastSec = System.nanoTime();
             int frames = 0;
             long workTime = 0;
-            WindowTitleSupplier windowTitleSupplier = new WindowTitleSupplier(fragment.getName());
+            WindowTitleSupplier windowTitleSupplier = new WindowTitleSupplier(sceneFile.getName());
 
             while (!GLWindow.shouldDispose()) {
                 // reload shaders if necessary
@@ -88,6 +93,7 @@ public class EntryRun extends SetupUtils {
                             Main.logger.info("Regenerating scene");
                             scene = SceneParser.regenerateScene(scene.sourceFile, scene);
                             scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());
+                            scene.applyUserConfig();
                         }
                         ShaderCompiler.ShaderCompilationResult compilationResult = fileWatcher.processShaderRecompilation();
                         rewatchFiles |= compilationResult.fileDependenciesUpdated;
@@ -137,8 +143,10 @@ public class EntryRun extends SetupUtils {
                 glfwSwapBuffers(GLWindow.getWindow());
                 glfwPollEvents();
 
-                if (userControls.poolShouldTakeScreenshot())
+                if (userControls.pollShouldTakeScreenshot())
                     userControls.takeScreenshot(scene, options.displayOptions);
+                if (userControls.pollResetRenderTargetsQueried())
+                    scene.clearSwapChainTextures();
 
                 long sleepBegin = System.nanoTime();
                 if (endNano < nextFrame)
@@ -168,6 +176,7 @@ public class EntryRun extends SetupUtils {
             else
                 Main.logger.err(e, "An error occurred");
         } finally {
+            UserConfig.saveConfig(scene.sourceFile);
             Main.exit();
         }
     }
@@ -178,8 +187,10 @@ class ImGuiSystem {
     private final ImGuiImplGlfw glfw;
     private final ImGuiImplGl3 gl3;
 
-    ImGuiSystem() {
+    ImGuiSystem(File projectRootFile) {
         ImGui.createContext();
+        File iniFile = new File(UserConfig.getProjectConfigDir(projectRootFile), "imgui.ini");
+        ImGui.getIO().setIniFilename(iniFile.getAbsolutePath());
         glfw = new ImGuiImplGlfw();
         gl3 = new ImGuiImplGl3();
         glfw.init(GLWindow.getWindow(), true);

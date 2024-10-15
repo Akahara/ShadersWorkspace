@@ -13,6 +13,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -39,15 +40,17 @@ import wonder.shaderdisplay.Main;
 public class GLWindow {
 	
 	private static long window;
-	public static int winWidth, winHeight;
+	public static int winX, winY, winWidth, winHeight;
 	
 	private static final List<Callback> closeableCallbacks = new ArrayList<>();
 	private static final List<BiConsumer<Integer, Integer>> resizeCallbacks = new ArrayList<>();
-	private static final List<BiConsumer<Integer, Integer>> keyCallback = new ArrayList<>();
-	private static final List<BiConsumer<Double, Double>> mouseCallback = new ArrayList<>();
-	private static final List<BiConsumer<Integer, Integer>> buttonCallback = new ArrayList<>();
+	private static final List<KeyCallback> keyCallbacks = new ArrayList<>();
+	private static final List<BiConsumer<Double, Double>> mouseCallbacks = new ArrayList<>();
+	private static final List<BiConsumer<Double, Double>> scrollCallbacks = new ArrayList<>();
+	private static final List<BiConsumer<Integer, Integer>> buttonCallbacks = new ArrayList<>();
+	private static final List<LocationCallback> locationCallbacks = new ArrayList<>();
 
-	public static void createWindow(int width, int height, boolean visible, String forcedGlVersion, boolean verboseGLFW) {
+	public static void createWindow(int width, int height, String forcedGlVersion, boolean verboseGLFW) {
 		winWidth = width;
 		winHeight = height;
 
@@ -68,11 +71,6 @@ public class GLWindow {
 			throw new IllegalStateException("Unable to create a window !");
 
 		glfwMakeContextCurrent(window);
-		if(visible) {
-			glfwShowWindow(window);
-			glfwFocusWindow(window);
-		}
-
 		GLCapabilities caps = GL.createCapabilities();
 
 		if(verboseGLFW) {
@@ -93,6 +91,11 @@ public class GLWindow {
 			}
 		}
 
+		int[] xbuf = new int[1], ybuf = new int[1];
+		glfwGetWindowPos(window, xbuf, ybuf);
+		winX = xbuf[0];
+		winY = ybuf[0];
+
 		glViewport(0, 0, width, height);
 		glClearColor(0, 0, 0, 0);
 		glPointSize(3);
@@ -105,6 +108,8 @@ public class GLWindow {
 			winHeight = h;
 			for(BiConsumer<Integer, Integer> callback : resizeCallbacks)
 				callback.accept(w, h);
+			for(LocationCallback callback : locationCallbacks)
+				callback.accept(winX, winY, winWidth, winHeight);
 		});
 
 		glfwSetKeyCallback(window, (win, key, scanCode, action, mods) -> {
@@ -112,19 +117,36 @@ public class GLWindow {
 				glfwSetWindowShouldClose(window, true);
 			}
 
-			for(BiConsumer<Integer, Integer> callback : keyCallback)
-				callback.accept(key, action);
+			for(KeyCallback callback : keyCallbacks)
+				callback.accept(key, action, mods);
 		});
 
 		glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
-			for(BiConsumer<Double, Double> callback : mouseCallback)
+			for(BiConsumer<Double, Double> callback : mouseCallbacks)
 				callback.accept(xpos, ypos);
 		});
 
 		glfwSetMouseButtonCallback(window, (win, button, action, mods) -> {
-			for(BiConsumer<Integer, Integer> callback : buttonCallback)
+			for(BiConsumer<Integer, Integer> callback : buttonCallbacks)
 				callback.accept(button, action);
 		});
+
+		glfwSetScrollCallback(window, (win, xoffset, yoffset) -> {
+			for(BiConsumer<Double, Double> callback : scrollCallbacks)
+				callback.accept(xoffset, yoffset);
+		});
+
+		glfwSetWindowPosCallback(window, (win, x, y) -> {
+			winX = x;
+			winY = y;
+			for(LocationCallback callback : locationCallbacks)
+				callback.accept(winX, winY, winWidth, winHeight);
+		});
+	}
+
+	public static void showWindow() {
+		glfwShowWindow(window);
+		glfwFocusWindow(window);
 	}
 	
 	private static void setGLVersionHint(String forcedGLVersion) {
@@ -174,14 +196,20 @@ public class GLWindow {
 		winHeight = height <= 0 ? winHeight : height;
 		glfwSetWindowSize(window, winWidth, winHeight);
 	}
+
+	public static void moveWindow(int winX, int winY) {
+		glfwSetWindowPos(window, winX, winY);
+	}
 	
 	public static void setTaskBarIcon(String resourcePath) {
 		GLFWImage.Buffer iconImageBuffer = GLFWImage.malloc(1);
 		GLFWImage icon = GLFWImage.malloc();
 		BufferedImage iconImage;
 		try {
-			iconImage = ImageIO.read(GLWindow.class.getResourceAsStream(resourcePath));
-		} catch (IOException | IllegalArgumentException | NullPointerException e) {
+			InputStream is = GLWindow.class.getResourceAsStream(resourcePath);
+			if (is == null) throw new IOException("Could not find resource " + resourcePath);
+			iconImage = ImageIO.read(is);
+		} catch (IOException e) {
 			Main.logger.err(e, "Could not load taskbar icon");
 			return;
 		}
@@ -232,22 +260,40 @@ public class GLWindow {
 		return new ListenerHandle(() -> resizeCallbacks.remove(callback));
 	}
 
-	public static ListenerHandle addKeyCallback(BiConsumer<Integer, Integer> callback) {
-		keyCallback.add(callback);
-		return new ListenerHandle(() -> keyCallback.remove(callback));
+	public interface KeyCallback {
+		void accept(int key, int action, int mods);
+	}
+
+	public static ListenerHandle addKeyCallback(KeyCallback callback) {
+		keyCallbacks.add(callback);
+		return new ListenerHandle(() -> keyCallbacks.remove(callback));
 	}
 
 	public static ListenerHandle addMouseCallback(BiConsumer<Double, Double> callback) {
-		mouseCallback.add(callback);
-		return new ListenerHandle(() -> mouseCallback.remove(callback));
+		mouseCallbacks.add(callback);
+		return new ListenerHandle(() -> mouseCallbacks.remove(callback));
 	}
 
 	public static ListenerHandle addButtonCallback(BiConsumer<Integer, Integer> callback) {
-		buttonCallback.add(callback);
-		return new ListenerHandle(() -> buttonCallback.remove(callback));
+		buttonCallbacks.add(callback);
+		return new ListenerHandle(() -> buttonCallbacks.remove(callback));
 	}
 
-	public static class ListenerHandle {
+    public static ListenerHandle addScrollCallback(BiConsumer<Double, Double> callback) {
+		scrollCallbacks.add(callback);
+		return new ListenerHandle(() -> scrollCallbacks.remove(callback));
+    }
+
+	public interface LocationCallback {
+		void accept(int winX, int winY, int winW, int winH);
+	}
+
+	public static ListenerHandle addLocationListener(LocationCallback callback) {
+		locationCallbacks.add(callback);
+		return new ListenerHandle(() -> locationCallbacks.remove(callback));
+	}
+
+    public static class ListenerHandle {
 
 		private final Runnable removeHandle;
 

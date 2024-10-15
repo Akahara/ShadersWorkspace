@@ -21,6 +21,7 @@ public class SceneLayer {
     // only valid if sceneType is CLEAR
     public float[] clearColor;
     public float clearDepth;
+    public boolean enabled = true;
 
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
@@ -68,6 +69,7 @@ public class SceneLayer {
             public String serialName() { return name().toLowerCase(); }
         }
 
+        @SuppressWarnings("unused")
         public enum BlendMode {
             ZERO(GL_ZERO),
             ONE(GL_ONE),

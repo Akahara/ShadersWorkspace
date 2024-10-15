@@ -21,6 +21,10 @@ public class Time {
 		return (int) (time * fps);
 	}
 
+	public static float getFramerate() {
+		return fps;
+	}
+
 	public static boolean isPaused() {
 		return paused;
 	}

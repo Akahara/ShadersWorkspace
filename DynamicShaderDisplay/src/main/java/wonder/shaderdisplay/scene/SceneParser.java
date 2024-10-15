@@ -1,17 +1,10 @@
 package wonder.shaderdisplay.scene;
 
 import com.fasterxml.jackson.annotation.*;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.core.json.JsonReadFeature;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import fr.wonder.commons.exceptions.ErrorWrapper;
 import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.Resources;
+import wonder.shaderdisplay.serial.JsonUtils;
+import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.entry.BadInitException;
 import wonder.shaderdisplay.scene.SceneLayer.RenderState.BlendMode;
@@ -29,26 +22,6 @@ import java.util.stream.Stream;
 
 public class SceneParser {
 
-    private static final ObjectMapper mapper = new ObjectMapper(new JsonFactoryBuilder()
-            .enable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION)
-            .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
-            .enable(JsonReadFeature.ALLOW_SINGLE_QUOTES)
-            .enable(JsonReadFeature.ALLOW_TRAILING_DECIMAL_POINT_FOR_NUMBERS)
-            .enable(JsonReadFeature.ALLOW_LEADING_PLUS_SIGN_FOR_NUMBERS)
-            .enable(JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES)
-            .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
-            .build())
-            .addHandler(new DeserializationProblemHandler() {
-                @Override
-                public boolean handleUnknownProperty(DeserializationContext c, JsonParser p, JsonDeserializer<?> d, Object beanOrClass, String propertyName) throws IOException {
-                    if(propertyName.startsWith("_")) {
-                        p.skipChildren();
-                        return true;
-                    }
-                    return false;
-                }
-            });
-
     public static Scene loadScene(File file) throws BadInitException {
         Scene scene = regenerateScene(file, null);
         if (scene == null)
@@ -59,7 +32,7 @@ public class SceneParser {
     public static Scene regenerateScene(File file, Scene previousScene) {
         JsonScene serialized;
         try {
-            serialized = mapper.readValue(file, JsonScene.class);
+            serialized = JsonUtils.JSON_MAPPER.readValue(file, JsonScene.class);
         } catch (IOException e) {
             Main.logger.err("Could not parse the scene file: " + e.getMessage());
             return previousScene;
@@ -85,7 +58,10 @@ public class SceneParser {
                 } else if (serializedLayerBase instanceof JsonClearPass pass) {
                     scene.layers.add(makeClearLayer(layerErrors, pass.targets, pass.clearColor, pass.clearDepth));
                 } else if (serializedLayerBase instanceof JsonBlitPass pass) {
-                    scene.layers.addAll(makeBlitLayers(layerErrors, scene.renderTargets, pass));
+                    for (SceneLayer layer : makeBlitLayers(layerErrors, scene.renderTargets, pass)) {
+                        validateLayerRenderTargets(errors, scene, layer.outRenderTargets, layer.renderState);
+                        scene.layers.add(layer);
+                    }
                 } else {
                     errors.add("Pass doesn't have a layer implementation? : " + serializedLayerBase.getClass().getName());
                 }
@@ -121,10 +97,9 @@ public class SceneParser {
             serializedLayer.targets
         );
 
-        validateLayerRenderTargets(scene, serializedLayer.targets);
-
-        ShaderCompiler.ShaderCompilationResult result = compiler.compileShaders(errors, layer);
-        result.errors.assertNoErrors();
+        validateLayerRenderTargets(errors, scene, serializedLayer.targets, layer.renderState);
+        compiler.compileShaders(errors, layer);
+        errors.assertNoErrors();
         return layer;
     }
 
@@ -252,30 +227,36 @@ public class SceneParser {
         }
     }
 
-    private static void validateLayerRenderTargets(Scene scene, String[] layerRenderTargets) {
+    private static void validateLayerRenderTargets(ErrorWrapper errors, Scene scene, String[] layerRenderTargets, SceneLayer.RenderState rs) {
         String foundDepthTarget = null;
         if (layerRenderTargets.length == 0) {
-            throw new IllegalArgumentException("No output render target specified");
-        } else {
-            SceneRenderTarget baseRenderTarget = scene.getRenderTarget(layerRenderTargets[0]);
-            for (int j = 0; j < layerRenderTargets.length; j++) {
-                String rtName = layerRenderTargets[j];
-                SceneRenderTarget rt = scene.getRenderTarget(rtName);
-
-                for (int k = 0; k < j; k++)
-                    if (rtName.equals(layerRenderTargets[k]))
-                        throw new IllegalArgumentException("Target '" + rtName + "' is written to twice");
-                if (rt == null)
-                    throw new IllegalArgumentException("Target '" + rtName + "' was not declared");
-                if (rt.type == SceneRenderTarget.RenderTargetType.DEPTH) {
-                    if (foundDepthTarget != null)
-                        throw new IllegalArgumentException("Cannot have two depth targets '" + rtName + "' and '" + foundDepthTarget + "'");
-                    foundDepthTarget = rtName;
-                }
-                if (rt.screenRelative != baseRenderTarget.screenRelative || rt.width != baseRenderTarget.width || rt.height != baseRenderTarget.height)
-                    throw new IllegalArgumentException("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
-            }
+            errors.add("No output render target specified");
+            return;
         }
+
+        SceneRenderTarget baseRenderTarget = scene.getRenderTarget(layerRenderTargets[0]);
+        for (int j = 0; j < layerRenderTargets.length; j++) {
+            String rtName = layerRenderTargets[j];
+            SceneRenderTarget rt = scene.getRenderTarget(rtName);
+
+            for (int k = 0; k < j; k++)
+                if (rtName.equals(layerRenderTargets[k]))
+                    errors.add("Target '" + rtName + "' is written to twice");
+            if (rt == null) {
+                errors.add("Target '" + rtName + "' was not declared");
+                continue;
+            }
+            if (rt.type == SceneRenderTarget.RenderTargetType.DEPTH) {
+                if (foundDepthTarget != null)
+                    errors.add("Cannot have multiple depth targets '" + rtName + "' and '" + foundDepthTarget + "'");
+                foundDepthTarget = rtName;
+            }
+            if (rt.screenRelative != baseRenderTarget.screenRelative || rt.width != baseRenderTarget.width || rt.height != baseRenderTarget.height)
+                errors.add("Target '" + rtName + "' and '" + baseRenderTarget.name + "' are both written to but have different dimensions");
+        }
+
+        if (foundDepthTarget == null && (rs.isDepthTestEnabled || rs.isDepthWriteEnabled))
+            errors.add("Depth test/write enabled without a depth render target");
     }
 
 }

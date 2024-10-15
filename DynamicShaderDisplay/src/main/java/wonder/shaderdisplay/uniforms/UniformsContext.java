@@ -29,7 +29,8 @@ public class UniformsContext {
 			new RawBuiltinUniform(GLUniformType.IVEC2, "u_resolution", (n,p) -> new ResolutionUniform(n,p,false)),
 			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  (n,p) -> new ResolutionUniform(n,p,true)),
 			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", (n,p) -> new ResolutionUniform(n,p,true)),
-			new RawBuiltinUniform(GLUniformType.MAT4,  "u_view",       ViewUniform::new)
+			new RawBuiltinUniform(GLUniformType.MAT4,  "u_view",       ViewUniform::new),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_framerate",  FramerateUniform::new)
 	);
 	
 	private List<Uniform> uniforms = new ArrayList<>();

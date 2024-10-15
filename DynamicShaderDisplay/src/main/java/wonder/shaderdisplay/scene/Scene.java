@@ -7,6 +7,7 @@ import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.UserControls;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.TexturesSwapChain;
+import wonder.shaderdisplay.serial.UserConfig;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -65,6 +66,30 @@ public class Scene {
             for (int i = 0; i < layers.size(); i++) {
                 ImGui.pushID(i);
                 SceneLayer layer = layers.get(i);
+                int activationColor = layer.enabled ? 0xff0ec029 : 0xffc0220e;
+                ImGui.pushStyleColor(ImGuiCol.Button, activationColor);
+                ImGui.pushStyleColor(ImGuiCol.ButtonActive, activationColor);
+                ImGui.pushStyleColor(ImGuiCol.ButtonHovered, activationColor);
+                if (ImGui.button(" ")) {
+                    if (UserControls.isModPressed(UserControls.KeyMod.SHIFT)) {
+                        boolean wasInSameState = true;
+                        for (int j = 0; j < layers.size(); j++)
+                            wasInSameState &= (layers.get(j).enabled == (j <= i));
+                        for (int j = 0; j < layers.size(); j++)
+                            layers.get(j).enabled = wasInSameState || j <= i;
+                    } else {
+                        layer.enabled = !layer.enabled;
+                    }
+                    if (UserConfig.config != null) {
+                        UserConfig.config.layers = new UserConfig.LayerState[layers.size()];
+                        for (int j = 0; j < layers.size(); j++) {
+                            UserConfig.LayerState s = UserConfig.config.layers[j] = new UserConfig.LayerState();
+                            s.enabled = layers.get(j).enabled;
+                        }
+                    }
+                }
+                ImGui.popStyleColor(3);
+                ImGui.sameLine();
                 ImGui.textColored(0xffaaff00, layer.fileSet.getPrimaryFileName());
                 layer.shaderUniforms.renderControls();
                 ImGui.separator();
@@ -83,5 +108,15 @@ public class Scene {
 
     public void clearSwapChainTextures() {
         swapChain.clearTextures();
+    }
+
+    public void applyUserConfig() {
+        UserConfig.LayerState[] configStates = UserConfig.config.layers;
+
+        if (configStates.length != layers.size())
+            return;
+
+        for (int i = 0; i < configStates.length; i++)
+            layers.get(i).enabled = configStates[i].enabled;
     }
 }

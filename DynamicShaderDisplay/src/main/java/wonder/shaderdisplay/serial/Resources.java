@@ -1,6 +1,8 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.serial;
 
 import fr.wonder.commons.files.FilesUtils;
+import wonder.shaderdisplay.FileWatcher;
+import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.display.ShaderType;
 
 import java.io.File;

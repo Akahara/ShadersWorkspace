@@ -2,7 +2,7 @@ package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.Resources;
+import wonder.shaderdisplay.serial.Resources;
 
 import java.util.List;
 import java.util.regex.PatternSyntaxException;

@@ -81,9 +81,9 @@ public class FileWatcher {
 		if (associations == null) return;
 
 		File updatedFile = ev.path().toFile();
-		if(!updatedFile.exists()) {
+		if (!updatedFile.exists()) {
 			Main.logger.err("File does not exist anymore '" + updatedFile + "'");
-			Main.exit();
+			return;
 		}
 
 		latestChangeTimestamp = System.nanoTime();

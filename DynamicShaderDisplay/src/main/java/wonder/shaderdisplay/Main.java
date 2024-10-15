@@ -60,9 +60,11 @@ public class Main {
 		@Option(name = "--debug-resolved-shaders", desc = "Write the resolved version of the shaders to a file, useful to debug #include")
 		public boolean debugResolvedShaders;
 		@Option(name = "--width", shorthand = "-w", desc = "Sets the initial window width")
-		public int winWidth = 960;
+		public int winWidth = -1;
+		public static int DEFAULT_WIN_WIDTH = 960;
 		@Option(name = "--height", shorthand = "-h", desc = "Sets the initial window height")
-		public int winHeight = 540;
+		public int winHeight = -1;
+		public static int DEFAULT_WIN_HEIGHT = 500;
 		@Option(name = "--size-to-input", shorthand = "-s", desc = "Use the resolution of the first input texture/video")
 		public boolean sizeToInput;
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
@@ -154,7 +156,7 @@ public class Main {
 
 	@EntryPoint(path = "systeminfo", help = "Prints a number of system information, may be useful for debugging")
 	public static void systemInformation() {
-		GLWindow.createWindow(1, 1, false, null, true);
+		GLWindow.createWindow(1, 1, null, true);
 		GLWindow.printSystemInformation();
 		GLWindow.dispose();
 	}

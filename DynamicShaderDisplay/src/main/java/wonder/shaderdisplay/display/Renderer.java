@@ -13,6 +13,9 @@ public class Renderer {
 
 	public void render(Scene scene) {
 		for (SceneLayer layer : scene.layers) {
+			if (!layer.enabled)
+				continue;
+
 			switch (layer.sceneType) {
 			case STANDARD_PASS:
 				scene.swapChain.preparePass(layer);

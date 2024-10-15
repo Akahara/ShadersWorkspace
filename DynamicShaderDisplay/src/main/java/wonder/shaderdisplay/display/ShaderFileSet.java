@@ -1,6 +1,6 @@
 package wonder.shaderdisplay.display;
 
-import wonder.shaderdisplay.Resources;
+import wonder.shaderdisplay.serial.Resources;
 
 import java.io.File;
 import java.util.Objects;

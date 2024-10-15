@@ -27,21 +27,36 @@ import static org.lwjgl.glfw.GLFW.*;
 import imgui.type.ImInt;
 import org.joml.*;
 import wonder.shaderdisplay.Main.DisplayOptions;
-import wonder.shaderdisplay.Resources.Snippet;
+import wonder.shaderdisplay.serial.Resources;
+import wonder.shaderdisplay.serial.Resources.Snippet;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
+import wonder.shaderdisplay.serial.UserConfig;
 
 public class UserControls {
 
-	private final int[] screenSizeBuffer = new int[2];
-	private final boolean[] pressedKeys = new boolean[512];
+	private static final int[] screenSizeBuffer = new int[2];
+	private static final boolean[] pressedKeys = new boolean[512];
+	private static int pressedMods;
+
+	public enum KeyMod {
+		SHIFT(GLFW_MOD_SHIFT);
+
+		final int glfwCode;
+
+		KeyMod(int glfwCode) {
+			this.glfwCode = glfwCode;
+		}
+	}
 
 	private boolean takeScreenshot = false;
 	private boolean drawBackground = true;
+	private boolean resetRenderTargets = false;
 	private boolean viewJustMoved = false;
 	private boolean cursorLocked = false;
+	private double freecamSpeed;
 	private final Vector3f viewPosition = new Vector3f();
 	private final Vector2f prevMousePos = new Vector2f();
 	private final Vector2f mousePos = new Vector2f();
@@ -50,6 +65,11 @@ public class UserControls {
 	private final float[] depthRenderTargetBlitZRangeStart = { 0 }, depthRenderTargetBlitZRangeStop = { 1 };
 
 	public UserControls() {
+		UserConfig.Freecam freecam = UserConfig.config.freecam;
+		this.freecamSpeed = freecam.speed;
+		this.viewPosition.set(freecam.position[0], freecam.position[1], freecam.position[2]);
+		this.viewRotation.set(freecam.rotation[0], freecam.rotation[1], freecam.rotation[2], freecam.rotation[3]);
+
 		screenSizeBuffer[0] = GLWindow.winWidth;
 		screenSizeBuffer[1] = GLWindow.winHeight;
 
@@ -58,14 +78,19 @@ public class UserControls {
 			screenSizeBuffer[1] = h;
 		});
 
-		GLWindow.addKeyCallback((key, action) -> {
+		GLWindow.addKeyCallback((key, action, mods) -> {
 			if (key < pressedKeys.length)
 				pressedKeys[key] = action != GLFW_RELEASE;
+			pressedMods = mods;
 		});
 
 		GLWindow.addMouseCallback((x, y) -> {
 			mousePos.x = x.floatValue();
 			mousePos.y = y.floatValue();
+		});
+
+		GLWindow.addScrollCallback((deltaX, deltaY) -> {
+			freecamSpeed *= Math.pow(1.2f, deltaY);
 		});
 
 		GLWindow.addButtonCallback((button, action) -> {
@@ -100,12 +125,11 @@ public class UserControls {
 				movement.z--;
 
 			if (movement.lengthSquared() != 0) {
-				final float speed = 1.f;
 				final Vector3f up = new Vector3f(0, 1, 0);
 				Vector3f forward = viewRotation.transform(new Vector3f(1, 0, 0));
 				Vector3f left = up.cross(forward, new Vector3f()).normalize();
 				movement = new Matrix3f(forward, up, left).transform(movement);
-				viewPosition.add(movement.mul(delta * speed));
+				viewPosition.add(movement.mul(delta * (float)freecamSpeed));
 				viewJustMoved = true;
 			}
 
@@ -115,9 +139,23 @@ public class UserControls {
 				viewRotation.rotateLocalY(-(mousePos.x - prevMousePos.x) * speed);
 				viewJustMoved = true;
 			}
+
+			UserConfig.Freecam freecam = UserConfig.config.freecam;
+			freecam.speed = (float)freecamSpeed;
+			freecam.position[0] = viewPosition.x;
+			freecam.position[1] = viewPosition.y;
+			freecam.position[2] = viewPosition.z;
+			freecam.rotation[0] = viewRotation.x;
+			freecam.rotation[1] = viewRotation.y;
+			freecam.rotation[2] = viewRotation.z;
+			freecam.rotation[3] = viewRotation.w;
 		}
 
 		prevMousePos.set(mousePos);
+	}
+
+	public static boolean isModPressed(KeyMod mod) {
+		return (pressedMods & mod.glfwCode) != 0;
 	}
 
 	public void renderControls(Scene scene) {
@@ -132,6 +170,9 @@ public class UserControls {
 		showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
 
 		if (scene.renderTargets.size() > 1) {
+			ImGui.sameLine();
+			if (ImGui.button("Reset render targets"))
+				resetRenderTargets = true;
 			if (selectedRenderTarget == null)
 				selectedRenderTarget = new ImInt(0);
 			ImGui.combo("Render Target", selectedRenderTarget, scene.renderTargetNames);
@@ -220,6 +261,12 @@ public class UserControls {
 		viewJustMoved = true;
 	}
 
+	public boolean pollResetRenderTargetsQueried() {
+		boolean queried = resetRenderTargets;
+		resetRenderTargets = false;
+		return queried;
+	}
+
 	public float getDepthPreviewZRangeStart() {
 		return depthRenderTargetBlitZRangeStart[0];
 	}
@@ -274,7 +321,7 @@ public class UserControls {
 		}
 	}
 
-	public boolean poolShouldTakeScreenshot() {
+	public boolean pollShouldTakeScreenshot() {
 		boolean val = takeScreenshot;
 		takeScreenshot = false;
 		return val;

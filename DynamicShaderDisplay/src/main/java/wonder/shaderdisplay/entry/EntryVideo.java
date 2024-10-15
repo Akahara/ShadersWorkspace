@@ -44,6 +44,7 @@ public class EntryVideo extends SetupUtils {
         int videoWidth = options.displayOptions.winWidth, videoHeight = options.displayOptions.winHeight;
         Display display;
         Scene scene;
+        fragment = getMainSceneFile(fragment);
 
         try {
             ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, false);
