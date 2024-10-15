@@ -2,7 +2,7 @@ package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.UnreachableException;
 import fr.wonder.commons.files.FilesUtils;
-import wonder.shaderdisplay.ImageInputFiles;
+import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.scene.Scene;
@@ -56,12 +56,12 @@ public class EntryImage extends SetupUtils {
             int outputHeight = options.displayOptions.winHeight;
 
             try {
-                if (ImageInputFiles.singleton != null)
-                    ImageInputFiles.singleton.dispose();
-                ImageInputFiles.singleton = new ImageInputFiles(new File[] { inputFile }, false);
-                ImageInputFiles.singleton.startReadingFiles();
+                if (InputFiles.singleton != null)
+                    InputFiles.singleton.dispose();
+                InputFiles.singleton = new InputFiles(new File[] { inputFile }, false);
+                InputFiles.singleton.startReadingFiles();
                 if (options.displayOptions.sizeToInput) {
-                    int[] resolution = ImageInputFiles.singleton.getFirstInputFileResolution();
+                    int[] resolution = InputFiles.singleton.getFirstInputFileResolution();
                     outputWidth = resolution[0];
                     outputHeight = resolution[1];
                 }

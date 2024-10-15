@@ -4,7 +4,7 @@ import fr.wonder.commons.exceptions.UnreachableException;
 import io.humble.video.*;
 import io.humble.video.awt.MediaPictureConverter;
 import io.humble.video.awt.MediaPictureConverterFactory;
-import wonder.shaderdisplay.ImageInputFiles;
+import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.GLWindow;
@@ -22,7 +22,7 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryVideo extends SetupUtils {
 
-    protected static void loadCommonOptions(Main.VideoOptions options, ImageInputFiles inputFiles) throws BadInitException {
+    protected static void loadCommonOptions(Main.VideoOptions options, InputFiles inputFiles) throws BadInitException {
         loadCommonOptions(options.displayOptions, inputFiles);
 
         if (options.framerate <= 0)
@@ -47,7 +47,7 @@ public class EntryVideo extends SetupUtils {
         fragment = getMainSceneFile(fragment);
 
         try {
-            ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, false);
+            InputFiles imageInputFiles = InputFiles.singleton = new InputFiles(inputFiles, false);
             loadCommonOptions(options, imageInputFiles);
 
             display = createDisplay(options.displayOptions, options.preview, false);

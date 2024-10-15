@@ -3,7 +3,7 @@ package wonder.shaderdisplay.uniforms;
 import imgui.ImGui;
 import imgui.flag.ImGuiHoveredFlags;
 import imgui.type.ImString;
-import wonder.shaderdisplay.ImageInputFiles;
+import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.SceneUniform;
 
@@ -54,7 +54,7 @@ class TextureUniform extends NonEditableUniform {
 			currentlyBoundTextureName = "render target '" + defaultUniformValue.value + "'";
 		}
 		if (boundTexture == null && inputTextureSlot >= 0) {
-			boundTexture = ImageInputFiles.singleton.getInputTexture(inputTextureSlot);
+			boundTexture = InputFiles.singleton.getInputTexture(inputTextureSlot);
 			currentlyBoundTextureName = "input" + inputTextureSlot;
 		}
 		if (boundTexture == null) {

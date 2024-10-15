@@ -12,6 +12,7 @@ import wonder.shaderdisplay.display.WindowBlit;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
+import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.serial.UserConfig;
 import wonder.shaderdisplay.uniforms.UniformApplicationContext;
@@ -24,7 +25,7 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryRun extends SetupUtils {
 
-    protected static void loadCommonOptions(Main.RunOptions options, ImageInputFiles inputFiles) throws BadInitException {
+    protected static void loadCommonOptions(Main.RunOptions options, InputFiles inputFiles) throws BadInitException {
         loadCommonOptions(options.displayOptions, inputFiles);
 
         if(options.targetFPS <= 0) {
@@ -36,7 +37,7 @@ public class EntryRun extends SetupUtils {
         Time.setFps(options.targetFPS);
     }
 
-    public static void run(Main.RunOptions options, File sceneFile, File... inputFiles) {
+    public static void run(Main.RunOptions options, File sceneFile, File... rawInputFiles) {
         Main.logger.info("-- Running display --");
 
         Display display;
@@ -45,12 +46,12 @@ public class EntryRun extends SetupUtils {
 
         try {
             UserConfig.loadConfig(sceneFile);
-            ImageInputFiles imageInputFiles = ImageInputFiles.singleton = new ImageInputFiles(inputFiles, options.frameExact);
-            loadCommonOptions(options, imageInputFiles);
+            InputFiles inputFiles = InputFiles.singleton = new InputFiles(rawInputFiles, options.frameExact);
+            loadCommonOptions(options, inputFiles);
             display = createDisplay(options.displayOptions, true, options.vsync);
-            imageInputFiles.startReadingFiles();
-            if (imageInputFiles.hasInputVideo() && options.frameExact) {
-                options.targetFPS = imageInputFiles.getCommonVideoFramerate();
+            inputFiles.startReadingFiles();
+            if (inputFiles.hasInputVideo() && options.frameExact) {
+                options.targetFPS = inputFiles.getCommonVideoFramerate();
                 Time.setFps(options.targetFPS);
                 Main.logger.info("Using input video framerate: " + options.targetFPS);
             }
@@ -66,10 +67,9 @@ public class EntryRun extends SetupUtils {
         try {
             FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem(sceneFile);
-            UserControls userControls = new UserControls();
+            UserControls userControls = ViewUniform.userControls = new UserControls();
             Resources.scanForAndLoadSnippets();
             fileWatcher.startWatching();
-            ViewUniform.userControls = userControls;
 
             Main.logger.info("Running shader");
 
@@ -140,6 +140,7 @@ public class EntryRun extends SetupUtils {
 
                 // ---------/draw frame/---------
 
+                InputFiles.singleton.updateAudio();
                 glfwSwapBuffers(GLWindow.getWindow());
                 glfwPollEvents();
 

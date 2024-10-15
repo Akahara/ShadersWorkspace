@@ -3,7 +3,7 @@ package wonder.shaderdisplay.entry;
 import fr.wonder.commons.exceptions.ErrorWrapper;
 import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
-import wonder.shaderdisplay.ImageInputFiles;
+import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.display.*;
@@ -22,7 +22,7 @@ public class SetupUtils {
 
     }
 
-    protected static void loadCommonOptions(Main.DisplayOptions options, ImageInputFiles inputFiles) throws BadInitException {
+    protected static void loadCommonOptions(Main.DisplayOptions options, InputFiles inputFiles) throws BadInitException {
         Main.logger.setLogLevel(options.verbose ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO);
         ShaderCompiler.setDebugResolvedShaders(options.debugResolvedShaders);
 

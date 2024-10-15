@@ -1,6 +1,7 @@
 package wonder.shaderdisplay;
 
 import imgui.ImGui;
+import wonder.shaderdisplay.serial.InputFiles;
 
 public class Time {
 	
@@ -79,7 +80,7 @@ public class Time {
 		justChanged = false;
 
 		// When rendering video, show time controls even if there is no time uniform
-		boolean hasVideoInput = ImageInputFiles.singleton != null && ImageInputFiles.singleton.hasInputVideo();
+		boolean hasVideoInput = InputFiles.singleton != null && InputFiles.singleton.hasInputVideo();
 		shouldRenderTime |= hasVideoInput;
 		shouldRenderFrames |= hasVideoInput;
 
