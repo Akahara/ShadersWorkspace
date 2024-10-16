@@ -5,6 +5,7 @@ import fr.wonder.commons.loggers.SimpleLogger;
 import io.humble.video.*;
 import io.humble.video.awt.MediaPictureConverter;
 import io.humble.video.awt.MediaPictureConverterFactory;
+import wonder.shaderdisplay.MathUtils;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.display.PixelBuffer;
 import wonder.shaderdisplay.display.Texture;
@@ -244,10 +245,7 @@ class VideoStream implements InputImageStream {
 
     private int getRealFrameAsVideoFrame() {
         int frame = (int) (Time.getTime() * videoFramerate);
-        frame %= videoFrameDuration;
-        if (frame < 0)
-            frame += videoFrameDuration;
-        return frame;
+        return MathUtils.pmod(frame, videoFrameDuration);
     }
 
     @Override

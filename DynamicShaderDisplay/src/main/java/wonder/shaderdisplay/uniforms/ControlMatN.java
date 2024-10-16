@@ -3,7 +3,7 @@ package wonder.shaderdisplay.uniforms;
 import java.util.Arrays;
 
 import imgui.ImGui;
-import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.controls.ImGuiSystem;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 
 class ControlMatN implements FloatUniformControl {
@@ -17,7 +17,7 @@ class ControlMatN implements FloatUniformControl {
 	@Override
 	public void renderControl(String name, float[] value) {
 		float[] p = new float[1];
-		UserControls.copyToClipboardBtn(name, () ->
+		ImGuiSystem.copyToClipboardBtn(name, () ->
 			"mat" + matrixSize + Arrays.toString(value).replace('[', '(').replace(']', ')'));
 		ImGui.sameLine();
 		ImGui.text(name);

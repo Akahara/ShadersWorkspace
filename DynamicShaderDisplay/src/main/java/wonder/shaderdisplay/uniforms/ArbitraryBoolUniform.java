@@ -5,7 +5,7 @@ import static org.lwjgl.opengl.GL20.glUniform1i;
 import java.util.Arrays;
 
 import imgui.ImGui;
-import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.controls.ImGuiSystem;
 
 public class ArbitraryBoolUniform extends EditableUniform implements ArbitraryUniform {
 
@@ -27,20 +27,20 @@ public class ArbitraryBoolUniform extends EditableUniform implements ArbitraryUn
 	@Override
 	public void renderControl() {
 		if(values.length > 1) {
-			UserControls.copyToClipboardBtn(name+"_all", () ->
+			ImGuiSystem.copyToClipboardBtn(name+"_all", () ->
 				"bool[]" + Arrays.toString(values).replace('[', '(').replace(']', ')'));
 			ImGui.sameLine();
 			ImGui.text(name);
 			for(int i = 0; i < values.length; i++) {
 				final int ii = i;
 				String name = this.name + '[' + i + ']';
-				UserControls.copyToClipboardBtn(name, () -> String.valueOf(values[ii]));
+				ImGuiSystem.copyToClipboardBtn(name, () -> String.valueOf(values[ii]));
 				ImGui.sameLine();
 				if(ImGui.checkbox(name, values[i]))
 					values[i] = !values[i];
 			}
 		} else {
-			UserControls.copyToClipboardBtn(name, () -> String.valueOf(values[0]));
+			ImGuiSystem.copyToClipboardBtn(name, () -> String.valueOf(values[0]));
 			ImGui.sameLine();
 			if(ImGui.checkbox(name, values[0]))
 				values[0] = !values[0];

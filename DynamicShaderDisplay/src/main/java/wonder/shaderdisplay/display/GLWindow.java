@@ -148,6 +148,15 @@ public class GLWindow {
 		glfwShowWindow(window);
 		glfwFocusWindow(window);
 	}
+
+	public static void restoreGLFWContext() {
+		glfwMakeContextCurrent(GLWindow.getWindow());
+	}
+
+	public static void endFrame() {
+		glfwSwapBuffers(GLWindow.getWindow());
+		glfwPollEvents();
+	}
 	
 	private static void setGLVersionHint(String forcedGLVersion) {
 		if(forcedGLVersion == null) {

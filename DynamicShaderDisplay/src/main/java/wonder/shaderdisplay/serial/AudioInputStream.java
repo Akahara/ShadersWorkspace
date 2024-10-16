@@ -2,6 +2,7 @@ package wonder.shaderdisplay.serial;
 
 import fr.wonder.commons.loggers.Logger;
 import fr.wonder.commons.loggers.SimpleLogger;
+import wonder.shaderdisplay.MathUtils;
 import wonder.shaderdisplay.Time;
 
 import javax.sound.sampled.*;
@@ -69,9 +70,6 @@ class AudioInputStream {
 
     private long getWindedCurrentTimeMicro() {
         long currentTimeMicro = (long) (Time.getTime() * 1e6);
-        currentTimeMicro %= clip.getMicrosecondLength();
-        if (currentTimeMicro < 0)
-            currentTimeMicro += clip.getMicrosecondLength();
-        return currentTimeMicro;
+        return MathUtils.pmod(currentTimeMicro, clip.getMicrosecondLength());
     }
 }

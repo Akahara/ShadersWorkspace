@@ -3,6 +3,7 @@ package wonder.shaderdisplay.uniforms;
 import static org.lwjgl.opengl.GL20.glUniform1f;
 
 import wonder.shaderdisplay.Time;
+import wonder.shaderdisplay.controls.Timeline;
 
 class TimeUniform extends NonEditableUniform {
 	
@@ -20,7 +21,7 @@ class TimeUniform extends NonEditableUniform {
 	
 	@Override
 	public void renderControl() {
-		Time.renderTimeControls(name);
+		Timeline.renderTimeControls();
 	}
 
 }

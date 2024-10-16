@@ -1,7 +1,6 @@
 package wonder.shaderdisplay;
 
-import imgui.ImGui;
-import wonder.shaderdisplay.serial.InputFiles;
+import wonder.shaderdisplay.serial.UserConfig;
 
 public class Time {
 	
@@ -9,10 +8,6 @@ public class Time {
 	private static float time;
 	private static boolean paused;
 	private static boolean justChanged;
-
-	private static String frameUniformName, timeUniformName;
-	
-	private static boolean shouldRenderTime, shouldRenderFrames;
 	
 	public static float getTime() {
 		return time;
@@ -30,8 +25,16 @@ public class Time {
 		return paused;
 	}
 
+	public static void setPaused(boolean paused) {
+		Time.paused = paused;
+	}
+
 	public static boolean justChanged() {
 		return justChanged;
+	}
+
+	public static void setJustChanged(boolean justChanged) {
+		Time.justChanged = justChanged;
 	}
 
 	public static void setTime(float time) {
@@ -65,52 +68,12 @@ public class Time {
 		if (!paused)
 			setFrame(getFrame()+frameCount);
 	}
-	
-	public static void renderTimeControls(String uniformName) {
-		shouldRenderTime = true;
-		timeUniformName = uniformName;
-	}
-	
-	public static void renderFrameControls(String uniformName) {
-		shouldRenderFrames = true;
-		frameUniformName = uniformName;
-	}
 
-	public static void renderControls() {
-		justChanged = false;
-
-		// When rendering video, show time controls even if there is no time uniform
-		boolean hasVideoInput = InputFiles.singleton != null && InputFiles.singleton.hasInputVideo();
-		shouldRenderTime |= hasVideoInput;
-		shouldRenderFrames |= hasVideoInput;
-
-		if(!shouldRenderFrames && !shouldRenderTime)
+	public static void applyTimeLoop(UserConfig.TimeLoopConfig timeLoop) {
+		if (timeLoop.loopTime == UserConfig.TimeLoopConfig.LoopType.NO_LOOP || timeLoop.loopFrom >= timeLoop.loopTo)
 			return;
-		
-		if(ImGui.button("Reset iTime"))
-			jumpToFrame(0);
-		ImGui.sameLine();
-		if(ImGui.checkbox("Pause iTime", paused))
-			paused = !paused;
-		
-		if(!paused) ImGui.beginDisabled();
-		
-		if(shouldRenderTime) {
-			float[] ptr = { time };
-			shouldRenderTime = false;
-			if(ImGui.dragFloat(timeUniformName == null ? "Time" : timeUniformName, ptr, .01f))
-				jumpToTime(ptr[0]);
-		}
-		if(shouldRenderFrames) {
-			int[] ptr = { getFrame() };
-			shouldRenderFrames = false;
-			if(ImGui.dragInt(frameUniformName == null ? "Frame" : frameUniformName, ptr)) {
-				setFrame(ptr[0]);
-				justChanged = true;
-			}
-		}
-
-		if(!paused) ImGui.endDisabled();
+		float newTime = MathUtils.wrapInBounds(time, timeLoop.loopFrom, timeLoop.loopTo);
+		if (newTime != time)
+			jumpToTime(newTime);
 	}
-
 }

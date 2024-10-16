@@ -3,7 +3,7 @@ package wonder.shaderdisplay.uniforms;
 import java.util.Arrays;
 
 import imgui.ImGui;
-import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.controls.ImGuiSystem;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 
 class ControlFloatVecN implements FloatUniformControl {
@@ -18,7 +18,7 @@ class ControlFloatVecN implements FloatUniformControl {
 	
 	@Override
 	public void renderControl(String name, float[] value) {
-		UserControls.copyToClipboardBtn(name, () -> size == 1 ?
+		ImGuiSystem.copyToClipboardBtn(name, () -> size == 1 ?
 			String.valueOf(value[0]) :
 			"vec" + size + Arrays.toString(value).replace('[', '(').replace(']', ')')
 		);

@@ -1,4 +1,4 @@
-package wonder.shaderdisplay;
+package wonder.shaderdisplay.controls;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -9,7 +9,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
-import java.util.function.Supplier;
 import java.util.regex.PatternSyntaxException;
 
 import javax.imageio.ImageIO;
@@ -26,6 +25,7 @@ import static org.lwjgl.glfw.GLFW.*;
 
 import imgui.type.ImInt;
 import org.joml.*;
+import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Main.DisplayOptions;
 import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.serial.Resources.Snippet;
@@ -159,7 +159,7 @@ public class UserControls {
 	}
 
 	public void renderControls(Scene scene) {
-		if(tooltipButton("Take screenshot", "Beware of transparency!"))
+		if(ImGuiSystem.tooltipButton("Take screenshot", "Beware of transparency!"))
 			takeScreenshot = true;
 
 		if(ImGui.dragInt2("Window size", screenSizeBuffer, 10, 1, 15000))
@@ -167,7 +167,7 @@ public class UserControls {
 
 		if(ImGui.checkbox("Draw background", drawBackground))
 			drawBackground = !drawBackground;
-		showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
+		ImGuiSystem.showTooltipOnHover("Draw a template background, use to make sure your alpha channel is correct");
 
 		if (scene.renderTargets.size() > 1) {
 			ImGui.sameLine();
@@ -200,23 +200,7 @@ public class UserControls {
 	public boolean justMoved() {
 		return viewJustMoved;
 	}
-	
-	public static void copyToClipboardBtn(String name, Supplier<String> copiedText) {
-		if(tooltipButton("C##" + name, "Copy to clipboard"))
-			ImGui.setClipboardText(copiedText.get());
-	}
-	
-	public static boolean tooltipButton(String name, String tooltip) {
-		boolean pressed = ImGui.button(name);
-		showTooltipOnHover(tooltip);
-		return pressed;
-	}
-	
-	public static void showTooltipOnHover(String tooltip) {
-		if(ImGui.isItemHovered())
-			ImGui.setTooltip(tooltip);
-	}
-	
+
 	public void takeScreenshot(Scene scene, DisplayOptions options) {
 		SimpleDateFormat df = new SimpleDateFormat("MMdd_HHmmss");
 		String fileName = "screenshot_" + df.format(new Date()) + ".png";

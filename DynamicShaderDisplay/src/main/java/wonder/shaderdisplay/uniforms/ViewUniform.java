@@ -2,7 +2,7 @@ package wonder.shaderdisplay.uniforms;
 
 import imgui.ImGui;
 import org.joml.*;
-import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.controls.UserControls;
 
 import java.lang.Math;
 import java.util.Objects;

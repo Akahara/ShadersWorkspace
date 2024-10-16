@@ -1,9 +1,11 @@
 package wonder.shaderdisplay.serial;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import wonder.shaderdisplay.Main;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 public class UserConfig {
 
@@ -53,8 +55,32 @@ public class UserConfig {
         public boolean enabled = true;
     }
 
+    public static class TimeLoopConfig {
+        public enum LoopType {
+            NO_LOOP("none"),
+            LOOP_FRAME("between frames"),
+            LOOP_TIME("between timestamps");
+
+            public static LoopType[] values = values();
+
+            public final String displayName;
+
+            LoopType(String displayName) {
+                this.displayName = displayName;
+            }
+
+            @JsonValue
+            public String serialName() { return name().toLowerCase(); }
+        }
+
+        public LoopType loopTime = LoopType.NO_LOOP;
+        public float loopFrom = 0, loopTo = 0; // always in seconds
+    }
+
     public Freecam freecam = new Freecam();
     public LayerState[] layers = new LayerState[0];
     public int[] windowLocation = null;
+    public List<String> visibleImGuiWindows = List.of("Uniforms");
+    public TimeLoopConfig timeLoop = new TimeLoopConfig();
 
 }

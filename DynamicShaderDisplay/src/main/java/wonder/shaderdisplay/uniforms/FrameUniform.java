@@ -4,6 +4,7 @@ import static org.lwjgl.opengl.GL20.glUniform1f;
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import wonder.shaderdisplay.Time;
+import wonder.shaderdisplay.controls.Timeline;
 
 class FrameUniform extends NonEditableUniform {
 	
@@ -26,7 +27,7 @@ class FrameUniform extends NonEditableUniform {
 	
 	@Override
 	public void renderControl() {
-		Time.renderFrameControls(name);
+		Timeline.renderFrameControls();
 	}
 
 }

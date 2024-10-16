@@ -2,9 +2,7 @@ package wonder.shaderdisplay.scene;
 
 import imgui.ImGui;
 import imgui.flag.ImGuiCol;
-import imgui.flag.ImGuiTreeNodeFlags;
-import wonder.shaderdisplay.Time;
-import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.controls.UserControls;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.serial.UserConfig;
@@ -48,58 +46,39 @@ public class Scene {
         }
     }
 
-    public void renderControls(UserControls generalControls) {
-        ImGui.pushStyleColor(ImGuiCol.WindowBg, 0, 0, 0, 180);
-        ImGui.pushStyleColor(ImGuiCol.Header, 46, 144, 144, 255);
-        if (!ImGui.begin("Controls")) {
-            ImGui.end();
-            ImGui.popStyleColor(2);
-            return;
-        }
-
-        if (ImGui.collapsingHeader("General"))
-            generalControls.renderControls(this);
-
-        if (ImGui.collapsingHeader("Uniforms", ImGuiTreeNodeFlags.DefaultOpen)) {
-            Time.renderControls();
-            ImGui.separator();
-            for (int i = 0; i < layers.size(); i++) {
-                ImGui.pushID(i);
-                SceneLayer layer = layers.get(i);
-                int activationColor = layer.enabled ? 0xff0ec029 : 0xffc0220e;
-                ImGui.pushStyleColor(ImGuiCol.Button, activationColor);
-                ImGui.pushStyleColor(ImGuiCol.ButtonActive, activationColor);
-                ImGui.pushStyleColor(ImGuiCol.ButtonHovered, activationColor);
-                if (ImGui.button(" ")) {
-                    if (UserControls.isModPressed(UserControls.KeyMod.SHIFT)) {
-                        boolean wasInSameState = true;
-                        for (int j = 0; j < layers.size(); j++)
-                            wasInSameState &= (layers.get(j).enabled == (j <= i));
-                        for (int j = 0; j < layers.size(); j++)
-                            layers.get(j).enabled = wasInSameState || j <= i;
-                    } else {
-                        layer.enabled = !layer.enabled;
-                    }
-                    if (UserConfig.config != null) {
-                        UserConfig.config.layers = new UserConfig.LayerState[layers.size()];
-                        for (int j = 0; j < layers.size(); j++) {
-                            UserConfig.LayerState s = UserConfig.config.layers[j] = new UserConfig.LayerState();
-                            s.enabled = layers.get(j).enabled;
-                        }
+    public void renderControls() {
+        for (int i = 0; i < layers.size(); i++) {
+            ImGui.pushID(i);
+            SceneLayer layer = layers.get(i);
+            int activationColor = layer.enabled ? 0xff0ec029 : 0xffc0220e;
+            ImGui.pushStyleColor(ImGuiCol.Button, activationColor);
+            ImGui.pushStyleColor(ImGuiCol.ButtonActive, activationColor);
+            ImGui.pushStyleColor(ImGuiCol.ButtonHovered, activationColor);
+            if (ImGui.button(" ")) {
+                if (UserControls.isModPressed(UserControls.KeyMod.SHIFT)) {
+                    boolean wasInSameState = true;
+                    for (int j = 0; j < layers.size(); j++)
+                        wasInSameState &= (layers.get(j).enabled == (j <= i));
+                    for (int j = 0; j < layers.size(); j++)
+                        layers.get(j).enabled = wasInSameState || j <= i;
+                } else {
+                    layer.enabled = !layer.enabled;
+                }
+                if (UserConfig.config != null) {
+                    UserConfig.config.layers = new UserConfig.LayerState[layers.size()];
+                    for (int j = 0; j < layers.size(); j++) {
+                        UserConfig.LayerState s = UserConfig.config.layers[j] = new UserConfig.LayerState();
+                        s.enabled = layers.get(j).enabled;
                     }
                 }
-                ImGui.popStyleColor(3);
-                ImGui.sameLine();
-                ImGui.textColored(0xffaaff00, layer.fileSet.getPrimaryFileName());
-                layer.shaderUniforms.renderControls();
-                ImGui.separator();
-                ImGui.popID();
             }
-            ImGui.newLine();
+            ImGui.popStyleColor(3);
+            ImGui.sameLine();
+            ImGui.textColored(0xffaaff00, layer.fileSet.getPrimaryFileName());
+            layer.shaderUniforms.renderControls();
+            ImGui.separator();
+            ImGui.popID();
         }
-
-        ImGui.popStyleColor(2);
-        ImGui.end();
     }
 
     public SceneRenderTarget getRenderTarget(String name) {

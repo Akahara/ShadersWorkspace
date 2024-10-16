@@ -1,10 +1,10 @@
 package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.UnreachableException;
-import imgui.ImGui;
-import imgui.gl3.ImGuiImplGl3;
-import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.*;
+import wonder.shaderdisplay.controls.ImGuiSystem;
+import wonder.shaderdisplay.controls.Timeline;
+import wonder.shaderdisplay.controls.UserControls;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.display.ShaderCompiler;
 import wonder.shaderdisplay.display.Texture;
@@ -19,9 +19,6 @@ import wonder.shaderdisplay.uniforms.UniformApplicationContext;
 import wonder.shaderdisplay.uniforms.ViewUniform;
 
 import java.io.File;
-
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryRun extends SetupUtils {
 
@@ -68,6 +65,7 @@ public class EntryRun extends SetupUtils {
             FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem(sceneFile);
             UserControls userControls = ViewUniform.userControls = new UserControls();
+            Timeline timeline = new Timeline();
             Resources.scanForAndLoadSnippets();
             fileWatcher.startWatching();
 
@@ -133,16 +131,16 @@ public class EntryRun extends SetupUtils {
                     Time.stepFrame(1);
                 else
                     Time.step(realDeltaTime);
+                Time.applyTimeLoop(UserConfig.config.timeLoop);
                 userControls.step(realDeltaTime);
 
                 if (imgui != null)
-                    imgui.renderControls(scene, userControls);
+                    imgui.renderControls(scene, userControls, timeline);
 
                 // ---------/draw frame/---------
 
                 InputFiles.singleton.updateAudio();
-                glfwSwapBuffers(GLWindow.getWindow());
-                glfwPollEvents();
+                GLWindow.endFrame();
 
                 if (userControls.pollShouldTakeScreenshot())
                     userControls.takeScreenshot(scene, options.displayOptions);
@@ -180,32 +178,6 @@ public class EntryRun extends SetupUtils {
             UserConfig.saveConfig(scene.sourceFile);
             Main.exit();
         }
-    }
-}
-
-class ImGuiSystem {
-
-    private final ImGuiImplGlfw glfw;
-    private final ImGuiImplGl3 gl3;
-
-    ImGuiSystem(File projectRootFile) {
-        ImGui.createContext();
-        File iniFile = new File(UserConfig.getProjectConfigDir(projectRootFile), "imgui.ini");
-        ImGui.getIO().setIniFilename(iniFile.getAbsolutePath());
-        glfw = new ImGuiImplGlfw();
-        gl3 = new ImGuiImplGl3();
-        glfw.init(GLWindow.getWindow(), true);
-        gl3.init();
-    }
-
-    public void renderControls(Scene scene, UserControls userControls) {
-        glfw.newFrame();
-        ImGui.newFrame();
-        scene.renderControls(userControls);
-        ImGui.render();
-        gl3.renderDrawData(ImGui.getDrawData());
-        ImGui.updatePlatformWindows();
-        ImGui.renderPlatformWindowsDefault();
     }
 }
 

@@ -1,7 +1,7 @@
 package wonder.shaderdisplay.uniforms;
 
 import imgui.ImGui;
-import wonder.shaderdisplay.UserControls;
+import wonder.shaderdisplay.controls.ImGuiSystem;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
 class ArbitraryIntUniform extends EditableUniform implements ArbitraryUniform {
@@ -32,7 +32,7 @@ class ArbitraryIntUniform extends EditableUniform implements ArbitraryUniform {
 	@Override
 	public void renderControl() {
 		if(values.length > 1) {
-			UserControls.copyToClipboardBtn(name+"_all", this::getValueAsGLSLString);
+			ImGuiSystem.copyToClipboardBtn(name+"_all", this::getValueAsGLSLString);
 			ImGui.sameLine();
 			ImGui.text(name);
 			for(int i = 0; i < values.length; i++)
