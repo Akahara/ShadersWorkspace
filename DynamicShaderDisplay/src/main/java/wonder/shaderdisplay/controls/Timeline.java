@@ -104,6 +104,14 @@ public class Timeline {
         }
     }
 
+    public float getLoopBegin() {
+        LoopType currentLoopType = LoopType.values[loopTimeType.get()];
+        if (currentLoopType == LoopType.NO_LOOP)
+            return 0;
+        float displayTimeConversion = getTimeConversionToSeconds(currentLoopType);
+        return loopTimeFrom[0] / displayTimeConversion;
+    }
+
     public static void renderTimeControls() {
         shouldRenderTime = true;
     }

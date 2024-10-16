@@ -79,6 +79,7 @@ public class EntryRun extends SetupUtils {
             long workTime = 0;
             WindowTitleSupplier windowTitleSupplier = new WindowTitleSupplier(sceneFile.getName());
 
+            boolean forceRerender = false;
             while (!GLWindow.shouldDispose()) {
                 // reload shaders if necessary
                 boolean hasPendingFileChanges = fileWatcher.hasPendingChanges();
@@ -98,7 +99,7 @@ public class EntryRun extends SetupUtils {
                         if (compilationResult.success) {
                             UniformApplicationContext.resetLoggedBindingWarnings();
                             if (options.resetTimeOnUpdate)
-                                Time.jumpToFrame(0);
+                                Time.jumpToTime(timeline.getLoopBegin());
                             if (options.resetRenderTargetsOnUpdate)
                                 scene.clearSwapChainTextures();
                         }
@@ -114,8 +115,11 @@ public class EntryRun extends SetupUtils {
                 // -------- draw frame ---------
 
                 // render the actual frame
-                if (!Time.isPaused() || Time.justChanged() || userControls.justMoved())
+                forceRerender |= Time.justChanged();
+                forceRerender |= userControls.justMoved();
+                if (!Time.isPaused() || forceRerender)
                     display.renderer.render(scene);
+                forceRerender = false;
                 int primaryRTIndex = userControls.getPrimaryRenderTargetIndex();
                 WindowBlit.blitToScreen(
                         scene.swapChain.getAttachment(primaryRTIndex < 0 ? SceneRenderTarget.DEFAULT_RT.name : scene.renderTargets.get(primaryRTIndex).name),
@@ -135,7 +139,7 @@ public class EntryRun extends SetupUtils {
                 userControls.step(realDeltaTime);
 
                 if (imgui != null)
-                    imgui.renderControls(scene, userControls, timeline);
+                    forceRerender |= imgui.renderControls(scene, userControls, timeline);
 
                 // ---------/draw frame/---------
 

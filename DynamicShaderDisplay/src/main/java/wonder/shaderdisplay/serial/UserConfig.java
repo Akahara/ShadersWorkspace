@@ -77,10 +77,16 @@ public class UserConfig {
         public float loopFrom = 0, loopTo = 0; // always in seconds
     }
 
+    public static class AudioConfig {
+        public boolean mute = false;
+    }
+
     public Freecam freecam = new Freecam();
     public LayerState[] layers = new LayerState[0];
     public int[] windowLocation = null;
+    public boolean hideAllWindows = false;
     public List<String> visibleImGuiWindows = List.of("Uniforms");
     public TimeLoopConfig timeLoop = new TimeLoopConfig();
+    public AudioConfig audio = new AudioConfig();
 
 }

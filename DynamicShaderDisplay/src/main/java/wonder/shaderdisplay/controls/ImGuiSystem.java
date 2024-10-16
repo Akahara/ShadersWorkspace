@@ -9,9 +9,11 @@ import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.scene.Scene;
+import wonder.shaderdisplay.serial.AudioInputStream;
 import wonder.shaderdisplay.serial.UserConfig;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -42,7 +44,8 @@ public class ImGuiSystem {
         gl3.init();
     }
 
-    public void renderControls(Scene scene, UserControls userControls, Timeline timeline) {
+    public boolean renderControls(Scene scene, UserControls userControls, Timeline timeline) {
+        boolean requestRerender = false;
         glfw.newFrame();
         ImGui.newFrame();
         ImGui.dockSpaceOverViewport(ImGui.getMainViewport(), ImGuiDockNodeFlags.PassthruCentralNode);
@@ -50,9 +53,11 @@ public class ImGuiSystem {
         ImGui.pushStyleColor(ImGuiCol.Header, 46, 144, 144, 255);
 
         renderMainMenuBar();
-        controlsWindow.render(() -> userControls.renderControls(scene));
-        uniformsWindow.render(scene::renderControls);
-        timelineWindow.render(timeline::render);
+        if (!UserConfig.config.hideAllWindows) {
+            controlsWindow.render(() -> userControls.renderControls(scene));
+            requestRerender |= Optional.ofNullable(uniformsWindow.render(scene::renderControls)).orElse(false);
+            timelineWindow.render(timeline::render);
+        }
 
         ImGui.popStyleColor(2);
         ImGui.render();
@@ -60,11 +65,26 @@ public class ImGuiSystem {
         ImGui.updatePlatformWindows();
         ImGui.renderPlatformWindowsDefault();
         GLWindow.restoreGLFWContext();
+
+        return requestRerender;
     }
 
     private void renderMainMenuBar() {
         if (!ImGui.beginMainMenuBar())
             return;
+
+        UserConfig config = UserConfig.config;
+        // Hide all windows
+        config.hideAllWindows ^= ImGui.menuItem("Hide all", null, config.hideAllWindows);
+
+        // Audio controls
+        if (AudioInputStream.isAnyAudioPlaying()) {
+            boolean toggleMuteAudio = ImGui.menuItem("Mute", null, config.audio.mute);
+            config.audio.mute ^= toggleMuteAudio;
+            if (toggleMuteAudio) AudioInputStream.setAudioMuted(config.audio.mute);
+        }
+
+        // Window controls
         boolean anyToggled = false;
         if (ImGui.beginMenu("Windows")) {
             for (Window w : windows) {
@@ -76,6 +96,7 @@ public class ImGuiSystem {
         }
         if (anyToggled)
             UserConfig.config.visibleImGuiWindows = Stream.of(windows).filter(w -> w.visible).map(w -> w.title).toList();
+
         ImGui.endMainMenuBar();
     }
 
@@ -110,5 +131,14 @@ class Window {
         if (ImGui.begin(title))
             renderFunc.run();
         ImGui.end();
+    }
+
+    public <T> T render(Supplier<T> renderFunc) {
+        if (!visible) return null;
+        T result = null;
+        if (ImGui.begin(title))
+            result = renderFunc.get();
+        ImGui.end();
+        return result;
     }
 }

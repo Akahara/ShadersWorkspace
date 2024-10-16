@@ -8,10 +8,15 @@ import wonder.shaderdisplay.Time;
 import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-class AudioInputStream {
+public class AudioInputStream {
 
     private static final long AUDIO_VISUAL_MAX_DRIFT_MICROSECONDS = (long)(.1f * 1e6);
+    private static final List<AudioInputStream> activeAudios = new ArrayList<>();
+
+    private static boolean audioMuted = UserConfig.config.audio.mute;
 
     private final Logger logger;
 
@@ -20,7 +25,7 @@ class AudioInputStream {
     private boolean startedPlaying = false;
 
     public AudioInputStream(File audioFile) {
-        this.logger = new SimpleLogger(audioFile.getName(), Logger.LEVEL_DEBUG);
+        this.logger = new SimpleLogger(audioFile.getName(), Logger.LEVEL_INFO);
         this.audioFile = audioFile;
     }
 
@@ -36,6 +41,8 @@ class AudioInputStream {
 
     public void startPlaying() {
         clip.start();
+        activeAudios.add(this);
+        if (audioMuted) setVolume(0);
         startedPlaying = true;
     }
 
@@ -45,10 +52,12 @@ class AudioInputStream {
 
     private void setVolume(float volume) {
         ((FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN)).setValue(20f * (float) Math.log10(volume));
+        clip.flush();
     }
 
     public void close() {
         clip.close();
+        activeAudios.remove(this);
     }
 
     public void update() {
@@ -71,5 +80,16 @@ class AudioInputStream {
     private long getWindedCurrentTimeMicro() {
         long currentTimeMicro = (long) (Time.getTime() * 1e6);
         return MathUtils.pmod(currentTimeMicro, clip.getMicrosecondLength());
+    }
+
+    public static boolean isAnyAudioPlaying() {
+        return !activeAudios.isEmpty();
+    }
+
+    public static void setAudioMuted(boolean muted) {
+        if (audioMuted == muted) return;
+        audioMuted = muted;
+        for (AudioInputStream stream : activeAudios)
+            stream.setVolume(muted ? 0 : 1);
     }
 }

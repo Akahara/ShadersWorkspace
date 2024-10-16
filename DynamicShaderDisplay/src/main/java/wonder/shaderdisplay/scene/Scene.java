@@ -46,7 +46,8 @@ public class Scene {
         }
     }
 
-    public void renderControls() {
+    public boolean renderControls() {
+        boolean requestRerender = false;
         for (int i = 0; i < layers.size(); i++) {
             ImGui.pushID(i);
             SceneLayer layer = layers.get(i);
@@ -63,6 +64,7 @@ public class Scene {
                         layers.get(j).enabled = wasInSameState || j <= i;
                 } else {
                     layer.enabled = !layer.enabled;
+                    requestRerender = true;
                 }
                 if (UserConfig.config != null) {
                     UserConfig.config.layers = new UserConfig.LayerState[layers.size()];
@@ -79,6 +81,7 @@ public class Scene {
             ImGui.separator();
             ImGui.popID();
         }
+        return requestRerender;
     }
 
     public SceneRenderTarget getRenderTarget(String name) {
