@@ -27,6 +27,7 @@ import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL20.glDeleteProgram;
 import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
+import static org.lwjgl.opengl.GL43.GL_COMPUTE_SHADER;
 
 public class ShaderCompiler {
 
@@ -70,22 +71,28 @@ public class ShaderCompiler {
         result.errors = errors;
 
         try {
-            if (layer.fileSet.isCompute())
-                result.errors.addAndThrow("Unimplemented: compute pass");
-
-            buildShader(result.errors.subErrors("vertex shader"), layer, newShaders, ShaderType.VERTEX, GL_VERTEX_SHADER);
-            buildShader(result.errors.subErrors("fragment shader"), layer, newShaders, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
-            if (hasGeometry) {
-                buildShader(result.errors.subErrors("geometry shader"), layer, newShaders, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
-                verifyGeometryShaderInputType(result.errors, layer.fileSet.getSource(ShaderType.GEOMETRY).getCachedResolvedSource(), GL_TRIANGLES);
+            if (!layer.fileSet.isCompute()) {
+                buildShader(result.errors.subErrors("vertex shader"), layer, newShaders, ShaderType.VERTEX, GL_VERTEX_SHADER);
+                buildShader(result.errors.subErrors("fragment shader"), layer, newShaders, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
+                if (hasGeometry) {
+                    buildShader(result.errors.subErrors("geometry shader"), layer, newShaders, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
+                    verifyGeometryShaderInputType(result.errors, layer.fileSet.getSource(ShaderType.GEOMETRY).getRawSource(), GL_TRIANGLES);
+                }
+            } else {
+                buildShader(result.errors, layer, newShaders, ShaderType.COMPUTE, GL_COMPUTE_SHADER);
             }
 
             result.errors.assertNoErrors();
-
             newShaders.program = glCreateProgram();
-            glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.VERTEX.ordinal()]);
-            glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.FRAGMENT.ordinal()]);
-            if (hasGeometry) glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.GEOMETRY.ordinal()]);
+
+            if (!layer.fileSet.isCompute()) {
+                glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.VERTEX.ordinal()]);
+                glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.FRAGMENT.ordinal()]);
+                if (hasGeometry)
+                    glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.GEOMETRY.ordinal()]);
+            } else {
+                glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.COMPUTE.ordinal()]);
+            }
             glLinkProgram(newShaders.program);
 
             if (glGetProgrami(newShaders.program, GL_LINK_STATUS) == GL_FALSE)

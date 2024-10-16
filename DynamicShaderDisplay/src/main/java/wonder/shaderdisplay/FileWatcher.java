@@ -51,7 +51,7 @@ public class FileWatcher {
 					addWatchedPath(file, new WatchableShaderFiles(layer));
 			}
 
-			if (layer.mesh.getSourceFile() != null)
+			if (layer.mesh != null && layer.mesh.getSourceFile() != null)
 				addWatchedPath(layer.mesh.getSourceFile(), new WatchableMeshFile(layer));
 		}
 

@@ -126,7 +126,8 @@ public class SetupUtils {
             new Macro[0],
             new SceneUniform[0],
             new SceneLayer.RenderState(),
-            new String[] { renderTarget.name }
+            new String[] { renderTarget.name },
+            new SceneSSBOBinding[0]
         ));
 
         ShaderCompiler compiler = new ShaderCompiler(scene);

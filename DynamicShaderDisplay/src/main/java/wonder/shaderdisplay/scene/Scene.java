@@ -4,12 +4,15 @@ import imgui.ImGui;
 import imgui.flag.ImGuiCol;
 import wonder.shaderdisplay.controls.UserControls;
 import wonder.shaderdisplay.display.GLWindow;
+import wonder.shaderdisplay.display.StorageBuffer;
 import wonder.shaderdisplay.display.TexturesSwapChain;
 import wonder.shaderdisplay.serial.UserConfig;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Scene {
 
@@ -17,6 +20,7 @@ public class Scene {
     public final List<Macro> macros = new ArrayList<>();
     public final List<SceneRenderTarget> renderTargets = new ArrayList<>();
     public String[] renderTargetNames;
+    public final Map<String, StorageBuffer> storageBuffers = new HashMap<>();
     public final File sourceFile;
 
     public TexturesSwapChain swapChain;
@@ -44,6 +48,8 @@ public class Scene {
         for (SceneLayer layer : layers) {
             layer.dispose();
         }
+        for (StorageBuffer ssbo : storageBuffers.values())
+            ssbo.dispose();
     }
 
     public boolean renderControls() {
@@ -88,8 +94,10 @@ public class Scene {
         return renderTargets.stream().filter(r -> r.name.equals(name)).findFirst().orElse(null);
     }
 
-    public void clearSwapChainTextures() {
+    public void clearSwapChainTexturesAndBuffers() {
         swapChain.clearTextures();
+        for (StorageBuffer buf : storageBuffers.values())
+            buf.setToZero();
     }
 
     public void applyUserConfig() {

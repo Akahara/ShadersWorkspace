@@ -5,10 +5,7 @@ import wonder.shaderdisplay.*;
 import wonder.shaderdisplay.controls.ImGuiSystem;
 import wonder.shaderdisplay.controls.Timeline;
 import wonder.shaderdisplay.controls.UserControls;
-import wonder.shaderdisplay.display.GLWindow;
-import wonder.shaderdisplay.display.ShaderCompiler;
-import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.display.WindowBlit;
+import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneParser;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
@@ -101,7 +98,7 @@ public class EntryRun extends SetupUtils {
                             if (options.resetTimeOnUpdate)
                                 Time.jumpToTime(timeline.getLoopBegin());
                             if (options.resetRenderTargetsOnUpdate)
-                                scene.clearSwapChainTextures();
+                                scene.clearSwapChainTexturesAndBuffers();
                         }
                         fileWatcher.processDummyFilesRecompilation();
                         if (rewatchFiles) {
@@ -149,7 +146,7 @@ public class EntryRun extends SetupUtils {
                 if (userControls.pollShouldTakeScreenshot())
                     userControls.takeScreenshot(scene, options.displayOptions);
                 if (userControls.pollResetRenderTargetsQueried())
-                    scene.clearSwapChainTextures();
+                    scene.clearSwapChainTexturesAndBuffers();
 
                 long sleepBegin = System.nanoTime();
                 if (endNano < nextFrame)

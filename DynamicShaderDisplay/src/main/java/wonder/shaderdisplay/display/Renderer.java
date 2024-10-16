@@ -2,10 +2,14 @@ package wonder.shaderdisplay.display;
 
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
+import wonder.shaderdisplay.scene.SceneSSBOBinding;
+
+import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.glBlendFuncSeparate;
 import static org.lwjgl.opengl.GL20.glUseProgram;
+import static org.lwjgl.opengl.GL43.glDispatchCompute;
 
 public class Renderer {
 
@@ -21,9 +25,16 @@ public class Renderer {
 				scene.swapChain.preparePass(layer);
 				glUseProgram(layer.compiledShaders.program);
 				setupRenderState(layer.renderState);
+				setupBufferBindings(scene.storageBuffers, layer.storageBuffers);
 				layer.shaderUniforms.apply(scene);
 				layer.mesh.makeDrawCall();
 				scene.swapChain.endPass();
+				break;
+			case COMPUTE_PASS:
+				glUseProgram(layer.compiledShaders.program);
+				setupBufferBindings(scene.storageBuffers, layer.storageBuffers);
+				layer.shaderUniforms.apply(scene);
+				glDispatchCompute(layer.computeDispatch.x, layer.computeDispatch.y, layer.computeDispatch.z);
 				break;
 			case CLEAR_PASS:
 				glClearColor(layer.clearColor[0], layer.clearColor[1], layer.clearColor[2], layer.clearColor[3]);
@@ -41,6 +52,13 @@ public class Renderer {
 		}
 
 		setupRenderState(SceneLayer.RenderState.DEFAULT);
+	}
+
+	private void setupBufferBindings(Map<String, StorageBuffer> buffers, SceneSSBOBinding[] bindings) {
+		for (int i = 0; i < bindings.length; i++) {
+			SceneSSBOBinding binding = bindings[i];
+			buffers.get(binding.name).bind(i, binding.offset, binding.size);
+		}
 	}
 
 	private void setupRenderState(SceneLayer.RenderState rs) {

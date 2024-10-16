@@ -13,8 +13,8 @@ public enum ShaderType {
         this.defaultSourcePath = defaultSourcePath;
     }
 
-    public static int COUNT = ShaderType.values().length;
-    public static ShaderType[] TYPES = values();
-    public static ShaderType[] STANDARD_TYPES = { VERTEX, GEOMETRY, FRAGMENT };
+    public static final int COUNT = ShaderType.values().length;
+    public static final ShaderType[] TYPES = values();
+    public static final ShaderType[] STANDARD_TYPES = { VERTEX, GEOMETRY, FRAGMENT };
 
 }

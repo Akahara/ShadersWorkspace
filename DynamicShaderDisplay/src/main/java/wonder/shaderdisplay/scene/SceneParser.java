@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -40,12 +41,16 @@ public class SceneParser {
 
         ErrorWrapper errors = new ErrorWrapper("Could not regenerate the scene");
 
+        boolean tryToReloadPreviousScene = previousScene != null && previousScene.layers.size() == serialized.layers.length; // TODO keep uniform states & buffers after a reload
+
         Scene scene = new Scene(file);
         scene.macros.addAll(Arrays.asList(serialized.macros));
         scene.renderTargets.add(SceneRenderTarget.DEFAULT_RT);
         scene.renderTargets.addAll(Arrays.asList(serialized.renderTargets));
+        for (SceneSSBO ssbo : serialized.storageBuffers)
+            scene.storageBuffers.put(ssbo.name, new StorageBuffer(ssbo.size));
+
         ShaderCompiler compiler = new ShaderCompiler(scene);
-        boolean tryToReloadPreviousScene = previousScene != null && previousScene.layers.size() == serialized.layers.length; // TODO keep uniform states after a reload
 
         validateSceneRenderTargets(errors, serialized.renderTargets);
 
@@ -55,6 +60,8 @@ public class SceneParser {
             try {
                 if (serializedLayerBase instanceof JsonSceneStandardLayer serializedLayer) {
                     scene.layers.add(parseStandardLayer(layerErrors, compiler, file, scene, serializedLayer));
+                } else if (serializedLayerBase instanceof JsonComputePass pass) {
+                    scene.layers.add(parseComputeLayer(layerErrors, compiler, file, scene, pass));
                 } else if (serializedLayerBase instanceof JsonClearPass pass) {
                     scene.layers.add(makeClearLayer(layerErrors, pass.targets, pass.clearColor, pass.clearDepth));
                 } else if (serializedLayerBase instanceof JsonBlitPass pass) {
@@ -78,6 +85,8 @@ public class SceneParser {
             return previousScene;
         }
 
+        if (previousScene != null)
+            previousScene.dispose();
         return scene;
     }
 
@@ -88,18 +97,44 @@ public class SceneParser {
                 .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
                 .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
                 .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
-                .setFile(ShaderType.COMPUTE, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.compute))
                 .completeWithDefaultSources(),
             loadMesh(rootFile, serializedLayer.root, serializedLayer.model),
             serializedLayer.macros,
             serializedLayer.uniforms,
             serializedLayer.makeRenderState(errors),
-            serializedLayer.targets
+            serializedLayer.targets,
+            serializedLayer.storageBuffers
         );
 
         validateLayerRenderTargets(errors, scene, serializedLayer.targets, layer.renderState);
+        validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers);
         compiler.compileShaders(errors, layer);
-        errors.assertNoErrors();
+        return layer;
+    }
+
+    private static SceneLayer parseComputeLayer(ErrorWrapper errors, ShaderCompiler compiler, File rootFile, Scene scene, JsonComputePass serializedLayer) throws ErrorWrapper.WrappedException {
+        if (serializedLayer.dispatch.length != 3) {
+            errors.add("Invalid dispatch count, expected [x,y,z]");
+            serializedLayer.dispatch = new int[] { 1,1,1 };
+        } else if (Arrays.stream(serializedLayer.dispatch).anyMatch(n -> (n <= 0))) {
+            errors.add("Invalid dispatch count, all count must be >=1");
+        }
+
+        SceneLayer layer = new SceneLayer(
+            SceneLayer.SceneType.COMPUTE_PASS,
+            new ShaderFileSet()
+                    .setFile(ShaderType.COMPUTE, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.compute))
+                    .completeWithDefaultSources(),
+            new ComputeDispatchCount(serializedLayer.dispatch),
+            serializedLayer.macros,
+            serializedLayer.uniforms,
+            serializedLayer.makeRenderState(errors),
+            new String[0],
+            serializedLayer.storageBuffers
+        );
+
+        validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers);
+        compiler.compileShaders(errors, layer);
         return layer;
     }
 
@@ -132,7 +167,8 @@ public class SceneParser {
             new Macro[0],
             new SceneUniform[0],
             new SceneLayer.RenderState(),
-            renderTargets
+            renderTargets,
+            new SceneSSBOBinding[0]
         );
 
         layer.clearDepth = clearDepth;
@@ -178,7 +214,8 @@ public class SceneParser {
             macros.toArray(Macro[]::new),
             new SceneUniform[] { new SceneUniform("u_source", pass.source) },
             pass.makeRenderState(errors),
-            renderTargets
+            renderTargets,
+            new SceneSSBOBinding[0]
         );
 
         new ShaderCompiler(null).compileShaders(errors, layer);
@@ -259,6 +296,18 @@ public class SceneParser {
             errors.add("Depth test/write enabled without a depth render target");
     }
 
+    private static void validateLayerStorageBuffers(ErrorWrapper errors, Map<String, StorageBuffer> availableStorageBuffers, SceneSSBOBinding[] usedStorageBuffers) {
+        for (SceneSSBOBinding buf : usedStorageBuffers) {
+            StorageBuffer ssbo = availableStorageBuffers.get(buf.name);
+            if (ssbo == null)
+                errors.add("Using unknown storage buffer '%s'".formatted(buf.name));
+            else if (buf.offset < 0 && buf.size >= 0)
+                errors.add("Storage buffer '%s' cannot have a binding size buf no offset".formatted(buf.name));
+            else if (buf.offset >= 0 && buf.size + buf.offset > ssbo.getSizeInBytes())
+                errors.add("Storage buffer '%s' is bound on region (%d:%d) but has size %d".formatted(buf.name, buf.offset, buf.offset+buf.size, ssbo.getSizeInBytes()));
+        }
+    }
+
 }
 
 @JsonIgnoreProperties({ "$schema" })
@@ -269,15 +318,16 @@ class JsonScene {
     @JsonProperty(required = true)
     public JsonSceneLayer[] layers;
     public Macro[] macros = new Macro[0];
+    public SceneSSBO[] storageBuffers = new SceneSSBO[0];
     public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
 }
-
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, defaultImpl = JsonSceneStandardLayer.class, property = "pass")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = JsonSceneStandardLayer.class, name = "standard"),
         @JsonSubTypes.Type(value = JsonClearPass.class, name = "clear"),
         @JsonSubTypes.Type(value = JsonBlitPass.class, name = "blit"),
+        @JsonSubTypes.Type(value = JsonComputePass.class, name = "compute"),
 })
 class JsonSceneLayer {
     public boolean depthTest = false;
@@ -336,11 +386,22 @@ class JsonSceneStandardLayer extends JsonSceneLayer {
     public String root = null;
     public String vertex = null;
     public String geometry = null;
+    @JsonProperty(required = true)
     public String fragment = null;
-    public String compute = null;
     public String model = null;
     public Macro[] macros = new Macro[0];
     public SceneUniform[] uniforms = new SceneUniform[0];
+    public SceneSSBOBinding[] storageBuffers = new SceneSSBOBinding[0];
+}
+
+class JsonComputePass extends JsonSceneLayer {
+    public String root = null;
+    @JsonProperty(required = true)
+    public String compute = null;
+    public int[] dispatch = { 1, 1, 1 };
+    public Macro[] macros = new Macro[0];
+    public SceneUniform[] uniforms = new SceneUniform[0];
+    public SceneSSBOBinding[] storageBuffers = new SceneSSBOBinding[0];
 }
 
 class JsonClearPass extends JsonSceneLayer {

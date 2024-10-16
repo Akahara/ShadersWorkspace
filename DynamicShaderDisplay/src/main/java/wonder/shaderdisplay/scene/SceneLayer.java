@@ -17,16 +17,27 @@ public class SceneLayer {
     public final SceneUniform[] uniforms;
     public final RenderState renderState;
     public final String[] outRenderTargets;
+    public final SceneSSBOBinding[] storageBuffers;
     public Mesh mesh;
+    public ComputeDispatchCount computeDispatch;
     // only valid if sceneType is CLEAR
     public float[] clearColor;
     public float clearDepth;
+
     public boolean enabled = true;
 
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneLayer(SceneType type, ShaderFileSet fileSet, Mesh mesh, Macro[] macros, SceneUniform[] uniforms, RenderState renderState, String[] outRenderTargets) {
+    public SceneLayer(
+            SceneType type,
+            ShaderFileSet fileSet,
+            Mesh mesh,
+            Macro[] macros,
+            SceneUniform[] uniforms,
+            RenderState renderState,
+            String[] outRenderTargets,
+            SceneSSBOBinding[] storageBuffers) {
         this.sceneType = Objects.requireNonNull(type);
         this.fileSet = Objects.requireNonNull(fileSet);
         this.mesh = Objects.requireNonNull(mesh);
@@ -34,10 +45,31 @@ public class SceneLayer {
         this.uniforms = Objects.requireNonNull(uniforms);
         this.renderState = Objects.requireNonNull(renderState);
         this.outRenderTargets = Objects.requireNonNull(outRenderTargets);
+        this.storageBuffers = Objects.requireNonNull(storageBuffers);
+    }
+
+    public SceneLayer(
+            SceneType type,
+            ShaderFileSet fileSet,
+            ComputeDispatchCount computeDispatch,
+            Macro[] macros,
+            SceneUniform[] uniforms,
+            RenderState renderState,
+            String[] outRenderTargets,
+            SceneSSBOBinding[] storageBuffers) {
+        this.sceneType = Objects.requireNonNull(type);
+        this.fileSet = Objects.requireNonNull(fileSet);
+        this.computeDispatch = Objects.requireNonNull(computeDispatch);
+        this.macros = Objects.requireNonNull(macros);
+        this.uniforms = Objects.requireNonNull(uniforms);
+        this.renderState = Objects.requireNonNull(renderState);
+        this.outRenderTargets = Objects.requireNonNull(outRenderTargets);
+        this.storageBuffers = Objects.requireNonNull(storageBuffers);
     }
 
     public void dispose() {
-        mesh.dispose();
+        if (mesh != null)
+            mesh.dispose();
         compiledShaders.disposeAll();
     }
 
@@ -93,6 +125,7 @@ public class SceneLayer {
 
     public enum SceneType {
         STANDARD_PASS,
+        COMPUTE_PASS,
         CLEAR_PASS,
     }
 

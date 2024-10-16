@@ -10,7 +10,6 @@ public class ShaderFileSet {
 	public static class ShaderSource {
 		private final File fileSource;
 		private final String rawSource;
-		private String cachedResolvedSource;
 
 		ShaderSource(File fileSource) {
 			this.fileSource = fileSource;
@@ -36,13 +35,6 @@ public class ShaderFileSet {
 			return fileSource;
 		}
 
-		public void updateCachedResolvedSource(String resolvedSource) {
-			this.cachedResolvedSource = resolvedSource;
-		}
-
-		public String getCachedResolvedSource() {
-			return cachedResolvedSource;
-		}
 	}
 
 	private final ShaderSource[] sources = new ShaderSource[ShaderType.COUNT];
@@ -96,8 +88,12 @@ public class ShaderFileSet {
 	}
 
 	public ShaderFileSet completeWithDefaultSources() {
+		if (isCompute())
+			return this;
+
 		if (!hasCustomShader(ShaderType.VERTEX))
 			sources[ShaderType.VERTEX.ordinal()] = new ShaderSource(Resources.DEFAULT_SHADER_SOURCES[ShaderType.VERTEX.ordinal()]);
+
 		return this;
 	}
 
