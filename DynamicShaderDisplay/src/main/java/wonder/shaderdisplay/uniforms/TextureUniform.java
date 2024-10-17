@@ -5,7 +5,7 @@ import imgui.flag.ImGuiHoveredFlags;
 import imgui.type.ImString;
 import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.display.Texture;
-import wonder.shaderdisplay.scene.SceneUniform;
+import wonder.shaderdisplay.scene.UniformDefaultValue;
 
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
@@ -47,7 +47,7 @@ class TextureUniform extends NonEditableUniform {
 		int bindingSlotIndex = context.getNextTextureSlot();
 		glUniform1i(location, bindingSlotIndex);
 		Texture boundTexture = null;
-		SceneUniform defaultUniformValue = context.getDefaultUniform(name);
+		UniformDefaultValue defaultUniformValue = context.getDefaultUniform(name);
 
 		if (boundTexture == null && defaultUniformValue != null) {
 			boundTexture = context.getRenderTargetReadableTexture(name, defaultUniformValue.value);

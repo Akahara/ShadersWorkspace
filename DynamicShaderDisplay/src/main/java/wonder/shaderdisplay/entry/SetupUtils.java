@@ -106,33 +106,35 @@ public class SetupUtils {
     private static Scene createSimpleScene(Main.DisplayOptions options, File fragmentFile) throws BadInitException {
         SceneRenderTarget renderTarget = SceneRenderTarget.DEFAULT_RT;
         ErrorWrapper errors = new ErrorWrapper("Could not build a simple scene");
-        Scene scene = new Scene();
-        scene.renderTargets.add(renderTarget);
-        scene.layers.add(SceneParser.makeClearLayer(
+
+        SceneClearLayer clearLayer = SceneParser.makeClearLayer(
             errors,
             new String[] { renderTarget.name },
-            "vec4(0, 0, 0, 1)",
+            new float[] { 0,0,0,1 },
             1
-        ));
-        scene.layers.add(new SceneLayer(
-            SceneLayer.SceneType.STANDARD_PASS,
+        );
+        SceneStandardLayer mainLayer = new SceneStandardLayer(
             new ShaderFileSet()
                 .setFile(ShaderType.VERTEX, options.vertexShaderFile)
                 .setFile(ShaderType.GEOMETRY, options.geometryShaderFile)
                 .setFile(ShaderType.COMPUTE, options.computeShaderFile)
                 .setFile(ShaderType.FRAGMENT, fragmentFile)
                 .completeWithDefaultSources(),
-            Mesh.makeFullscreenTriangleMesh(),
             new Macro[0],
-            new SceneUniform[0],
-            new SceneLayer.RenderState(),
+            new UniformDefaultValue[0],
+            new RenderState(),
             new String[] { renderTarget.name },
-            new SceneSSBOBinding[0]
-        ));
+            new SceneSSBOBinding[0],
+            Mesh.makeFullscreenTriangleMesh()
+        );
+
+        Scene scene = new Scene();
+        scene.renderTargets.add(renderTarget);
+        scene.layers.add(clearLayer);
+        scene.layers.add(mainLayer);
 
         ShaderCompiler compiler = new ShaderCompiler(scene);
-        for (SceneLayer layer : scene.layers)
-            compiler.compileShaders(errors, layer);
+        compiler.compileShaders(errors, mainLayer);
 
         if (!errors.noErrors()) {
             errors.dump(Main.logger);

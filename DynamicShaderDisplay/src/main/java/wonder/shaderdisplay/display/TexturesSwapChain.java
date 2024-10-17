@@ -2,7 +2,7 @@ package wonder.shaderdisplay.display;
 
 import fr.wonder.commons.utils.ArrayOperator;
 import wonder.shaderdisplay.Main.DisplayOptions.BackgroundType;
-import wonder.shaderdisplay.scene.SceneLayer;
+import wonder.shaderdisplay.scene.RenderableLayer;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
 
 import java.util.HashMap;
@@ -102,12 +102,12 @@ public class TexturesSwapChain {
 		fbo.dispose();
 	}
 
-	public void preparePass(SceneLayer layer) {
+	public void preparePass(RenderableLayer layer) {
 		/*
 		 Copy each RT used as both WRITE (out render target) and READ (a sampler2D uniform) to another texture that will be used for sampler uniforms.
 		 That way the texture can be read through the whole pass without being affected
 		 */
-		for (String rtName : layer.outRenderTargets) {
+		for (String rtName : layer.getOutputRenderTargets()) {
 			if (!isTextureUsedAsReadWrite(layer, rtName))
 				continue;
 			SwapTexture swap = textures.get(rtName);
@@ -118,14 +118,14 @@ public class TexturesSwapChain {
 			fbo.unbind();
 		}
 		fbo.clearAttachments();
-		for (String rtName : layer.outRenderTargets) {
+		for (String rtName : layer.getOutputRenderTargets()) {
 			SwapTexture swap = textures.get(rtName);
 			fbo.addAttachment(swap.mainTexture);
 		}
 		fbo.bind();
 	}
 
-	public Texture getRenderTargetReadableTexture(SceneLayer accessingLayer, String renderTargetName) {
+	public Texture getRenderTargetReadableTexture(RenderableLayer accessingLayer, String renderTargetName) {
 		SwapTexture swap = textures.get(renderTargetName);
 		if (swap == null) return null;
 		return isTextureUsedAsReadWrite(accessingLayer, renderTargetName) ? swap.copyForWRPassTexture : swap.mainTexture;
@@ -135,10 +135,10 @@ public class TexturesSwapChain {
 		fbo.unbind();
 	}
 
-	private static boolean isTextureUsedAsReadWrite(SceneLayer layer, String renderTargetName) {
-		if (!ArrayOperator.contains(layer.outRenderTargets, renderTargetName))
+	private static boolean isTextureUsedAsReadWrite(RenderableLayer layer, String renderTargetName) {
+		if (layer.getOutputRenderTargets() != null && !ArrayOperator.contains(layer.getOutputRenderTargets(), renderTargetName))
 			return false; // not used as write
-		if (Stream.of(layer.uniforms).noneMatch(u -> u.value.equals(renderTargetName)))
+		if (Stream.of(layer.getDefaultUniformValues()).noneMatch(u -> u.value.equals(renderTargetName)))
 			return false; // not used as read
 		return true;
 	}

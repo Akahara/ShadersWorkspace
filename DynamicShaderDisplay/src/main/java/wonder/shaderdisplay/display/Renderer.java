@@ -1,8 +1,6 @@
 package wonder.shaderdisplay.display;
 
-import wonder.shaderdisplay.scene.Scene;
-import wonder.shaderdisplay.scene.SceneLayer;
-import wonder.shaderdisplay.scene.SceneSSBOBinding;
+import wonder.shaderdisplay.scene.*;
 
 import java.util.Map;
 
@@ -20,26 +18,23 @@ public class Renderer {
 			if (!layer.enabled)
 				continue;
 
-			switch (layer.sceneType) {
-			case STANDARD_PASS:
-				scene.swapChain.preparePass(layer);
-				glUseProgram(layer.compiledShaders.program);
-				setupRenderState(layer.renderState);
-				setupBufferBindings(scene.storageBuffers, layer.storageBuffers);
-				layer.shaderUniforms.apply(scene);
-				layer.mesh.makeDrawCall();
+			if (layer instanceof SceneStandardLayer standardLayer) {
+				scene.swapChain.preparePass(standardLayer);
+				glUseProgram(standardLayer.compiledShaders.program);
+				setupRenderState(standardLayer.renderState);
+				setupBufferBindings(scene.storageBuffers, standardLayer.storageBuffers);
+				standardLayer.shaderUniforms.apply(scene);
+				standardLayer.mesh.makeDrawCall();
 				scene.swapChain.endPass();
-				break;
-			case COMPUTE_PASS:
-				glUseProgram(layer.compiledShaders.program);
-				setupBufferBindings(scene.storageBuffers, layer.storageBuffers);
-				layer.shaderUniforms.apply(scene);
-				glDispatchCompute(layer.computeDispatch.x, layer.computeDispatch.y, layer.computeDispatch.z);
-				break;
-			case CLEAR_PASS:
-				glClearColor(layer.clearColor[0], layer.clearColor[1], layer.clearColor[2], layer.clearColor[3]);
-				glClearDepth(layer.clearDepth);
-				for (String rt : layer.outRenderTargets) {
+			} else if (layer instanceof SceneComputeLayer computeLayer) {
+				glUseProgram(computeLayer.compiledShaders.program);
+				setupBufferBindings(scene.storageBuffers, computeLayer.storageBuffers);
+				computeLayer.shaderUniforms.apply(scene);
+				glDispatchCompute(computeLayer.computeDispatch.x, computeLayer.computeDispatch.y, computeLayer.computeDispatch.z);
+			} else if (layer instanceof SceneClearLayer clearLayer) {
+				glClearColor(clearLayer.clearColor[0], clearLayer.clearColor[1], clearLayer.clearColor[2], clearLayer.clearColor[3]);
+				glClearDepth(clearLayer.clearDepth);
+				for (String rt : clearLayer.outRenderTargets) {
 					Texture texture = scene.swapChain.getAttachment(rt);
 					clearFBO.addAttachment(texture);
 					clearFBO.bind();
@@ -47,11 +42,10 @@ public class Renderer {
 					clearFBO.unbind();
 					clearFBO.clearAttachments();
 				}
-				break;
 			}
 		}
 
-		setupRenderState(SceneLayer.RenderState.DEFAULT);
+		setupRenderState(RenderState.DEFAULT);
 	}
 
 	private void setupBufferBindings(Map<String, StorageBuffer> buffers, SceneSSBOBinding[] bindings) {
@@ -61,7 +55,7 @@ public class Renderer {
 		}
 	}
 
-	private void setupRenderState(SceneLayer.RenderState rs) {
+	private void setupRenderState(RenderState rs) {
 		if (rs.blendSrcA != null) {
 			glEnable(GL_BLEND);
 			glBlendFuncSeparate(
@@ -78,9 +72,9 @@ public class Renderer {
 		glDepthFunc(rs.isDepthTestEnabled ? GL_LESS : GL_ALWAYS);
 		glDepthMask(rs.isDepthWriteEnabled);
 
-		if (rs.culling != SceneLayer.RenderState.Culling.NONE) {
+		if (rs.culling != RenderState.Culling.NONE) {
 			glEnable(GL_CULL_FACE);
-			glCullFace(rs.culling == SceneLayer.RenderState.Culling.FRONT ? GL_FRONT : GL_BACK);
+			glCullFace(rs.culling == RenderState.Culling.FRONT ? GL_FRONT : GL_BACK);
 		} else {
 			glDisable(GL_CULL_FACE);
 		}

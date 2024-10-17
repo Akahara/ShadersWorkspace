@@ -4,9 +4,7 @@ import fr.wonder.commons.exceptions.ErrorWrapper;
 import fr.wonder.commons.files.FilesUtils;
 import wonder.shaderdisplay.FileCache;
 import wonder.shaderdisplay.Main;
-import wonder.shaderdisplay.scene.Macro;
-import wonder.shaderdisplay.scene.Scene;
-import wonder.shaderdisplay.scene.SceneLayer;
+import wonder.shaderdisplay.scene.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,23 +58,21 @@ public class ShaderCompiler {
         }
     }
 
-    public ShaderCompilationResult compileShaders(ErrorWrapper errors, SceneLayer layer) {
-        if (layer.sceneType == SceneLayer.SceneType.CLEAR_PASS)
-            return ShaderCompilationResult.success(); // No need for compilation
+    public ShaderCompilationResult compileShaders(ErrorWrapper errors, CompilableLayer layer) {
+        ShaderSet newShaders = new ShaderSet();
 
-        SceneLayer.ShaderSet newShaders = new SceneLayer.ShaderSet();
-
-        boolean hasGeometry = layer.fileSet.hasCustomShader(ShaderType.GEOMETRY);
+        ShaderFileSet fileSet = layer.getCompilationFileset();
+        boolean hasGeometry = fileSet.hasCustomShader(ShaderType.GEOMETRY);
         ShaderCompilationResult result = new ShaderCompilationResult();
         result.errors = errors;
 
         try {
-            if (!layer.fileSet.isCompute()) {
+            if (!fileSet.isCompute()) {
                 buildShader(result.errors.subErrors("vertex shader"), layer, newShaders, ShaderType.VERTEX, GL_VERTEX_SHADER);
                 buildShader(result.errors.subErrors("fragment shader"), layer, newShaders, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
                 if (hasGeometry) {
                     buildShader(result.errors.subErrors("geometry shader"), layer, newShaders, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
-                    verifyGeometryShaderInputType(result.errors, layer.fileSet.getSource(ShaderType.GEOMETRY).getRawSource(), GL_TRIANGLES);
+                    verifyGeometryShaderInputType(result.errors, fileSet.getSource(ShaderType.GEOMETRY).getRawSource(), GL_TRIANGLES);
                 }
             } else {
                 buildShader(result.errors, layer, newShaders, ShaderType.COMPUTE, GL_COMPUTE_SHADER);
@@ -85,7 +81,7 @@ public class ShaderCompiler {
             result.errors.assertNoErrors();
             newShaders.program = glCreateProgram();
 
-            if (!layer.fileSet.isCompute()) {
+            if (!fileSet.isCompute()) {
                 glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.VERTEX.ordinal()]);
                 glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.FRAGMENT.ordinal()]);
                 if (hasGeometry)
@@ -106,11 +102,10 @@ public class ShaderCompiler {
             return result;
         }
 
-        Main.logger.info("Compiled successfully " + layer.fileSet.getPrimaryFileName() + " : " + getCompilationTimestampString());
+        Main.logger.info("Compiled successfully " + fileSet.getPrimaryFileName() + " : " + getCompilationTimestampString());
 
-        result.fileDependenciesUpdated = areShaderFileSetDifferent(layer.compiledShaders.shaderSourceFiles, newShaders.shaderSourceFiles);
-        layer.compiledShaders.disposeAll();
-        layer.compiledShaders = newShaders;
+        result.fileDependenciesUpdated = areShaderFileSetDifferent(layer.getCompiledShaders().shaderSourceFiles, newShaders.shaderSourceFiles);
+        layer.replaceCompiledShaders(newShaders);
 
         StringBuilder pseudoTotalSource = new StringBuilder();
         for (ShaderType type : ShaderType.STANDARD_TYPES) {
@@ -119,7 +114,7 @@ public class ShaderCompiler {
                 pseudoTotalSource.append(source);
         }
 
-        layer.shaderUniforms.rescan(newShaders.program, pseudoTotalSource.toString());
+        layer.getUniformControls().rescan(newShaders.program, pseudoTotalSource.toString());
         return result;
     }
 
@@ -162,8 +157,8 @@ public class ShaderCompiler {
         return String.format("%02d:%02d:%02d.%03d", hour, minute, second, millis);
     }
 
-    private void buildShader(ErrorWrapper errors, SceneLayer layer, SceneLayer.ShaderSet outShaderSet, ShaderType type, int glType) {
-        ShaderFileSet.ShaderSource sourceObject = layer.fileSet.getSource(type);
+    private void buildShader(ErrorWrapper errors, CompilableLayer layer, ShaderSet outShaderSet, ShaderType type, int glType) {
+        ShaderFileSet.ShaderSource sourceObject = layer.getCompilationFileset().getSource(type);
         String source, sourceName;
 
         if (sourceObject == null) {
@@ -172,7 +167,7 @@ public class ShaderCompiler {
         }
         if (sourceObject.isRawSource()) {
             source = sourceObject.getRawSource();
-            sourceName = layer.fileSet.getPrimaryFileName() + ":" + type;
+            sourceName = layer.getCompilationFileset().getPrimaryFileName() + ":" + type;
             outShaderSet.shaderSourceFiles[type.ordinal()] = new File[0];
         } else {
             sourceName = sourceObject.getFileSource().getName();
@@ -187,7 +182,7 @@ public class ShaderCompiler {
         }
 
         Stream<Macro> allMacros = scene == null ? Stream.empty() : scene.macros.stream();
-        allMacros = Stream.concat(allMacros, Stream.of(layer.macros));
+        allMacros = Stream.concat(allMacros, Stream.of(layer.getCompilationMacros()));
         source = addMacroDefinitions(source, allMacros);
 
         if (debugResolvedShaders && !sourceObject.isRawSource()) {

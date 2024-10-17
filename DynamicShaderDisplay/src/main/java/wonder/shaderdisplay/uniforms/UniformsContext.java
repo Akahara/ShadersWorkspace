@@ -3,8 +3,8 @@ package wonder.shaderdisplay.uniforms;
 import imgui.ImGui;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.display.Texture;
+import wonder.shaderdisplay.scene.RenderableLayer;
 import wonder.shaderdisplay.scene.Scene;
-import wonder.shaderdisplay.scene.SceneLayer;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
@@ -40,9 +40,9 @@ public class UniformsContext {
 	private final Map<String, ArbitraryUniform> oldArbitraryUniforms = new HashMap<>();
 	private final Map<String, Number[][]> originalUniformValues = new HashMap<>();
 
-	private final SceneLayer layer;
+	private final RenderableLayer layer;
 
-	public UniformsContext(SceneLayer layer) {
+	public UniformsContext(RenderableLayer layer) {
 		this.layer = Objects.requireNonNull(layer);
 	}
 

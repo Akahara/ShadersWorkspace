@@ -7,7 +7,7 @@ import wonder.shaderdisplay.serial.JsonUtils;
 import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.entry.BadInitException;
-import wonder.shaderdisplay.scene.SceneLayer.RenderState.BlendMode;
+import wonder.shaderdisplay.scene.RenderState.BlendMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,8 +15,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -65,10 +63,7 @@ public class SceneParser {
                 } else if (serializedLayerBase instanceof JsonClearPass pass) {
                     scene.layers.add(makeClearLayer(layerErrors, pass.targets, pass.clearColor, pass.clearDepth));
                 } else if (serializedLayerBase instanceof JsonBlitPass pass) {
-                    for (SceneLayer layer : makeBlitLayers(layerErrors, scene.renderTargets, pass)) {
-                        validateLayerRenderTargets(errors, scene, layer.outRenderTargets, layer.renderState);
-                        scene.layers.add(layer);
-                    }
+                    scene.layers.addAll(makeBlitLayers(layerErrors, scene, pass));
                 } else {
                     errors.add("Pass doesn't have a layer implementation? : " + serializedLayerBase.getClass().getName());
                 }
@@ -91,19 +86,18 @@ public class SceneParser {
     }
 
     private static SceneLayer parseStandardLayer(ErrorWrapper errors, ShaderCompiler compiler, File rootFile, Scene scene, JsonSceneStandardLayer serializedLayer) throws IOException, ErrorWrapper.WrappedException {
-        SceneLayer layer = new SceneLayer(
-            SceneLayer.SceneType.STANDARD_PASS,
+        SceneStandardLayer layer = new SceneStandardLayer(
             new ShaderFileSet()
                 .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
                 .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
                 .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
                 .completeWithDefaultSources(),
-            loadMesh(rootFile, serializedLayer.root, serializedLayer.model),
             serializedLayer.macros,
             serializedLayer.uniforms,
             serializedLayer.makeRenderState(errors),
             serializedLayer.targets,
-            serializedLayer.storageBuffers
+            serializedLayer.storageBuffers,
+            loadMesh(rootFile, serializedLayer.root, serializedLayer.model)
         );
 
         validateLayerRenderTargets(errors, scene, serializedLayer.targets, layer.renderState);
@@ -120,17 +114,14 @@ public class SceneParser {
             errors.add("Invalid dispatch count, all count must be >=1");
         }
 
-        SceneLayer layer = new SceneLayer(
-            SceneLayer.SceneType.COMPUTE_PASS,
+        SceneComputeLayer layer = new SceneComputeLayer(
             new ShaderFileSet()
                     .setFile(ShaderType.COMPUTE, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.compute))
                     .completeWithDefaultSources(),
-            new ComputeDispatchCount(serializedLayer.dispatch),
             serializedLayer.macros,
             serializedLayer.uniforms,
-            serializedLayer.makeRenderState(errors),
-            new String[0],
-            serializedLayer.storageBuffers
+            serializedLayer.storageBuffers,
+            new ComputeDispatchCount(serializedLayer.dispatch)
         );
 
         validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers);
@@ -159,66 +150,48 @@ public class SceneParser {
         return renderTargetSets;
     }
 
-    public static SceneLayer makeClearLayer(ErrorWrapper errors, String[] renderTargets, String clearColor, float clearDepth) {
-        SceneLayer layer = new SceneLayer(
-            SceneLayer.SceneType.CLEAR_PASS,
-            new ShaderFileSet().setFixedPrimarySourceName("clear_pass"),
-            Mesh.emptyMesh(),
-            new Macro[0],
-            new SceneUniform[0],
-            new SceneLayer.RenderState(),
-            renderTargets,
-            new SceneSSBOBinding[0]
-        );
-
-        layer.clearDepth = clearDepth;
-        layer.clearColor = new float[] { 0, 0, 0, 0 };
-
-        if (clearColor != null) {
-            String floatPattern = "-?\\d+(?:\\.\\d+)?", f = floatPattern;
-            Pattern clearColorPattern = Pattern.compile("vec[34]\\(("+f+"),("+f+"),("+f+")(?:,("+f+"))?\\)");
-            Matcher m = clearColorPattern.matcher(clearColor.replaceAll("[ \t]", ""));
-            if (!m.matches()) {
-                errors.add("Invalid clear color, expected something like 'vec4(1, 0.3, 0.2, 1)' or 'vec3(1.2, -32, 0)'");
-            } else {
-                layer.clearColor = new float[] {
-                        Float.parseFloat(m.group(1)),
-                        Float.parseFloat(m.group(2)),
-                        Float.parseFloat(m.group(3)),
-                        m.group(4) != null ? Float.parseFloat(m.group(4)) : 1
-                };
-            }
+    public static SceneClearLayer makeClearLayer(ErrorWrapper errors, String[] renderTargets, float[] clearColor, float clearDepth) {
+        if (clearColor.length == 3)
+            clearColor = new float[] { clearColor[0], clearColor[1], clearColor[2], 1 };
+        if (clearColor.length != 4) {
+            errors.add("Invalid clear color, expected rgb or rgba");
+            clearColor = new float[4];
         }
 
-        return layer;
+        return new SceneClearLayer(
+            //new ShaderFileSet().setFixedPrimarySourceName("clear_pass"),
+            renderTargets,
+            clearColor,
+            clearDepth
+        );
     }
 
-    private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, List<SceneRenderTarget> renderTargets, JsonBlitPass pass) {
-        return groupRenderTargetsBySize(renderTargets, pass.targets).stream()
-                .map(set -> makeBlitLayer(errors, set.stream().map(rt -> rt.name).toArray(String[]::new), pass))
+    private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, Scene scene, JsonBlitPass pass) {
+        return groupRenderTargetsBySize(scene.renderTargets, pass.targets).stream()
+                .map(set -> makeBlitLayer(errors, scene, set.stream().map(rt -> rt.name).toArray(String[]::new), pass))
                 .collect(Collectors.toList());
     }
 
-    private static SceneLayer makeBlitLayer(ErrorWrapper errors, String[] renderTargets, JsonBlitPass pass) {
+    private static SceneLayer makeBlitLayer(ErrorWrapper errors, Scene scene, String[] renderTargets, JsonBlitPass pass) {
         Stream<Macro> macros = IntStream.range(0, renderTargets.length).mapToObj(i -> new Macro("BLIT_TARGET_"+i));
 
         // TODO blit depth textures
 
-        SceneLayer layer = new SceneLayer(
-            SceneLayer.SceneType.STANDARD_PASS,
+        SceneStandardLayer layer = new SceneStandardLayer(
             new ShaderFileSet()
                 .setFixedPrimarySourceName("blit_pass")
                 .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
                 .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
-            Mesh.makeFullscreenTriangleMesh(),
             macros.toArray(Macro[]::new),
-            new SceneUniform[] { new SceneUniform("u_source", pass.source) },
+            new UniformDefaultValue[] { new UniformDefaultValue("u_source", pass.source) },
             pass.makeRenderState(errors),
             renderTargets,
-            new SceneSSBOBinding[0]
+            new SceneSSBOBinding[0],
+            Mesh.makeFullscreenTriangleMesh()
         );
 
         new ShaderCompiler(null).compileShaders(errors, layer);
+        validateLayerRenderTargets(errors, scene, renderTargets, layer.renderState);
 
         return layer;
     }
@@ -264,7 +237,7 @@ public class SceneParser {
         }
     }
 
-    private static void validateLayerRenderTargets(ErrorWrapper errors, Scene scene, String[] layerRenderTargets, SceneLayer.RenderState rs) {
+    private static void validateLayerRenderTargets(ErrorWrapper errors, Scene scene, String[] layerRenderTargets, RenderState rs) {
         String foundDepthTarget = null;
         if (layerRenderTargets.length == 0) {
             errors.add("No output render target specified");
@@ -318,7 +291,9 @@ class JsonScene {
     @JsonProperty(required = true)
     public JsonSceneLayer[] layers;
     public Macro[] macros = new Macro[0];
+    @JsonProperty(value = "storage_buffers")
     public SceneSSBO[] storageBuffers = new SceneSSBO[0];
+    @JsonProperty(value = "render_targets")
     public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
 }
 
@@ -330,16 +305,19 @@ class JsonScene {
         @JsonSubTypes.Type(value = JsonComputePass.class, name = "compute"),
 })
 class JsonSceneLayer {
+    @JsonProperty(value = "depth_test")
     public boolean depthTest = false;
+    @JsonProperty(value = "depth_write")
     public boolean depthWrite = false;
+    @JsonProperty(value = "blend_factors")
     public BlendMode[] blendFactors = null;
     public BlendModeTemplate blending = null;
-    public SceneLayer.RenderState.Culling culling = SceneLayer.RenderState.Culling.NONE;
+    public RenderState.Culling culling = RenderState.Culling.NONE;
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
 
-    public SceneLayer.RenderState makeRenderState(ErrorWrapper errors) {
-        SceneLayer.RenderState renderState = new SceneLayer.RenderState();
+    public RenderState makeRenderState(ErrorWrapper errors) {
+        RenderState renderState = new RenderState();
         renderState.isDepthWriteEnabled = depthWrite;
         renderState.isDepthTestEnabled = depthTest;
         renderState.culling = culling;
@@ -390,7 +368,8 @@ class JsonSceneStandardLayer extends JsonSceneLayer {
     public String fragment = null;
     public String model = null;
     public Macro[] macros = new Macro[0];
-    public SceneUniform[] uniforms = new SceneUniform[0];
+    public UniformDefaultValue[] uniforms = new UniformDefaultValue[0];
+    @JsonProperty(value = "storage_buffers")
     public SceneSSBOBinding[] storageBuffers = new SceneSSBOBinding[0];
 }
 
@@ -400,13 +379,14 @@ class JsonComputePass extends JsonSceneLayer {
     public String compute = null;
     public int[] dispatch = { 1, 1, 1 };
     public Macro[] macros = new Macro[0];
-    public SceneUniform[] uniforms = new SceneUniform[0];
+    public UniformDefaultValue[] uniforms = new UniformDefaultValue[0];
+    @JsonProperty(value = "storage_buffers")
     public SceneSSBOBinding[] storageBuffers = new SceneSSBOBinding[0];
 }
 
 class JsonClearPass extends JsonSceneLayer {
     @JsonProperty(value = "clear_color")
-    public String clearColor = "vec4(0,0,0,1)";
+    public float[] clearColor = { 0,0,0,1 };
     @JsonProperty(value = "clear_depth")
     public float clearDepth = 1.f;
 }

@@ -82,8 +82,8 @@ public class Scene {
             }
             ImGui.popStyleColor(3);
             ImGui.sameLine();
-            ImGui.textColored(0xffaaff00, layer.fileSet.getPrimaryFileName());
-            layer.shaderUniforms.renderControls();
+            ImGui.textColored(0xffaaff00, layer.getDisplayName());
+            layer.renderControls();
             ImGui.separator();
             ImGui.popID();
         }

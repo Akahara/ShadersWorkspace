@@ -5,9 +5,10 @@ import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryWatcher;
 import wonder.shaderdisplay.display.Mesh;
 import wonder.shaderdisplay.display.ShaderCompiler;
-import wonder.shaderdisplay.display.ShaderType;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneLayer;
+import wonder.shaderdisplay.scene.SceneStandardLayer;
+import wonder.shaderdisplay.scene.CompilableLayer;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,8 +28,8 @@ public class FileWatcher {
 	private final List<File> watchedDirectories = new ArrayList<>();
 	private final Map<File, List<WatchableResourceAssociation>> watchedFiles = new HashMap<>();
 
-	private final Set<SceneLayer> pendingShaderRecompilations = new HashSet<>();
-	private final Set<SceneLayer> pendingMeshReloads = new HashSet<>();
+	private final Set<CompilableLayer> pendingShaderRecompilations = new HashSet<>();
+	private final Set<SceneStandardLayer> pendingMeshReloads = new HashSet<>();
 	private boolean isSceneFileUpdatePending = false;
 	private long latestChangeTimestamp = 0;
 
@@ -41,18 +42,10 @@ public class FileWatcher {
 	
 	public void startWatching() throws IOException {
 		if (scene.sourceFile != null)
-			addWatchedPath(scene.sourceFile, new WatchableSceneFile());
+			addWatchedPath(new WatchableSceneFile(scene.sourceFile));
 
 		for (SceneLayer layer : scene.layers) {
-			for (ShaderType type : ShaderType.TYPES) {
-				if (!layer.fileSet.hasCustomShader(type))
-					continue;
-				for (File file : layer.compiledShaders.shaderSourceFiles[type.ordinal()])
-					addWatchedPath(file, new WatchableShaderFiles(layer));
-			}
-
-			if (layer.mesh != null && layer.mesh.getSourceFile() != null)
-				addWatchedPath(layer.mesh.getSourceFile(), new WatchableMeshFile(layer));
+			layer.collectResourceFiles().forEach(this::addWatchedPath);
 		}
 
 		logWarningIfTooManySubDirs(watchedDirectories);
@@ -104,8 +97,8 @@ public class FileWatcher {
 		}
 	}
 	
-	private void addWatchedPath(File toAdd, WatchableResourceAssociation association) {
-		toAdd = toAdd.getAbsoluteFile();
+	private void addWatchedPath(WatchableResourceAssociation association) {
+		File toAdd = association.watchedFile.getAbsoluteFile();
 		File parent;
 		try {
 			parent = toAdd.getParentFile().getCanonicalFile();
@@ -177,8 +170,8 @@ public class FileWatcher {
 		ShaderCompiler compiler = new ShaderCompiler(scene);
 		ShaderCompiler.ShaderCompilationResult result = new ShaderCompiler.ShaderCompilationResult();
 
-		for (SceneLayer pendingLayer : pendingShaderRecompilations) {
-			ErrorWrapper errors = new ErrorWrapper("Could not compile shader " + pendingLayer.fileSet.getPrimaryFileName());
+		for (CompilableLayer pendingLayer : pendingShaderRecompilations) {
+			ErrorWrapper errors = new ErrorWrapper("Could not compile shader " + pendingLayer.getCompilationFileset().getPrimaryFileName());
 			ShaderCompiler.ShaderCompilationResult r = compiler.compileShaders(errors, pendingLayer);
 			result.success &= r.success;
 			result.fileDependenciesUpdated |= r.fileDependenciesUpdated;
@@ -192,7 +185,7 @@ public class FileWatcher {
 	}
 
 	public void processDummyFilesRecompilation() {
-		for (SceneLayer pendingLayer : pendingMeshReloads) {
+		for (SceneStandardLayer pendingLayer : pendingMeshReloads) {
 			try {
 				pendingLayer.mesh = Mesh.parseFile(pendingLayer.mesh.getSourceFile());
 			} catch (IOException e) {
@@ -202,24 +195,40 @@ public class FileWatcher {
 
 		pendingMeshReloads.clear();
 	}
-}
 
-interface WatchableResourceAssociation {
-}
 
-class WatchableShaderFiles implements WatchableResourceAssociation {
-	final SceneLayer affectedLayer;
+	public static class WatchableResourceAssociation {
 
-	WatchableShaderFiles(SceneLayer affectedLayer) {
-		this.affectedLayer = Objects.requireNonNull(affectedLayer);
+		private final File watchedFile;
+
+        public WatchableResourceAssociation(File watchedFile) {
+            this.watchedFile = watchedFile;
+        }
+
+    }
+
+	public static class WatchableShaderFiles extends WatchableResourceAssociation {
+		private final CompilableLayer affectedLayer;
+
+		public WatchableShaderFiles(File shaderFile, CompilableLayer affectedLayer) {
+			super(shaderFile);
+			this.affectedLayer = Objects.requireNonNull(affectedLayer);
+		}
 	}
-}
 
-class WatchableSceneFile implements WatchableResourceAssociation {
-}
+	public static class WatchableSceneFile extends WatchableResourceAssociation {
+		public WatchableSceneFile(File sceneFile) {
+			super(sceneFile);
+		}
+	}
 
-class WatchableMeshFile implements WatchableResourceAssociation {
-	final SceneLayer affectedLayer;
+	public static class WatchableMeshFile extends WatchableResourceAssociation {
 
-	WatchableMeshFile(SceneLayer affectedLayer) { this.affectedLayer = Objects.requireNonNull(affectedLayer); }
+		private final SceneStandardLayer affectedLayer;
+
+		public WatchableMeshFile(File shaderFile, SceneStandardLayer affectedLayer) {
+			super(shaderFile);
+			this.affectedLayer = Objects.requireNonNull(affectedLayer);
+		}
+	}
 }

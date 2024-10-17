@@ -2,9 +2,9 @@ package wonder.shaderdisplay.uniforms;
 
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.display.Texture;
+import wonder.shaderdisplay.scene.RenderableLayer;
 import wonder.shaderdisplay.scene.Scene;
-import wonder.shaderdisplay.scene.SceneLayer;
-import wonder.shaderdisplay.scene.SceneUniform;
+import wonder.shaderdisplay.scene.UniformDefaultValue;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -19,11 +19,11 @@ public class UniformApplicationContext {
     }
 
     private final Scene scene;
-    private final SceneLayer layer;
+    private final RenderableLayer layer;
 
     private int nextTextureSlot = 0;
 
-    public UniformApplicationContext(Scene scene, SceneLayer layer) {
+    public UniformApplicationContext(Scene scene, RenderableLayer layer) {
         this.scene = scene;
         this.layer = layer;
     }
@@ -32,8 +32,8 @@ public class UniformApplicationContext {
         return nextTextureSlot++;
     }
 
-    public SceneUniform getDefaultUniform(String name) {
-        return Stream.of(layer.uniforms).filter(u -> u.name.equals(name)).findFirst().orElse(null);
+    public UniformDefaultValue getDefaultUniform(String name) {
+        return Stream.of(layer.getDefaultUniformValues()).filter(u -> u.name.equals(name)).findFirst().orElse(null);
     }
 
     public Texture getRenderTargetReadableTexture(String accessingUniform, String renderTargetName) {

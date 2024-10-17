@@ -9,6 +9,7 @@ public class SceneRenderTarget {
     public String name;
     public float width = 1.f;
     public float height = 1.f;
+    @JsonProperty(value = "screen_relative")
     public boolean screenRelative = true; // If false, width&height are absolute dimensions
     public RenderTargetType type = RenderTargetType.TEXTURE;
 
