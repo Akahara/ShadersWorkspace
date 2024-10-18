@@ -7,7 +7,7 @@ import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.SceneRenderTarget;
-import wonder.shaderdisplay.uniforms.ResolutionUniform;
+import wonder.shaderdisplay.uniforms.predefined.ResolutionUniform;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;

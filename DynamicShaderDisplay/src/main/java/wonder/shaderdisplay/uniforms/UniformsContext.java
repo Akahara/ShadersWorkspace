@@ -7,6 +7,8 @@ import wonder.shaderdisplay.scene.RenderableLayer;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
+import wonder.shaderdisplay.uniforms.arbitrary.*;
+import wonder.shaderdisplay.uniforms.predefined.*;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
@@ -29,7 +31,9 @@ public class UniformsContext {
 			new RawBuiltinUniform(GLUniformType.IVEC2, "u_resolution", (n,p) -> new ResolutionUniform(n,p,false)),
 			new RawBuiltinUniform(GLUniformType.VEC2,  "iResolution",  (n,p) -> new ResolutionUniform(n,p,true)),
 			new RawBuiltinUniform(GLUniformType.VEC2,  "u_resolution", (n,p) -> new ResolutionUniform(n,p,true)),
-			new RawBuiltinUniform(GLUniformType.MAT4,  "u_view",       ViewUniform::new),
+			new RawBuiltinUniform(GLUniformType.MAT4,  "u_view",       ViewUniforms.ViewMatrixUniform::new),
+			new RawBuiltinUniform(GLUniformType.VEC3,  "u_viewPosition", ViewUniforms.ViewPositionUniform::new),
+			new RawBuiltinUniform(GLUniformType.VEC3,  "u_viewDirection", ViewUniforms.ViewDirectionUniform::new),
 			new RawBuiltinUniform(GLUniformType.FLOAT, "u_framerate",  FramerateUniform::new)
 	);
 	

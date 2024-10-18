@@ -13,7 +13,7 @@ import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.serial.UserConfig;
 import wonder.shaderdisplay.uniforms.UniformApplicationContext;
-import wonder.shaderdisplay.uniforms.ViewUniform;
+import wonder.shaderdisplay.uniforms.predefined.ViewUniforms;
 
 import java.io.File;
 
@@ -61,7 +61,7 @@ public class EntryRun extends SetupUtils {
         try {
             FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem(sceneFile);
-            UserControls userControls = ViewUniform.userControls = new UserControls();
+            UserControls userControls = ViewUniforms.userControls = new UserControls();
             Timeline timeline = new Timeline();
             Resources.scanForAndLoadSnippets();
             fileWatcher.startWatching();
@@ -86,6 +86,7 @@ public class EntryRun extends SetupUtils {
                         boolean rewatchFiles = false;
                         if (fileWatcher.requiresSceneRecompilation()) {
                             rewatchFiles = true;
+                            forceRerender = true;
                             Main.logger.info("Regenerating scene");
                             scene = SceneParser.regenerateScene(scene.sourceFile, scene);
                             scene.prepareSwapChain(GLWindow.getWinWidth(), GLWindow.getWinHeight());

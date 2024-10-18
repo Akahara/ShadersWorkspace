@@ -1,4 +1,4 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.arbitrary;
 
 import java.util.Arrays;
 
@@ -6,7 +6,7 @@ import imgui.ImGui;
 import wonder.shaderdisplay.controls.ImGuiSystem;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 
-class ControlFloatVecN implements FloatUniformControl {
+public class ControlFloatVecN implements FloatUniformControl {
 	
 	private final int size;
 	

@@ -1,4 +1,4 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.arbitrary;
 
 public interface ArbitraryUniform {
 	

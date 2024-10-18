@@ -1,15 +1,18 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.predefined;
 
 import static org.lwjgl.opengl.GL20.glUniform1f;
 
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.controls.Timeline;
+import wonder.shaderdisplay.uniforms.NonEditableUniform;
+import wonder.shaderdisplay.uniforms.UniformApplicationContext;
+import wonder.shaderdisplay.uniforms.ValueLocationCache;
 
-class TimeUniform extends NonEditableUniform {
+public class TimeUniform extends NonEditableUniform {
 	
 	private final int location;
-	
-	TimeUniform(String name, int program) {
+
+	public TimeUniform(String name, int program) {
 		super(name);
 		this.location = ValueLocationCache.getLocation(program, name);
 	}

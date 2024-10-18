@@ -1,4 +1,4 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.arbitrary;
 
 import java.util.Arrays;
 
@@ -6,7 +6,7 @@ import imgui.ImGui;
 import wonder.shaderdisplay.controls.ImGuiSystem;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 
-class ControlMatN implements FloatUniformControl {
+public class ControlMatN implements FloatUniformControl {
 	
 	private final int matrixSize;
 	

@@ -1,10 +1,11 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.arbitrary;
 
 import imgui.ImGui;
 import wonder.shaderdisplay.controls.ImGuiSystem;
+import wonder.shaderdisplay.uniforms.*;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 
-class ArbitraryIntUniform extends EditableUniform implements ArbitraryUniform {
+public class ArbitraryIntUniform extends EditableUniform implements ArbitraryUniform {
 	
 	private final UniformLocationCache locationCache;
 	private final GLUniformType type;

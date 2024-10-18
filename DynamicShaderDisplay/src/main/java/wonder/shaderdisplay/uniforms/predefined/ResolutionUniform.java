@@ -1,4 +1,8 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.predefined;
+
+import wonder.shaderdisplay.uniforms.NonEditableUniform;
+import wonder.shaderdisplay.uniforms.UniformApplicationContext;
+import wonder.shaderdisplay.uniforms.ValueLocationCache;
 
 import static org.lwjgl.opengl.GL20.glUniform2f;
 import static org.lwjgl.opengl.GL20.glUniform2i;

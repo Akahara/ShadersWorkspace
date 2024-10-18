@@ -1,6 +1,6 @@
 package wonder.shaderdisplay.uniforms;
 
-interface UniformLocationCache {
+public interface UniformLocationCache {
 	
 	int getLocation(int arrayIndex);
 	

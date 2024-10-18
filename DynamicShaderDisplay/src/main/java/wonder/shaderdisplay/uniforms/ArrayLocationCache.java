@@ -5,7 +5,7 @@ import static org.lwjgl.opengl.GL20.glGetUniformLocation;
 import java.util.ArrayList;
 import java.util.List;
 
-class ArrayLocationCache implements UniformLocationCache {
+public class ArrayLocationCache implements UniformLocationCache {
 	
 	private final int program;
 	private final String name;

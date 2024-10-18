@@ -9,7 +9,7 @@ import wonder.shaderdisplay.serial.Resources;
 import wonder.shaderdisplay.display.*;
 import wonder.shaderdisplay.scene.*;
 import wonder.shaderdisplay.serial.UserConfig;
-import wonder.shaderdisplay.uniforms.ResolutionUniform;
+import wonder.shaderdisplay.uniforms.predefined.ResolutionUniform;
 
 import java.io.File;
 import java.io.IOException;

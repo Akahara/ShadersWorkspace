@@ -7,6 +7,10 @@ import static org.lwjgl.opengl.GL20.*;
 import java.util.Map;
 
 import org.lwjgl.opengl.GL40;
+import wonder.shaderdisplay.uniforms.arbitrary.ControlColorN;
+import wonder.shaderdisplay.uniforms.arbitrary.ControlFloatVecN;
+import wonder.shaderdisplay.uniforms.arbitrary.ControlIntVecN;
+import wonder.shaderdisplay.uniforms.arbitrary.ControlMatN;
 
 public enum GLUniformType {
 	

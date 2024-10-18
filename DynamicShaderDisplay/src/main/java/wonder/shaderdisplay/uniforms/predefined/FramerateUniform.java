@@ -1,6 +1,9 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.predefined;
 
 import wonder.shaderdisplay.Time;
+import wonder.shaderdisplay.uniforms.NonEditableUniform;
+import wonder.shaderdisplay.uniforms.UniformApplicationContext;
+import wonder.shaderdisplay.uniforms.ValueLocationCache;
 
 import static org.lwjgl.opengl.GL20.glUniform1f;
 

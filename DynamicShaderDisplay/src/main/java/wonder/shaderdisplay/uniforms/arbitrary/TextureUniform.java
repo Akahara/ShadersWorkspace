@@ -1,4 +1,4 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.arbitrary;
 
 import imgui.ImGui;
 import imgui.flag.ImGuiHoveredFlags;
@@ -6,10 +6,13 @@ import imgui.type.ImString;
 import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.UniformDefaultValue;
+import wonder.shaderdisplay.uniforms.NonEditableUniform;
+import wonder.shaderdisplay.uniforms.UniformApplicationContext;
+import wonder.shaderdisplay.uniforms.ValueLocationCache;
 
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
-class TextureUniform extends NonEditableUniform {
+public class TextureUniform extends NonEditableUniform {
 
 	private final int location;
 
@@ -22,7 +25,7 @@ class TextureUniform extends NonEditableUniform {
 	// there is a memory leak here, when texture caching is disabled texture uniforms are not
 	// properly deleted and their textures are not freed.
 	
-	TextureUniform(int program, String name, Texture texture, String textureName) {
+	public TextureUniform(int program, String name, Texture texture, String textureName) {
 		super(name);
 		this.location = new ValueLocationCache(program, name).getLocation(0);
 		this.fixedInputTexture = texture;
@@ -30,7 +33,7 @@ class TextureUniform extends NonEditableUniform {
 		this.fixedTextureName = textureName;
 	}
 
-	TextureUniform(int program, String name, int inputTextureSlot) {
+	public TextureUniform(int program, String name, int inputTextureSlot) {
 		super(name);
 		this.location = new ValueLocationCache(program, name).getLocation(0);
 		this.fixedInputTexture = null;
@@ -38,7 +41,7 @@ class TextureUniform extends NonEditableUniform {
 		this.fixedTextureName = null;
 	}
 
-	TextureUniform(int program, String name) {
+	public TextureUniform(int program, String name) {
 		this(program, name, null, null);
 	}
 	

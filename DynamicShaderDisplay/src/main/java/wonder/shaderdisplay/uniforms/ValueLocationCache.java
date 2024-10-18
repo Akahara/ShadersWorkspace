@@ -2,7 +2,7 @@ package wonder.shaderdisplay.uniforms;
 
 import static org.lwjgl.opengl.GL20.glGetUniformLocation;
 
-class ValueLocationCache implements UniformLocationCache {
+public class ValueLocationCache implements UniformLocationCache {
 	
 	private final int location;
 	

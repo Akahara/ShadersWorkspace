@@ -1,17 +1,20 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.predefined;
 
 import static org.lwjgl.opengl.GL20.glUniform1f;
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
 import wonder.shaderdisplay.Time;
 import wonder.shaderdisplay.controls.Timeline;
+import wonder.shaderdisplay.uniforms.NonEditableUniform;
+import wonder.shaderdisplay.uniforms.UniformApplicationContext;
+import wonder.shaderdisplay.uniforms.ValueLocationCache;
 
-class FrameUniform extends NonEditableUniform {
+public class FrameUniform extends NonEditableUniform {
 	
 	private final int location;
 	private final boolean isFloat;
-	
-	FrameUniform(String name, int program, boolean isFloat) {
+
+	public FrameUniform(String name, int program, boolean isFloat) {
 		super(name);
 		this.location = ValueLocationCache.getLocation(program, name);
 		this.isFloat = isFloat;

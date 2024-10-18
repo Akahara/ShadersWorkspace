@@ -1,4 +1,4 @@
-package wonder.shaderdisplay.uniforms;
+package wonder.shaderdisplay.uniforms.arbitrary;
 
 import static org.lwjgl.opengl.GL20.glUniform1i;
 
@@ -6,6 +6,7 @@ import java.util.Arrays;
 
 import imgui.ImGui;
 import wonder.shaderdisplay.controls.ImGuiSystem;
+import wonder.shaderdisplay.uniforms.*;
 
 public class ArbitraryBoolUniform extends EditableUniform implements ArbitraryUniform {
 
