@@ -55,7 +55,7 @@ public class UserControls {
 	private boolean drawBackground = true;
 	private boolean resetRenderTargets = false;
 	private boolean viewJustMoved = false;
-	private boolean cursorLocked = false;
+	private int cursorLockedFrames = -1;
 	private double freecamSpeed;
 	private final Vector3f viewPosition = new Vector3f();
 	private final Vector2f prevMousePos = new Vector2f();
@@ -94,8 +94,9 @@ public class UserControls {
 		});
 
 		GLWindow.addButtonCallback((button, action) -> {
-			cursorLocked = !ImGui.getIO().getWantCaptureMouse() && action == GLFW_PRESS;
-			glfwSetInputMode(GLWindow.getWindow(), GLFW_CURSOR, cursorLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+			boolean wantCapture = !ImGui.getIO().getWantCaptureMouse() && action == GLFW_PRESS;
+			cursorLockedFrames = wantCapture ? 0 : -1;
+			glfwSetInputMode(GLWindow.getWindow(), GLFW_CURSOR, wantCapture ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 		});
 		
 		new Thread(() -> {
@@ -107,51 +108,56 @@ public class UserControls {
 	}
 
 	public void step(float delta) {
-		viewJustMoved = false;
-
-		if (cursorLocked) {
-			Vector3f movement = new Vector3f();
-			if (pressedKeys[GLFW_KEY_LEFT] || pressedKeys[GLFW_KEY_A])
-				movement.x--;
-			if (pressedKeys[GLFW_KEY_RIGHT] || pressedKeys[GLFW_KEY_D])
-				movement.x++;
-			if (pressedKeys[GLFW_KEY_SPACE] || pressedKeys[GLFW_KEY_Q])
-				movement.y++;
-			if (pressedKeys[GLFW_KEY_LEFT_SHIFT] || pressedKeys[GLFW_KEY_E])
-				movement.y--;
-			if (pressedKeys[GLFW_KEY_UP] || pressedKeys[GLFW_KEY_W])
-				movement.z++;
-			if (pressedKeys[GLFW_KEY_DOWN] || pressedKeys[GLFW_KEY_S])
-				movement.z--;
-
-			if (movement.lengthSquared() != 0) {
-				final Vector3f up = new Vector3f(0, 1, 0);
-				Vector3f forward = viewRotation.transform(new Vector3f(1, 0, 0));
-				Vector3f left = up.cross(forward, new Vector3f()).normalize();
-				movement = new Matrix3f(forward, up, left).transform(movement);
-				viewPosition.add(movement.mul(delta * (float)freecamSpeed));
-				viewJustMoved = true;
-			}
-
-			if (!mousePos.equals(prevMousePos)) {
-				final float speed = .02f;
-				viewRotation.rotateX(-(mousePos.y - prevMousePos.y) * speed);
-				viewRotation.rotateLocalY(-(mousePos.x - prevMousePos.x) * speed);
-				viewJustMoved = true;
-			}
-
-			UserConfig.Freecam freecam = UserConfig.config.freecam;
-			freecam.speed = (float)freecamSpeed;
-			freecam.position[0] = viewPosition.x;
-			freecam.position[1] = viewPosition.y;
-			freecam.position[2] = viewPosition.z;
-			freecam.rotation[0] = viewRotation.x;
-			freecam.rotation[1] = viewRotation.y;
-			freecam.rotation[2] = viewRotation.z;
-			freecam.rotation[3] = viewRotation.w;
+		if (cursorLockedFrames < 0)
+			return;
+		cursorLockedFrames++;
+		if (cursorLockedFrames == 1) {
+			// don't apply movement because prevMousePos may not be accurate (if the window wasn't focused on the previous frame)
+			prevMousePos.set(mousePos);
+			return;
 		}
 
-		prevMousePos.set(mousePos);
+		Vector3f movement = new Vector3f();
+		if (pressedKeys[GLFW_KEY_LEFT] || pressedKeys[GLFW_KEY_A])
+			movement.x--;
+		if (pressedKeys[GLFW_KEY_RIGHT] || pressedKeys[GLFW_KEY_D])
+			movement.x++;
+		if (pressedKeys[GLFW_KEY_SPACE] || pressedKeys[GLFW_KEY_Q])
+			movement.y++;
+		if (pressedKeys[GLFW_KEY_LEFT_SHIFT] || pressedKeys[GLFW_KEY_E])
+			movement.y--;
+		if (pressedKeys[GLFW_KEY_UP] || pressedKeys[GLFW_KEY_W])
+			movement.z++;
+		if (pressedKeys[GLFW_KEY_DOWN] || pressedKeys[GLFW_KEY_S])
+			movement.z--;
+
+		if (movement.lengthSquared() != 0) {
+			final Vector3f up = new Vector3f(0, 1, 0);
+			Vector3f forward = viewRotation.transform(new Vector3f(1, 0, 0));
+			Vector3f left = up.cross(forward, new Vector3f()).normalize();
+			movement = new Matrix3f(forward, up, left).transform(movement);
+			viewPosition.add(movement.mul(delta * (float)freecamSpeed));
+			viewJustMoved = true;
+		}
+
+		if (!mousePos.equals(prevMousePos)) {
+			final float speed = .02f;
+			viewRotation.rotateX(-(mousePos.y - prevMousePos.y) * speed);
+			viewRotation.rotateLocalY(-(mousePos.x - prevMousePos.x) * speed);
+			viewJustMoved = true;
+			prevMousePos.set(mousePos);
+		}
+
+		UserConfig.Freecam freecam = UserConfig.config.freecam;
+		freecam.speed = (float)freecamSpeed;
+		freecam.position[0] = viewPosition.x;
+		freecam.position[1] = viewPosition.y;
+		freecam.position[2] = viewPosition.z;
+		freecam.rotation[0] = viewRotation.x;
+		freecam.rotation[1] = viewRotation.y;
+		freecam.rotation[2] = viewRotation.z;
+		freecam.rotation[3] = viewRotation.w;
+
 	}
 
 	public static boolean isModPressed(KeyMod mod) {
@@ -199,6 +205,12 @@ public class UserControls {
 
 	public boolean justMoved() {
 		return viewJustMoved;
+	}
+
+	public boolean pollJustMoved() {
+		boolean justMoved = viewJustMoved;
+		viewJustMoved = false;
+		return justMoved;
 	}
 
 	public void takeScreenshot(Scene scene, DisplayOptions options) {

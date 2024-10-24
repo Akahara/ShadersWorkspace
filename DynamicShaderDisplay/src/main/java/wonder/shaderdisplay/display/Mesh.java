@@ -107,6 +107,7 @@ public class Mesh {
         List<Float> vertexData = new ArrayList<>();
         List<Integer> indexData = new ArrayList<>();
 
+        int meshIndexOffset = 0;
         try (AIScene scene = Assimp.aiImportFile(file.getAbsolutePath(), aiProcess_JoinIdenticalVertices | aiProcess_Triangulate)) {
             if (scene == null)
                 throw new IOException("Could not load mesh file");
@@ -114,12 +115,13 @@ public class Mesh {
             if (numMeshes == 0)
                 Main.logger.warn("File '" + file + "' contains 0 meshes");
             for (int i = 0; i < numMeshes; i++) {
-                int meshIndexOffset = vertexData.size() / 3;
                 try (AIMesh mesh = AIMesh.create(scene.mMeshes().get(i))) {
                     AIVector3D.Buffer vertices = mesh.mVertices();
                     AIVector3D.Buffer uvs = mesh.mTextureCoords(0);
                     AIVector3D.Buffer normals = mesh.mNormals();
+                    int meshVertexCount = 0;
                     while (vertices.hasRemaining()) {
+                        meshVertexCount++;
                         // [vec4 position]
                         AIVector3D aiVertex = vertices.get();
                         vertexData.add(aiVertex.x());
@@ -153,6 +155,7 @@ public class Mesh {
                         for (int j = 0; j < face.mNumIndices(); j++)
                             indexData.add(meshIndexOffset + face.mIndices().get(j));
                     }
+                    meshIndexOffset += meshVertexCount;
                 }
             }
         }

@@ -4,6 +4,7 @@ import imgui.ImGui;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 import wonder.shaderdisplay.controls.UserControls;
 import wonder.shaderdisplay.uniforms.EditableUniform;
 import wonder.shaderdisplay.uniforms.NonEditableUniform;
@@ -20,6 +21,9 @@ import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 public class ViewUniforms {
 
     public static UserControls userControls;
+
+    private static final Vector3f FORWARD = new Vector3f(0, 0, -1);
+    private static final Vector3fc UP = new Vector3f(0, 1, 0);
 
     public static class ViewPositionUniform extends NonEditableUniform {
 
@@ -52,8 +56,7 @@ public class ViewUniforms {
 
         @Override
         public void apply(UniformApplicationContext context) {
-            Vector3f forward = new Vector3f(0, 0, -1);
-            Vector3f dir = userControls.getViewRotation().transform(forward);
+            Vector3f dir = userControls.getViewRotation().transform(new Vector3f(FORWARD));
             glUniform3f(location, dir.x, dir.y, dir.z);
         }
 
@@ -70,11 +73,18 @@ public class ViewUniforms {
         public ViewMatrixUniform(String name, int program) {
             super(name);
             this.location = new ValueLocationCache(program, name).getLocation(0);
-            updateMatrix();
         }
 
         @Override
         public void apply(UniformApplicationContext context) {
+            if (userControls != null) {
+                Matrix4f mat = new Matrix4f();
+                Vector3f pos = userControls.getViewPosition();
+                Vector3f dir = userControls.getViewRotation().transform(new Vector3f(FORWARD));
+                mat.lookAt(pos, dir.add(pos, new Vector3f()), UP);
+                mat.get(matrix);
+            }
+
             glUniformMatrix4fv(location, false, matrix);
         }
 
@@ -100,21 +110,7 @@ public class ViewUniforms {
                 userControls.getViewRotation().rotateLocalY(rawRotation[0] * r2d - rotation.x);
                 userControls.getViewRotation().rotateZ(rawRotation[2] * r2d - rotation.z);
                 userControls.setJustMoved();
-                updateMatrix();
             }
-        }
-
-        private void updateMatrix() {
-            Matrix4f mat = new Matrix4f();
-            if (userControls != null) {
-                mat.rotate(userControls.getViewRotation().invert(new Quaternionf()));
-                mat.translate(userControls.getViewPosition().negate(new Vector3f()));
-            }
-            //mat.rotate(-rotation[0] * r2d, 0, 1, 0);
-            //mat.rotate(-rotation[1] * r2d, 1, 0, 0);
-            //mat.rotate(-rotation[2] * r2d, 0, 0, 1);
-            //mat.translate(-position[0], -position[1], -position[2]);
-            mat.get(matrix);
         }
 
         @Override

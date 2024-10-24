@@ -76,7 +76,7 @@ public class EntryRun extends SetupUtils {
             long workTime = 0;
             WindowTitleSupplier windowTitleSupplier = new WindowTitleSupplier(sceneFile.getName());
 
-            boolean forceRerender = false;
+            boolean forceRerender = true;
             while (!GLWindow.shouldDispose()) {
                 // reload shaders if necessary
                 boolean hasPendingFileChanges = fileWatcher.hasPendingChanges();
@@ -113,9 +113,9 @@ public class EntryRun extends SetupUtils {
                 // -------- draw frame ---------
 
                 // render the actual frame
-                forceRerender |= Time.justChanged();
-                forceRerender |= userControls.justMoved();
-                if (!Time.isPaused() || forceRerender)
+                forceRerender |= Time.justChanged() || !Time.isPaused();
+                forceRerender |= userControls.pollJustMoved();
+                if (forceRerender)
                     display.renderer.render(scene);
                 forceRerender = false;
                 int primaryRTIndex = userControls.getPrimaryRenderTargetIndex();

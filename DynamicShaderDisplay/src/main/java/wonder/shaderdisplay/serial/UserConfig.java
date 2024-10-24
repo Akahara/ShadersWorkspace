@@ -24,8 +24,10 @@ public class UserConfig {
 
     public static void loadConfig(File projectRootFile) {
         File mainConfigFile = new File(getProjectConfigDir(projectRootFile), CONFIG_FILE_NAME);
-        if (!mainConfigFile.exists())
+        if (!mainConfigFile.exists()) {
             config = new UserConfig();
+            return;
+        }
 
         try {
             config = JsonUtils.JSON_MAPPER.readValue(mainConfigFile, UserConfig.class);
