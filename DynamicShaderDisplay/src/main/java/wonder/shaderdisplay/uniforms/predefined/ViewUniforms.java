@@ -20,8 +20,6 @@ import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 
 public class ViewUniforms {
 
-    public static UserControls userControls;
-
     private static final Vector3f FORWARD = new Vector3f(0, 0, -1);
     private static final Vector3fc UP = new Vector3f(0, 1, 0);
 
@@ -36,6 +34,7 @@ public class ViewUniforms {
 
         @Override
         public void apply(UniformApplicationContext context) {
+            if (userControls == null) return;
             Vector3f pos = userControls.getViewPosition();
             glUniform3f(location, pos.x, pos.y, pos.z);
         }
@@ -56,6 +55,7 @@ public class ViewUniforms {
 
         @Override
         public void apply(UniformApplicationContext context) {
+            if (userControls == null) return;
             Vector3f dir = userControls.getViewRotation().transform(new Vector3f(FORWARD));
             glUniform3f(location, dir.x, dir.y, dir.z);
         }
@@ -90,6 +90,7 @@ public class ViewUniforms {
 
         @Override
         public void renderControl() {
+            if (userControls == null) return;
             boolean needsUpdate = userControls.justMoved();
             Vector3f position = userControls.getViewPosition();
             Quaternionf rotation = userControls.getViewRotation();

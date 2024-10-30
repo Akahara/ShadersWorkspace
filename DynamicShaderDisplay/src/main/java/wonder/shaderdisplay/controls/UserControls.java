@@ -157,11 +157,6 @@ public class UserControls {
 		freecam.rotation[1] = viewRotation.y;
 		freecam.rotation[2] = viewRotation.z;
 		freecam.rotation[3] = viewRotation.w;
-
-	}
-
-	public static boolean isModPressed(KeyMod mod) {
-		return (pressedMods & mod.glfwCode) != 0;
 	}
 
 	public void renderControls(Scene scene) {
@@ -201,6 +196,18 @@ public class UserControls {
 
 	public Quaternionf getViewRotation() {
 		return viewRotation;
+	}
+
+	public static boolean isModPressed(KeyMod mod) {
+		return (pressedMods & mod.glfwCode) != 0;
+	}
+
+	public int getClickState() {
+		return cursorLockedFrames+1;
+	}
+
+	public Vector2f getMousePosition() {
+		return mousePos;
 	}
 
 	public boolean justMoved() {

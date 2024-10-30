@@ -1,7 +1,11 @@
 package wonder.shaderdisplay.uniforms;
 
-abstract class Uniform {
-	
+import wonder.shaderdisplay.controls.UserControls;
+
+public abstract class Uniform {
+
+	public static UserControls userControls;
+
 	public final String name;
 	
 	public Uniform(String name) {

@@ -34,7 +34,12 @@ public class UniformsContext {
 			new RawBuiltinUniform(GLUniformType.MAT4,  "u_view",       ViewUniforms.ViewMatrixUniform::new),
 			new RawBuiltinUniform(GLUniformType.VEC3,  "u_viewPosition", ViewUniforms.ViewPositionUniform::new),
 			new RawBuiltinUniform(GLUniformType.VEC3,  "u_viewDirection", ViewUniforms.ViewDirectionUniform::new),
-			new RawBuiltinUniform(GLUniformType.FLOAT, "u_framerate",  FramerateUniform::new)
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_framerate",  FramerateUniform::new),
+			new RawBuiltinUniform(GLUniformType.INT,   "u_click",      UserInputUniforms.ClickUniform::new),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "u_mouse",      (n,p) -> new UserInputUniforms.MousePositionUniform(n,p,true)),
+			new RawBuiltinUniform(GLUniformType.IVEC2, "u_mouse",      (n,p) -> new UserInputUniforms.MousePositionUniform(n,p,false)),
+			new RawBuiltinUniform(GLUniformType.VEC2,  "u_cursor",     (n,p) -> new UserInputUniforms.MousePositionUniform(n,p,true)),
+			new RawBuiltinUniform(GLUniformType.IVEC2, "u_cursor",     (n,p) -> new UserInputUniforms.MousePositionUniform(n,p,false))
 	);
 	
 	private List<Uniform> uniforms = new ArrayList<>();

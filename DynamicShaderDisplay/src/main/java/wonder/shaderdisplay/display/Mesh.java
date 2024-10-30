@@ -5,7 +5,6 @@ import wonder.shaderdisplay.Main;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,31 +16,45 @@ import static org.lwjgl.opengl.GL30.*;
 public class Mesh {
 
     private final File sourceFile;
-    private final Topology topology;
-    private final int vbo, ibo, vao;
-    private final int indexCount;
+    private final int vbo;
+    private final int triangleIbo, lineIbo;
+    private final int vao;
+    private final int triangleIndexCount, lineVertexCount;
 
-    public Mesh(File sourceFile, float[] vertexData, int[] indices, Topology topology) {
+    public Mesh(File sourceFile, float[] vertexData, int[] triangleIndices, int[] lineIndices) {
         this.sourceFile = sourceFile;
-        this.indexCount = indices.length;
-        this.topology = topology;
 
-        if (indices.length % topology.vertexCount != 0)
-            throw new IllegalArgumentException("Invalid number of indices, expected a multiple of " + topology.vertexCount);
-
-        ByteBuffer shaderStorageVerticesData = BufferUtils.fromFloats(vertexData);
-        ByteBuffer shaderStorageIndicesData  = BufferUtils.fromInts(indices);
+        if (triangleIndices != null && triangleIndices.length % 3 != 0)
+            throw new IllegalArgumentException("Invalid number of indices, expected a multiple of 3");
+        if (lineIndices != null && lineIndices.length % 2 != 0)
+            throw new IllegalArgumentException("Invalid number of indices, expected a multiple of 2");
 
         this.vao = glGenVertexArrays();
         glBindVertexArray(vao);
 
         this.vbo = glGenBuffers();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, shaderStorageVerticesData, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, BufferUtils.fromFloats(vertexData), GL_DYNAMIC_DRAW);
 
-        this.ibo = glGenBuffers();
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, shaderStorageIndicesData, GL_DYNAMIC_DRAW);
+        if (triangleIndices != null) {
+            this.triangleIndexCount = triangleIndices.length;
+            this.triangleIbo = glGenBuffers();
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangleIbo);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, BufferUtils.fromInts(triangleIndices), GL_DYNAMIC_DRAW);
+        } else {
+            this.triangleIndexCount = 0;
+            this.triangleIbo = 0;
+        }
+
+        if (lineIndices != null) {
+            this.lineVertexCount = lineIndices.length;
+            this.lineIbo = glGenBuffers();
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lineIbo);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, BufferUtils.fromInts(lineIndices), GL_DYNAMIC_DRAW);
+        } else {
+            this.lineVertexCount = 0;
+            this.lineIbo = 0;
+        }
 
         // fixed vertex layout: [vec4 position, vec3 normal, vec2 uv]
         int stride = 4+3+2;
@@ -56,13 +69,18 @@ public class Mesh {
         glBindVertexArray(0);
     }
 
+    public Mesh(File sourceFile, float[] vertexData, int[] indices, Topology topology) {
+        this(sourceFile, vertexData, topology == Topology.TRIANGLE_LIST ? indices : null, topology == Topology.LINE_LIST ? indices : null);
+    }
+
     private Mesh() {
         this.sourceFile = null;
-        this.ibo = 0;
+        this.triangleIbo = 0;
+        this.lineIbo = 0;
         this.vao = 0;
         this.vbo = 0;
-        this.indexCount = 0;
-        this.topology = Topology.TRIANGLE_LIST;
+        this.triangleIndexCount = 0;
+        this.lineVertexCount = 0;
     }
 
     public enum Topology {
@@ -105,7 +123,8 @@ public class Mesh {
 
     public static Mesh parseFile(File file) throws IOException {
         List<Float> vertexData = new ArrayList<>();
-        List<Integer> indexData = new ArrayList<>();
+        List<Integer> triangleIndexData = new ArrayList<>();
+        List<Integer> lineIndexData = new ArrayList<>();
 
         int meshIndexOffset = 0;
         try (AIScene scene = Assimp.aiImportFile(file.getAbsolutePath(), aiProcess_JoinIdenticalVertices | aiProcess_Triangulate)) {
@@ -150,8 +169,13 @@ public class Mesh {
                         }
                     }
                     for (AIFace face : mesh.mFaces()) {
-                        if (face.mNumIndices() != 3)
-                            throw new IOException("Found a face with " + face.mIndices() + " indices?");
+                        List<Integer> indexData;
+                        if (face.mNumIndices() == 3)
+                            indexData = triangleIndexData;
+                        else if (face.mNumIndices() == 2)
+                            indexData = lineIndexData;
+                        else
+                            throw new IOException("Found a face with " + face.mNumIndices() + " indices?");
                         for (int j = 0; j < face.mNumIndices(); j++)
                             indexData.add(meshIndexOffset + face.mIndices().get(j));
                     }
@@ -161,10 +185,11 @@ public class Mesh {
         }
         float[] rawVertexData = new float[vertexData.size()];
         for (int i = 0; i < vertexData.size(); i++) rawVertexData[i] = vertexData.get(i);
-        int[] rawIndexData = indexData.stream().mapToInt(i -> i).toArray();
+        int[] rawTriangleIndexData = triangleIndexData.isEmpty() ? null : triangleIndexData.stream().mapToInt(i -> i).toArray();
+        int[] rawLineIndexData = lineIndexData.isEmpty() ? null : lineIndexData.stream().mapToInt(i -> i).toArray();
 
         Main.logger.info("Successfully loaded mesh " + file);
-        return new Mesh(file, rawVertexData, rawIndexData, Topology.TRIANGLE_LIST);
+        return new Mesh(file, rawVertexData, rawTriangleIndexData, rawLineIndexData);
     }
 
     public static Mesh emptyMesh() {
@@ -177,13 +202,20 @@ public class Mesh {
 
     public void dispose() {
         glDeleteBuffers(vbo);
-        glDeleteBuffers(ibo);
+        glDeleteBuffers(triangleIbo);
         glDeleteVertexArrays(vao);
     }
 
     public void makeDrawCall() {
         glBindVertexArray(vao);
-        glDrawElements(topology.glType, indexCount, GL_UNSIGNED_INT, 0);
+        if (triangleIbo != 0) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangleIbo);
+            glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
+        }
+        if (lineVertexCount != 0) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lineIbo);
+            glDrawElements(GL_LINES, lineVertexCount, GL_UNSIGNED_INT, 0);
+        }
         glBindVertexArray(0);
     }
 }
