@@ -27,7 +27,7 @@ public class Timeline {
         loopTimeTo = new float[] { config.loopTo * displayConversion };
     }
 
-    public void render() {
+    public void renderControls() {
         LoopType currentLoopType = LoopType.values[loopTimeType.get()];
         float displayTimeConversion = getTimeConversionToSeconds(currentLoopType);
         boolean updatedTimeLoop = false;

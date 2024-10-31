@@ -3,6 +3,7 @@ package wonder.shaderdisplay.entry;
 import fr.wonder.commons.exceptions.UnreachableException;
 import wonder.shaderdisplay.*;
 import wonder.shaderdisplay.controls.ImGuiSystem;
+import wonder.shaderdisplay.controls.ShaderDebugTool;
 import wonder.shaderdisplay.controls.Timeline;
 import wonder.shaderdisplay.controls.UserControls;
 import wonder.shaderdisplay.display.*;
@@ -62,6 +63,7 @@ public class EntryRun extends SetupUtils {
             FileWatcher fileWatcher = new FileWatcher(scene, options.hardReload);
             ImGuiSystem imgui = options.noGui ? null : new ImGuiSystem(sceneFile);
             UserControls userControls = Uniform.userControls = new UserControls();
+            ShaderDebugTool debugTool = new ShaderDebugTool();
             Timeline timeline = new Timeline();
             Resources.scanForAndLoadSnippets();
             fileWatcher.startWatching();
@@ -116,8 +118,8 @@ public class EntryRun extends SetupUtils {
                 forceRerender |= Time.justChanged() || !Time.isPaused();
                 forceRerender |= userControls.pollJustMoved();
                 if (forceRerender)
-                    display.renderer.render(scene);
-                forceRerender = false;
+                    display.renderer.render(scene, debugTool);
+                //forceRerender = false; // FIXME do not render when using render targets that loop, might need a "pause rendering" instead of "pause time"
                 int primaryRTIndex = userControls.getPrimaryRenderTargetIndex();
                 WindowBlit.blitToScreen(
                         scene.swapChain.getAttachment(primaryRTIndex < 0 ? SceneRenderTarget.DEFAULT_RT.name : scene.renderTargets.get(primaryRTIndex).name),
@@ -137,7 +139,7 @@ public class EntryRun extends SetupUtils {
                 userControls.step(realDeltaTime);
 
                 if (imgui != null)
-                    forceRerender |= imgui.renderControls(scene, userControls, timeline);
+                    forceRerender |= imgui.renderControls(scene, userControls, timeline, debugTool);
 
                 // ---------/draw frame/---------
 

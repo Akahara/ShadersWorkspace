@@ -25,10 +25,12 @@ public class ImGuiSystem {
     private final Window controlsWindow = new Window("Controls");
     private final Window uniformsWindow = new Window("Uniforms");
     private final Window timelineWindow = new Window("Timeline");
+    private final Window debugToolWindow = new Window("Debug");
     private final Window[] windows = {
         controlsWindow,
         uniformsWindow,
         timelineWindow,
+        debugToolWindow,
     };
 
     public ImGuiSystem(File projectRootFile) {
@@ -44,7 +46,7 @@ public class ImGuiSystem {
         gl3.init();
     }
 
-    public boolean renderControls(Scene scene, UserControls userControls, Timeline timeline) {
+    public boolean renderControls(Scene scene, UserControls userControls, Timeline timeline, ShaderDebugTool debugTool) {
         boolean requestRerender = false;
         glfw.newFrame();
         ImGui.newFrame();
@@ -56,7 +58,8 @@ public class ImGuiSystem {
         if (!UserConfig.config.hideAllWindows) {
             controlsWindow.render(() -> userControls.renderControls(scene));
             requestRerender |= Optional.ofNullable(uniformsWindow.render(scene::renderControls)).orElse(false);
-            timelineWindow.render(timeline::render);
+            timelineWindow.render(timeline::renderControls);
+            debugToolWindow.render(debugTool::renderControls);
         }
 
         ImGui.popStyleColor(2);

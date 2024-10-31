@@ -84,6 +84,7 @@ public class GLWindow {
 					boolean submit = true;
 					submit &= severity != GL_DEBUG_SEVERITY_NOTIFICATION; // PBO streaming using video memory
 					submit &= id != 0x20052; // "Pixel transfer is synchronized with 3D rendering"
+					submit &= id != 0x20072; // "Buffer object is being copied/moved from VIDEO memory to HOST memory"
 					if (submit)
 						oldProc.invoke(source, type, id, severity, length, message, userParam);
 				});

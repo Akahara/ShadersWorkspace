@@ -93,7 +93,7 @@ public class EntryVideo extends SetupUtils {
 
         for(int f = options.firstFrame; f < options.lastFrame && !GLWindow.shouldDispose(); f++) {
             Time.setFrame(f);
-            display.renderer.render(scene);
+            display.renderer.render(scene, null);
             scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, buffer, options.displayOptions.background);
             frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
 

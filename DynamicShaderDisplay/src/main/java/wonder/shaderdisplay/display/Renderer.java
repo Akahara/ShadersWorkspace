@@ -1,19 +1,22 @@
 package wonder.shaderdisplay.display;
 
+import wonder.shaderdisplay.controls.ShaderDebugTool;
 import wonder.shaderdisplay.scene.*;
 
 import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL20.glBlendFuncSeparate;
-import static org.lwjgl.opengl.GL20.glUseProgram;
+import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL43.glDispatchCompute;
 
 public class Renderer {
 
 	private final FrameBuffer clearFBO = new FrameBuffer();
 
-	public void render(Scene scene) {
+	public void render(Scene scene, ShaderDebugTool debugTool) {
+		if (debugTool != null)
+			debugTool.reset();
+
 		for (SceneLayer layer : scene.layers) {
 			if (!layer.enabled)
 				continue;
@@ -23,6 +26,8 @@ public class Renderer {
 				glUseProgram(standardLayer.compiledShaders.program);
 				setupRenderState(standardLayer.renderState);
 				setupBufferBindings(scene.storageBuffers, standardLayer.storageBuffers);
+				if (debugTool != null)
+					debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
 				standardLayer.shaderUniforms.apply(scene);
 				standardLayer.mesh.makeDrawCall();
 				scene.swapChain.endPass();

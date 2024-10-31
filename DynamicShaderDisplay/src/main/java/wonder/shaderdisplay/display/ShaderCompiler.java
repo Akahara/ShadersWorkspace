@@ -4,7 +4,9 @@ import fr.wonder.commons.exceptions.ErrorWrapper;
 import fr.wonder.commons.files.FilesUtils;
 import wonder.shaderdisplay.FileCache;
 import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.controls.ShaderDebugTool;
 import wonder.shaderdisplay.scene.*;
+import wonder.shaderdisplay.serial.Resources;
 
 import java.io.File;
 import java.io.IOException;
@@ -174,6 +176,7 @@ public class ShaderCompiler {
             try {
                 Set<File> sourceCodeFiles = new HashSet<>();
                 source = resolveShaderFile(sourceObject.getFileSource(), sourceCodeFiles);
+                source = ShaderDebugTool.patchShaderSource(source);
                 outShaderSet.shaderSourceFiles[type.ordinal()] = sourceCodeFiles.toArray(File[]::new);
             } catch (IOException e) {
                 errors.add("Compilation error while reading source code for '" + sourceName + "': " + e.getMessage());
@@ -240,11 +243,20 @@ public class ShaderCompiler {
     private static class IncludeReplacement {
         final int from, to;
         final File file;
+        final String rawSource;
 
         public IncludeReplacement(int from, int to, File file) {
             this.from = from;
             this.to = to;
             this.file = file;
+            this.rawSource = null;
+        }
+
+        public IncludeReplacement(int from, int to, String rawSource) {
+            this.from = from;
+            this.to = to;
+            this.file = null;
+            this.rawSource = rawSource;
         }
     }
 
@@ -283,8 +295,19 @@ public class ShaderCompiler {
                     String clauseEnd = "#line " + (line+1) + " // end of " + m.group(1) + ", back in " + file.getName() + "\n";
                     sb.insert(lineEnd + 1, clauseEnd);
                     sb.insert(i, clauseStart);
-                    File includeFile = new File(file.getParentFile(), m.group(1));
-                    replacements.add(new IncludeReplacement(i + clauseStart.length(), lineEnd + clauseStart.length(), includeFile));
+                    String includeFileName = m.group(1);
+                    int replacementStart = i + clauseStart.length();
+                    int replacementEnd = lineEnd + clauseStart.length();
+                    switch (includeFileName) {
+                        case "dsd_debug.glsl" -> {
+                            String rawSource = Resources.readResource("/dsd_debug.glsl");
+                            replacements.add(new IncludeReplacement(replacementStart, replacementEnd, rawSource));
+                        }
+                        default -> {
+                            File includeFile = new File(file.getParentFile(), includeFileName);
+                            replacements.add(new IncludeReplacement(replacementStart, replacementEnd, includeFile));
+                        }
+                    }
                     i = lineEnd + clauseStart.length() + clauseEnd.length();
                 }
             }
@@ -295,7 +318,10 @@ public class ShaderCompiler {
 
         for (int j = replacements.size(); j > 0; j--) {
             IncludeReplacement r = replacements.get(j-1);
-            sb.replace(r.from, r.to, resolveShaderFileRecur(r.file, outSourceCodeFiles).toString());
+            if (r.file != null)
+                sb.replace(r.from, r.to, resolveShaderFileRecur(r.file, outSourceCodeFiles).toString());
+            else
+                sb.replace(r.from, r.to, r.rawSource);
         }
 
         return sb;

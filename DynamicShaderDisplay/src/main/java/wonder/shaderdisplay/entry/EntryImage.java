@@ -77,12 +77,12 @@ public class EntryImage extends SetupUtils {
             if(options.runFromFrame != Main.ImagePassOptions.NO_RUN_FROM_FRAME) {
                 for(int i = options.runFromFrame; i < options.screenshotFrame; i++) {
                     Time.setFrame(i);
-                    display.renderer.render(scene);
+                    display.renderer.render(scene, null);
                 }
             }
             Time.setFrame(options.screenshotFrame);
 
-            display.renderer.render(scene);
+            display.renderer.render(scene, null);
 
             scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, frameCpuBuffer, options.displayOptions.background);
             frameImage.setRGB(0, 0, outputWidth, outputHeight, frameCpuBuffer, outputWidth*(outputHeight-1), -outputWidth);
