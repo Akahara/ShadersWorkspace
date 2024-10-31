@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Scene",
+  "type": "object",
+  "allowTrailingCommas": true,
+  "properties": {
+    "version": { "type": "string", "description": "The scene file version" },
+    "macros": { "$ref": "#/defs/macroarray" },
+    "render_targets": {
+      "type": "array",
+      "items": {
+        "properties": {
+          "name": { "type": "string", "description": "The name of the render target that can be referenced in 'uniforms' and 'targets' fields" },
+          "width": { "type": "number", "description": "The width of the render target, see the 'screenRelative' field" },
+          "height": { "type": "number", "description": "The height of the render target, see the 'screenRelative' field" },
+          "screen_relative": { "type": "boolean", "description": "If false, 'width' and 'height' are absolute sizes in pixels, if true, the render target's size is (width, height)*window size" }
+        },
+        "required": [ "name" ]
+      },
+      "description": "Define any number of additional render targets for offscreen rendering, they can be read from using uniforms and written to using 'targets' in a layer"
+    },
+    "storage_buffers": {
+      "type": "array",
+      "items": {
+        "properties": {
+          "name": { "type": "string", "description": "The name of the buffer that can be referenced in 'storage_buffers' fields" },
+          "size": { "type": "number", "description": "Size in bytes of the buffer" }
+        },
+        "required": [ "name", "size" ]
+      },
+      "description": "Define any number of data buffers that can be read from & written to from shaders using 'storage_buffers' in layers.\nThese are also named SSBOs and are accessible like so in shaders:\nlayout(std430, binding = 0/*index in storage_buffers*/) buffer anyname { int data_SSBO[]; /*or any data*/ };"
+    },
+    "layers": {
+      "description": "Define here any number of layers that will be drawn on top of each other",
+      "type": "array",
+      "items": {
+        "properties": {
+          "$comment": "--- Common layer properties",
+          "targets": {
+            "allOf": [
+              { "$ref": "#/defs/stringorarray" },
+              { "description": "The output render targets, the default one is 'screen'.\nDefine more with the root field 'renderTargets'.\nAt most one depth target can be used." }
+            ]
+          },
+          "macros": { "$ref": "#/defs/macroarray" },
+          "depth_test": { "type": "boolean", "description": "Whether or not to test against the depth buffer, requires a depth render target in 'targets'" },
+          "depth_write": { "type": "boolean", "description": "Whether or not to write to the depth buffer, requires a depth render target in 'targets'" },
+          "blending": {
+            "enum": [ "none", "additive", "alpha" ],
+            "description": "How to do alpha blending, if custom blend factors are required, use 'blendFactors' instead"
+          },
+          "blend_factors": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": { "enum": [ "zero", "one", "src_color", "one_minus_src_color", "src_alpha", "one_minus_src_alpha", "dst_alpha", "one_minus_dst_alpha" ] },
+            "description": "Set the blend factors for each component, may be [coef] or [coefRGB, coefA] or [srcRGB, dstRGB, srcA, dstA]"
+          },
+          "storage_buffers": { "$ref": "#/defs/storage_buffers" }
+        },
+        "oneOf": [
+          {
+            "$comment": "--- Standard pass",
+            "properties": {
+              "root": { "type": "string", "description": "A file path, shader file paths are relative to that value" },
+              "fragment":  { "type": "string", "description": "The fragment shader file to use for the pass" },
+              "vertex": { "type": "string", "description": "The vertex shader file to use for the pass" },
+              "geometry": { "type": "string", "description": "The geometry shader file to use for the pass" },
+              "model": { "type": "string", "description": "An input model file (.obj or .fbx for example) to draw instead of a fullscreen quad, you will likely need a custom vertex shader" },
+              "culling": { "enum": [ "back", "front", "none" ], "description": "Backface culling, defaults to none" },
+              "uniforms": {
+                "type": "array",
+                "items": {
+                  "properties": {
+                    "name": { "type": "string", "description": "The name of the variable in your shader file, currently only sampler2D are supported" },
+                    "value": { "type": "string", "description": "The valud of the uniform, currently only render target names are supported" }
+                  }
+                }
+              }
+            },
+            "required": [ "fragment" ]
+          },
+          {
+            "$comment": "--- Compute pass",
+            "properties": {
+              "pass": { "const": "compute" },
+              "compute": { "type": "string", "description": "The compute shader used to generate a model to pass to a vertex shader" },
+              "dispatch": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "Number of groups in each dimension, defaults to [1,1,1]"
+              },
+              "storage_buffers": { "$ref": "#/defs/storage_buffers" }
+            },
+            "required": [ "compute", "pass" ]
+          },
+          {
+            "$comment": "--- Builtin clear pass",
+            "properties": {
+              "pass": { "const": "clear", "description": "Clear all render targets. Specify the clear color by setting the CLEAR_COLOR macro. Multiple render targets of different sizes are allowed." }
+            },
+            "required": [ "pass" ]
+          },
+          {
+            "$comment": "--- Builtin blit pass",
+            "properties": {
+              "pass": { "const": "blit", "description": "Copy the input render target to one or more other render targets. Multiple render targets of different sizes are allowed." },
+              "source": { "type": "string", "description": "Source render target name" }
+            },
+            "required": [ "pass", "source" ]
+          }
+        ]
+      }
+    }
+  },
+
+
+  "defs": {
+    "macroarray": {
+      "description": "One or more macros that will be included in shaders",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "type": "string" },
+          {
+            "type": "array",
+            "unevaluatedItems": false,
+            "prefixItems": [
+              { "type": "string" },
+              {
+                "anyOf": [
+                  { "type": "string" },
+                  { "type": "number" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "stringorarray": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ]
+    },
+    "storage_buffers": {
+      "description": "SSBO bindings, in slot orders (first one will bind to 'binding=0'), see the root 'storage_buffers' properties",
+      "type": "array",
+      "items": {
+        "properties": {
+          "name": { "type": "string", "description": "Name of the buffer as defined in the root 'storage_buffers' field" },
+          "offset": { "type": "number", "description": "Offset in bytes from the start of the buffer" },
+          "size": { "type": "number", "description": "Size in bytes of the addressable region in the buffer (defaults to the whole buffer)" }
+        },
+        "required": [ "name" ]
+      }
+    }
+  }
+}

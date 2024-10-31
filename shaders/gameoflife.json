@@ -1,0 +1,16 @@
+{
+    // Run with "dsd run gameoflife.json"
+
+    "$schema": "../schema.json",
+    "render_targets": [ { "name": "state" } ],
+    "layers": [
+        {
+            "fragment": "gameoflife.fs",
+            "uniforms": [
+                { "name": "u_previousFrame", "value": "screen" },
+                { "name": "u_previousState", "value": "state" },
+            ],
+            "targets": [ "screen", "state" ],
+        },
+    ]
+}

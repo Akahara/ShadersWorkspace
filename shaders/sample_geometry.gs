@@ -1,5 +1,7 @@
 #version 400 core
 
+// Run with "dsd run sample_geometry.fs -g sample_geometry.gs"
+
 #define PI 3.141592
 #define INSTANCES 30
 

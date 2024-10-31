@@ -1,0 +1,24 @@
+{
+    // Run with "dsd run sample_rendertargets.json"
+
+    "$schema": "../schema.json",
+    "render_targets": [
+        {
+            "name": "offscreen",
+            // "width" and "height" can also be specified
+            // "type" can be set to "depth" when doing 3D
+        },
+    ],
+    "layers": [
+        {
+            "fragment": "sample_rendertargets.fs",
+            "uniforms": [ { "name": "u_previousFrame", "value": "offscreen" } ],
+            "targets": [ "offscreen" ], // More than one can be specified, use "layout(location=1) out vec4 otherOutput;"
+        },
+        {
+            "pass": "blit",
+            "source": "offscreen",
+            "targets": [ "screen" ], // By default all layers output to the "screen" render target, so this is not necessary
+        }
+    ]
+}

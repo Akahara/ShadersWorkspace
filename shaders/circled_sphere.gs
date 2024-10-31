@@ -90,7 +90,7 @@ vec3 randomUnitVector(float s1, float s2) {
 
 void main(void) {
 	float t = iTime;
-	float g = gl_InvocationID/INSTANCES.;
+	float g = float(gl_InvocationID)/INSTANCES;
 
 	mat4 proj = 
 	 	// perspectiveProjectionMatrix(60, .01, 100)
@@ -99,8 +99,8 @@ void main(void) {
 		;
 
 	for(int i = 0; i < VERTICES/2; i++) {
-		float x1 = i/VERTICES.*4*PI;
-		float x2 = (i+1)/VERTICES.*4*PI;
+		float x1 = float(i)/VERTICES*4*PI;
+		float x2 = float(i+1)/VERTICES*4*PI;
 		float r = .995+.004*cos(g*TWOPI);
 
 		float uy = cos(g*TWOPI)+sin(2*g*TWOPI)+cos(g*PI)+sin(g*TWOPI);

@@ -51,4 +51,6 @@ void main(void) {
       color += star(guv*size)*maxOpacity*(abs(cos(iTime*period+periodOffset))+.1);
     }
   }
+
+  color.a = 1;
 }

@@ -80,7 +80,7 @@ void main(void) {
   for(int i = PC; i >= 0; i--) {
     float t = mod(iTime, period);
     t = cos(iTime);
-    t = 1-(pow(t, 100)+t*t*.25);
+    t = 1-(pow(abs(t), 100)+t*t*.25);
     vec2 u = vec2(0, t*.3+(smoothstep(0, .4, mod(iTime, PI))-smoothstep(0, 1, mod(iTime, PI)))*.3);
     t = (t+.25)*.4+.6;
     vec2 v = rot(PI/4)*rot(PI*(i+1)*.1*t)*(butterflyUV-u);
@@ -106,5 +106,5 @@ void main(void) {
     }
   }
 
-  color = vec4(col);
+  color = vec4(col.rgb, 1);
 }

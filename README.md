@@ -26,13 +26,6 @@ To run dsd, first download or build the .jar file, then use one of the following
 # Simply open a window displaying the shader
 java -jar dsd.jar run shader.fs
 
-# Create a file full of useful snippets
-java -jar dsd.jar listsnippets
-java -jar dsd.jar snippets >> snippets.fs
-
-# Check your openGL version
-java -jar dsd.jar systeminfo
-
 # Generate a 10s video
 java -jar dsd.jar video shader.fs -d 10
 # Apply a shader to some images
@@ -55,10 +48,23 @@ Note that on Mac OS X you will need to add `-XstartOnFirstThread` before `-jar`,
 
 ### Using uniforms
 
-- Uniforms of type `mat2/3/4`, `vec2/3/4` and `float` will appear with controls in the HUD. Uniforms of type `vec3/4` and with a name starting with `c_` will have color controls instead.
-- Special uniforms `vec2 i_resolution`, `int iFrame`, `float iTime` are always available.
-- Uniform arrays and non-square matrices are not yet supported.
+- Uniforms of type `mat2/3/4`, `vec2/3/4`, `float`, `int` and `bool` will appear with controls in the HUD.
+- Uniforms of type `vec3/4` and with a name starting with `c_` will have color controls instead.
+- Uniform arrays are supported, but non-square matrices are not.
 - 2D textures are supported (see the next section).
+
+Some uniforms are predefined:
+| Name & type | Value |
+|---|---|
+| `float u_time` | Run time in seconds |
+| `int/float u_frame/iFrame` | `=u_time/fps`, might go up by more than 1 unless `-e` is used |
+| `(i)vec2 u_resolution/iResolution` | Width/Height of the screen |
+| `mat4 u_view` | View matrix for 3D scenes, move by clicking and pressing `wasd` |
+| `vec3 u_viewPosition` | Position of the camera (see u_view) |
+| `vec3 u_viewDirection` | Direction of the camera (see u_view) |
+| `float u_framerate` | Expected fps (60 by default, change with `--fps`) |
+| `int u_click` | 0 if the mouse is not pressed, goes up by 1 each frame |
+| `(i)vec2 u_mouse/u_cursor` | Position of the mouse in pixels |
 
 ### Using textures
 
@@ -69,18 +75,122 @@ Textures are defined directly in code, using a comment to specify the data sourc
 uniform sampler2D u_texture; // path/to/image.png
 /* Use one of the built-in textures */
 uniform sampler2D u_texture; // builtin 1
-/* A render target (see the next section) */
-uniform sampler2D u_texture; // target 0
-/* When running with the "image" command, use the input image 
-   the fallback is any of the above options */
+/* When running with the "image" command, use the input image the fallback is any of the above options */
 uniform sampler2D u_texture; // input or <fallback>
 ```
 
+### Scene description
+
+When a single shader is not enough, use many! Scene files can be used to describe how to run many shaders one after the other.
+
+Example scene file:
+```json
+{
+  "$schema": "scene.schema.json",
+  "version": "1.0",
+  "macros": [
+    // "INDEV",
+    // "FREECAM",
+  ],
+  "render_targets": [
+    { "name": "comet" },
+    { "name": "main", "width": 1, "height": 1 },
+    { "name": "bloom0", "width": 1, "height": 1 },
+    { "name": "bloom1", "width": 0.5, "height": 0.5 },
+    { "name": "bloom2", "width": 0.25, "height": 0.25 },
+    { "name": "depth", "type": "depth" },
+  ],
+  "layers": [
+    {
+      "pass": "clear",
+      "targets": [ "screen", "main", "depth" ],
+    },
+    {
+      "fragment": "ground.fs",
+      "vertex": "ground.vs",
+      "geometry": "splittriangles.gs",
+      "model": "gen_trigrid.obj",
+      "targets": [ "main", "depth" ],
+      "depth_test": true,
+      "depth_write": true,
+      "culling": "back",
+    },
+    {
+      "fragment": "comet.fs",
+      "vertex": "blitz.vs",
+      "targets": [ "main", "comet", "depth" ],
+      "blending": "additive",
+      "macros": [ "DRAW" ],
+      "depth_test": true,
+    },
+    // Many more layers omitted
+    {
+      "pass": "blit",
+      "source": "main",
+      "targets": "screen",
+    }
+  ],
+}
+```
+
+Most fields are simple enough to use, simple create a .json file and make the `"$schema"` point to `scene.schema.json`, using VSCode you will get intellisense.
+
+To run a scene, simply run `dsd run yourscene.json` as you would for a simple fragment shader.
+
+### Including files
+
+glsl does not support `#include`s by default, DSD does. It does not protect against circular inclusions however.
+```glsl
+#include "myothershader.glsl"
+#include "../myotherothershader.glsl"
+```
+If there is an error in one of the files, the line number in the error message will be correct but you won't know which file is wrong...
+Run with `--debug-resolved-shaders` to see exactly what the shader compiler processes.
+
+### Debugging
+
+DSD includes debugging tools to know where things went wrong:
+```glsl
+#include "dsd_debug.glsl"
+
+void main() {
+  DSD_DEBUG_INIT();
+  DSD_DEBUG_CURSOR(); // To make only the pixel under the cursor output anything, you will need "uniform vec2 u_cursor;"
+  // Alternatively use DSD_DEBUG_COND(enabled)
+
+  vec2 somevar = ...;
+  DSD_DEBUG(somevar, somevar);
+  DSD_DEBUG(somevarminusone, somevar-1);
+}
+```
+The value of `somevar` and `somevar-1` will show up in the Debug window.
+
+It also works in non-fragment shaders, but `DSD_DEBUG_CURSOR` wont work, you will have to rely on `DSD_DEBUG_COND`.
+
 ### Render targets
 
+It is possible to read and write to multiple render targets, it goes like this:
+
+```json
+{
+  "render_targets": [ { "name": "offscreen" } ],
+  "layers": [
+    {
+        "fragment": "shader.fs",
+        "uniforms": [
+          { "name": "u_previousTarget", "value": "screen" },
+          { "name": "u_target1", "value": "offscreen" }
+        ],
+        "targets": [ "screen", "offscreen" ],
+    },
+  ]
+}
+```
+
 ```glsl
-uniform sampler2D u_previousFrame; // target 0
-uniform sampler2D u_target1; // target 1
+// shader.fs
+uniform sampler2D u_previousFrame;
+uniform sampler2D u_target1;
 
 layout(location=0) out vec4 color;
 layout(location=1) out vec4 target1out;
@@ -89,8 +199,9 @@ layout(location=1) out vec4 target1out;
 All `out` targets must be written to every frame, render targets are double-buffered, if you write to `color` you won't see a change to `u_previousFrame` until next frame.
 
 You may want to add the `-rt` flags when using render targets:
-- `-r`: Resets the iTime uniform when shaders are updated
+- `-r`: Resets time uniforms when shaders are updated
 - `-t`: Clears the render target textures when shaders are updated
+- `-e`: Prevents time uniforms to "catch-up" when something slowed down a frame, `u_frame` will always go up by 1
 
 ### Generating videos and images
 
@@ -120,93 +231,32 @@ BEGIN Universal constants
 EOS
 ```
 
-### Custom input data
+### Non-fragment shaders
 
-To render things on the screen that cannot be completely generated through a fragment shader (such as points and lines) you can either:
-- define your own vertices in a geometry shader
-- use a compute shader
-- load vertex data from a file
-- generate the data on the fly using an external script
+Geometry and vertex shaders can be used either from a scene file or using `-g`/`-v`.
 
-> Note that currently, only the vertices positions can be user-defined. Additional data must be derived if necessary, in the geometry shader for example.
-
-#### The geometry shader
-
-To add a geometry shader stage, use `--geometry <file>` or `-g <file>`.
-
-The geometry shader can be used to take in vertex data and output some (possibly unrelated) other vertices. For example:
-
+Compute shaders can only be used with a scene file, to pass data from one layer to another use storage buffers:
 ```glsl
-#version 400 core
-
-#define INSTANCES 32
-#define VERTICES 2
-
-layout(triangles) in; // mandatory, even if you do not use the input vertices
-layout(invocations = INSTANCES) in;
-layout(line_strip, max_vertices=VERTICES) out;
-
-void main(void) {
-  // output the 2 points defining a line
-  // the positions of the points may depend on gl_InvocationID and the input data
-  gl_Position = ...;
-  EmitVertex();
-  gl_Position = ...;
-  EmitVertex();
-  EndPrimitive();
+{
+  "storage_buffers": [
+    {
+      "name": "geometrygen",
+      "size": 4096
+    }
+  ],
+  "layers": [
+    {
+      {
+        "pass": "compute",
+        "compute": "tools/generate_cubes.cs",
+        "storage_buffers": [ { "name": "geometrygen" } ],
+        "dispatch": [ 10, 10, 10 ],
+      },
+    }
+  ]
 }
 ```
 
-Use `INSTANCES` and `gl_InvocationID` to generate lots of primitives, `VERTICES` has a limit that isn't that high.
-See a full example at `/shaders/circled_sphere.gs`, use the default fragment shader.
-
-#### The compute shader
-
-The compute shader is not the prefered way to input custom vertex data, but is still worth looking at.
-To add a geometry shader stage, use `--compute <file>` or `-c <file>`.
-Currently only triangles may be generated, to output other types of primitives use the geometry shader. See a full example at `/shaders/compute`.
-
-#### Using an input file
-
-Raw input files may be used with `--input <file>` or `-i <file>`.
-
-The input file is fully read at each reload and must respect the following format:\
-The file must start with the type of primitive it contains, either `points`, `lines` or `triangles`.\
-The remaining of the file will be read in groups of 4 floats per vertex, separated by any white character (spaces, line feeds, tabs...) or semi-column (.csv files should in theory be fully supported).
-
-The first three values in a vertex are its xyz-position and the fourth should always be 1, for example:
-
-```
-points
--1 -.5 0 1
-1 -.5 0 1
-1.73 .5 0 1
-```
-
-#### Using a script file
-
-An external script can also be used with `--script <file>`. The executable will be run on each reload and its output will be parsed exactly as if it was an input file.
-
-To debug the script output you can either simply run the script without dsd or use `--script-log <length>`.
-
-For example, using python:
-```python
-#!/usr/bin/python3
-
-# generates a random point in range (0, 0, 0, 1) to (1, 1, 0, 1)
-def randpoint():
-  ...
-
-print("lines")
-for i in range(100):
-  print(randpoint())
-  print(randpoint())
-```
-
-> You need to make the file executable (`chmod u+x script.py` on linux).
-
-> The scripts are reexecuted each time a file changes, if it takes too long to run simply save the script output to a file and then run dsd with the file as input directly.
-
 ## Build instructions:
 
-Install dependencies using Maven, [`fr.wonder.commons(.systems)`](https://github.com/Akahara/fr.wonder.commons.systems) are not avaible on maven and must be included from `/lib` or built from source.
+All dependencies are managed using maven, just run `mvn package`.

@@ -1,5 +1,7 @@
 #version 400 core
 
+// Run with "dsd run sample_geometry.fs -g strange_cube.gs"
+
 #define INSTANCES 32
 #define PERIOD 5.5
 
