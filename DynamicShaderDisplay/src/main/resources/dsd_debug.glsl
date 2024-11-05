@@ -3,7 +3,7 @@
 #ifndef DSD_DEBUG_GLSL
 #define DSD_DEBUG_GLSL
 
-layout(std430, binding = 0) buffer _dsdd
+layout(std430, binding = 24) buffer _dsdd
 {
     int _dsdd_bufLength;
     int _dsdd_nextWrite;

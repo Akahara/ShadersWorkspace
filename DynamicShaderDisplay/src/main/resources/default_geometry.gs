@@ -1,7 +1,7 @@
 #version 330 core
 
 layout(triangles) in;
-
+layout(invocations = 1) in;
 layout(line_strip, max_vertices=2) out;
 
 void main(void) {

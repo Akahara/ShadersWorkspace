@@ -186,6 +186,7 @@ public class ShaderCompiler {
 
         Stream<Macro> allMacros = scene == null ? Stream.empty() : scene.macros.stream();
         allMacros = Stream.concat(allMacros, Stream.of(layer.getCompilationMacros()));
+        allMacros = Stream.concat(allMacros, Stream.of(new Macro("DSD"), new Macro(type.getShaderCompilerMacro())));
         source = addMacroDefinitions(source, allMacros);
 
         if (debugResolvedShaders && !sourceObject.isRawSource()) {

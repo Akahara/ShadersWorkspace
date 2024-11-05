@@ -11,9 +11,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL31.GL_ACTIVE_UNIFORM_BLOCKS;
-import static org.lwjgl.opengl.GL31.glGetActiveUniformBlockName;
+import static org.lwjgl.opengl.GL43.*;
 
 public class ShaderDebugTool {
 
@@ -57,20 +55,14 @@ public class ShaderDebugTool {
     }
 
     public void tryBindToProgram(int program) {
-        if (true) {
-            debugBuffer.bind(0);
-            inUse = true;
-            //return;
-        }
-        int blocks = glGetProgrami(program, GL_ACTIVE_UNIFORM_BLOCKS);
-        for (int i = 0; i < blocks; i++) {
-            String name = glGetActiveUniformBlockName(program, 0);
-            if (name.equals("_dsdd")) {
-                debugBuffer.bind(i);
-                inUse = true;
-                break;
-            }
-        }
+        int blockIndex = glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, "_dsdd");
+        if (blockIndex < 0)
+            return;
+        int[] props = new int[] { GL_BUFFER_BINDING }, length = new int[1], params = new int[1];
+        glGetProgramResourceiv(program, GL_SHADER_STORAGE_BLOCK, blockIndex, props, length, params);
+        int bindingPoint = params[0];
+        debugBuffer.bind(bindingPoint);
+        inUse = true;
     }
 
     public void renderControls() {
