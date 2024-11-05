@@ -233,11 +233,14 @@ public class UniformsContext {
 	
 	public void apply(Scene scene) {
 		UniformApplicationContext context = new UniformApplicationContext(scene, layer);
-		for(Uniform u : uniforms)
+		for(Uniform u : uniforms) {
+			if (u instanceof ArbitraryUniform arbitraryUniform && scene.sharedUniforms.isShared(u.name))
+				scene.sharedUniforms.loadOrStoreValue(arbitraryUniform);
 			u.apply(context);
+		}
 	}
 	
-	public void renderControls() {
+	public void renderControls(Scene scene) {
 		if (uniforms.stream().anyMatch(Uniform::isUserEditable)) {
 			ImGui.sameLine();
 			if(ImGui.button("Copy")) {
@@ -260,8 +263,10 @@ public class UniformsContext {
 				}
 			}
 		}
-		for(Uniform u : uniforms)
-			u.renderControl();
+		for(Uniform u : uniforms) {
+			if (!scene.sharedUniforms.isShared(u.name))
+				u.renderControl();
+		}
 	}
 	
 }

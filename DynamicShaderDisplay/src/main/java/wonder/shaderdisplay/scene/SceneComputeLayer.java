@@ -33,8 +33,8 @@ public class SceneComputeLayer extends SceneLayer implements CompilableLayer, Re
     }
 
     @Override
-    public void renderControls() {
-        shaderUniforms.renderControls();
+    public void renderControls(Scene scene) {
+        shaderUniforms.renderControls(scene);
     }
 
     @Override

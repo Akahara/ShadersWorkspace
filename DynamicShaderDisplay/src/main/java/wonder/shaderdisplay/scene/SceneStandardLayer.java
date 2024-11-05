@@ -55,8 +55,8 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
     }
 
     @Override
-    public void renderControls() {
-        shaderUniforms.renderControls();
+    public void renderControls(Scene scene) {
+        shaderUniforms.renderControls(scene);
     }
 
     @Override

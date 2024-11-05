@@ -45,6 +45,7 @@ public class SceneParser {
         scene.macros.addAll(Arrays.asList(serialized.macros));
         scene.renderTargets.add(SceneRenderTarget.DEFAULT_RT);
         scene.renderTargets.addAll(Arrays.asList(serialized.renderTargets));
+        scene.sharedUniforms = new SharedUniforms(serialized.sharedUniforms);
         for (SceneSSBO ssbo : serialized.storageBuffers)
             scene.storageBuffers.put(ssbo.name, new StorageBuffer(ssbo.size));
 
@@ -337,6 +338,8 @@ class JsonScene {
     public SceneSSBO[] storageBuffers = new SceneSSBO[0];
     @JsonProperty(value = "render_targets")
     public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
+    @JsonProperty(value = "shared_uniforms")
+    public String[] sharedUniforms = new String[0];
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, defaultImpl = JsonSceneStandardLayer.class, property = "pass")

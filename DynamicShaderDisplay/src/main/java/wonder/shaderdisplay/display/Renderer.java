@@ -20,6 +20,7 @@ public class Renderer {
 	public void render(Scene scene, ShaderDebugTool debugTool) {
 		if (debugTool != null)
 			debugTool.reset();
+		scene.sharedUniforms.reset();
 
 		for (SceneLayer layer : scene.layers) {
 			if (!layer.enabled)

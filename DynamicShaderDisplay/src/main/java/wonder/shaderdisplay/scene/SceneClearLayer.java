@@ -23,7 +23,7 @@ public class SceneClearLayer extends SceneLayer {
     }
 
     @Override
-    public void renderControls() {}
+    public void renderControls(Scene scene) {}
 
     @Override
     public void dispose() {}

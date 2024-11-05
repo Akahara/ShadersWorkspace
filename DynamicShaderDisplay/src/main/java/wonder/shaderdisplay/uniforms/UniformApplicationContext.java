@@ -6,7 +6,9 @@ import wonder.shaderdisplay.scene.RenderableLayer;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.scene.UniformDefaultValue;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 

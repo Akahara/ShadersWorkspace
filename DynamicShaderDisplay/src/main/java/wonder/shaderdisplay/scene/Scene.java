@@ -20,6 +20,7 @@ public class Scene {
     public final List<Macro> macros = new ArrayList<>();
     public final List<SceneRenderTarget> renderTargets = new ArrayList<>();
     public String[] renderTargetNames;
+    public SharedUniforms sharedUniforms;
     public final Map<String, StorageBuffer> storageBuffers = new HashMap<>();
     public final File sourceFile;
 
@@ -54,6 +55,7 @@ public class Scene {
 
     public boolean renderControls() {
         boolean requestRerender = false;
+        sharedUniforms.render();
         for (int i = 0; i < layers.size(); i++) {
             ImGui.pushID(i);
             SceneLayer layer = layers.get(i);
@@ -83,7 +85,7 @@ public class Scene {
             ImGui.popStyleColor(3);
             ImGui.sameLine();
             ImGui.textColored(0xffaaff00, layer.getDisplayName());
-            layer.renderControls();
+            layer.renderControls(this);
             ImGui.separator();
             ImGui.popID();
         }
