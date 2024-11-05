@@ -1,5 +1,6 @@
 package wonder.shaderdisplay.display;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import org.lwjgl.assimp.*;
 import wonder.shaderdisplay.Main;
 
@@ -94,6 +95,9 @@ public class Mesh {
             this.vertexCount = vertexCount;
             this.glType = glType;
         }
+
+        @JsonValue
+        public String serialName() { return name().toLowerCase(); }
     }
 
     public static Mesh makeFullscreenTriangleMesh() {

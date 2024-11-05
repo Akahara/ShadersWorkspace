@@ -29,6 +29,10 @@ public class StorageBuffer {
         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, bindingPoint, id, 0, size);
     }
 
+    public void bindToGLBindingPoint(int glBindingPoint) {
+        glBindBuffer(glBindingPoint, id);
+    }
+
     public void dispose() {
         glDeleteBuffers(id);
     }

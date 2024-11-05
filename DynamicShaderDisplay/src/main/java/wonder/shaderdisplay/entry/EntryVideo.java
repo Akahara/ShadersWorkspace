@@ -1,6 +1,7 @@
 package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.UnreachableException;
+import fr.wonder.commons.files.FilesUtils;
 import io.humble.video.*;
 import io.humble.video.awt.MediaPictureConverter;
 import io.humble.video.awt.MediaPictureConverterFactory;
@@ -22,7 +23,7 @@ import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 public class EntryVideo extends SetupUtils {
 
-    protected static void loadCommonOptions(Main.VideoOptions options, InputFiles inputFiles) throws BadInitException {
+    protected static void loadCommonOptions(Main.VideoOptions options, File fragment, InputFiles inputFiles) throws BadInitException {
         loadCommonOptions(options.displayOptions, inputFiles);
 
         if (options.framerate <= 0)
@@ -34,6 +35,10 @@ public class EntryVideo extends SetupUtils {
         options.lastFrame = options.lastFrame <= 0 ? (int) (options.videoDuration * options.framerate) : options.lastFrame;
         if (options.lastFrame <= options.firstFrame)
             throw new BadInitException("Last frame cannot be less than or equal to the first frame");
+        if (options.outputFile == null)
+            options.outputFile = new File(fragment.getParent(), FilesUtils.getFileName(fragment)+".mp4");
+        if (options.outputFile.exists() && !options.overwriteExistingFile)
+            throw new BadInitException("File '" + options.outputFile + "' already exists, run with -u to overwrite");
 
         Time.setFps(options.framerate);
     }
@@ -41,14 +46,16 @@ public class EntryVideo extends SetupUtils {
     public static void run(Main.VideoOptions options, File fragment, File... inputFiles) {
         Main.logger.info("-- Running video generation --");
 
-        int videoWidth = options.displayOptions.winWidth, videoHeight = options.displayOptions.winHeight;
+        int videoWidth, videoHeight;
         Display display;
         Scene scene;
         fragment = getMainSceneFile(fragment);
 
         try {
             InputFiles imageInputFiles = InputFiles.singleton = new InputFiles(inputFiles, false);
-            loadCommonOptions(options, imageInputFiles);
+            loadCommonOptions(options, fragment, imageInputFiles);
+            videoWidth = options.displayOptions.winWidth;
+            videoHeight = options.displayOptions.winHeight;
 
             display = createDisplay(options.displayOptions, options.preview, false);
             imageInputFiles.startReadingFiles();
@@ -95,13 +102,11 @@ public class EntryVideo extends SetupUtils {
             Time.setFrame(f);
             display.renderer.render(scene, null);
             scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, buffer, options.displayOptions.background);
-            frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
 
-            BufferedImage screen = new BufferedImage(videoWidth, videoHeight, BufferedImage.TYPE_3BYTE_BGR);
-            screen.setRGB(0, 0, videoWidth, videoHeight, buffer, 0, videoWidth);
+            frame.setRGB(0, 0, videoWidth, videoHeight, buffer, videoWidth*(videoHeight-1), -videoWidth);
             if (converter == null)
-                converter = MediaPictureConverterFactory.createConverter(screen, picture);
-            converter.toPicture(picture, screen, f - options.firstFrame);
+                converter = MediaPictureConverterFactory.createConverter(frame, picture);
+            converter.toPicture(picture, frame, f - options.firstFrame);
 
             do {
                 encoder.encode(packet, picture);

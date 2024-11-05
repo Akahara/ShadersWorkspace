@@ -124,7 +124,7 @@ public class SetupUtils {
             new UniformDefaultValue[0],
             new RenderState(),
             new String[] { renderTarget.name },
-            new SceneSSBOBinding[0],
+            new SSBOBinding[0],
             Mesh.makeFullscreenTriangleMesh()
         );
 

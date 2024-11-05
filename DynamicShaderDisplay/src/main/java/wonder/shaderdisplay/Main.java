@@ -69,7 +69,7 @@ public class Main {
 		public boolean sizeToInput;
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
 		public BackgroundType background = BackgroundType.NORMAL;
-		
+
 		public enum BackgroundType {
 			NORMAL,
 			NO_ALPHA,
@@ -124,11 +124,13 @@ public class Main {
 		public float framerate = 60;
 		@Option(name = "--duration", shorthand = "-d", desc = "Output video duration in seconds, either -d or -l must be specified")
 		public float videoDuration;
-		@Option(name = "--output", shorthand = "-o", valueName = "file", desc = "Output file path, defaults to \"video.mp4\"")
-		public File outputFile = new File("video.mp4");
+		@Option(name = "--output", shorthand = "-o", valueName = "file", desc = "Output file path, defaults to <shaderfile>.mp4")
+		public File outputFile = null;
 		@Option(name = "--preview", shorthand = "-p", desc = "Show the window during generation")
 		public boolean preview = false;
-		
+		@Option(name = "--overwrite", shorthand = "-u", desc = "Write the output file even if it already exists")
+		public boolean overwriteExistingFile;
+
 	}
 	
 	@OptionClass

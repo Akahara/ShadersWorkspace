@@ -5,9 +5,7 @@ import wonder.shaderdisplay.display.ShaderFileSet;
 import wonder.shaderdisplay.display.ShaderType;
 import wonder.shaderdisplay.uniforms.UniformsContext;
 
-import java.io.File;
 import java.util.Arrays;
-import java.util.List;
 import java.util.stream.Stream;
 
 public class SceneComputeLayer extends SceneLayer implements CompilableLayer, RenderableLayer {
@@ -15,13 +13,13 @@ public class SceneComputeLayer extends SceneLayer implements CompilableLayer, Re
     public final ShaderFileSet fileSet;
     public final Macro[] macros;
     public final UniformDefaultValue[] uniformDefaultValues;
-    public final SceneSSBOBinding[] storageBuffers;
+    public final SSBOBinding[] storageBuffers;
     public final ComputeDispatchCount computeDispatch;
 
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneComputeLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, SceneSSBOBinding[] storageBuffers, ComputeDispatchCount computeDispatch) {
+    public SceneComputeLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, SSBOBinding[] storageBuffers, ComputeDispatchCount computeDispatch) {
         this.fileSet = fileSet;
         this.macros = macros;
         this.uniformDefaultValues = uniforms;

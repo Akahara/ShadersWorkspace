@@ -76,6 +76,17 @@
                     "value": { "type": "string", "description": "The valud of the uniform, currently only render target names are supported" }
                   }
                 }
+              },
+              "indirect_draw": {
+                "properties": {
+                  "indirect_args_buffer": { "type": "string" },
+                  "indirect_args_offset": { "type": "number" },
+                  "indirect_call_count": { "type": "number" },
+                  "vertex_buffer": { "type": "string" },
+                  "index_buffer": { "type": "string" },
+                  "topology": { "enum": [ "triangle_list", "line_list" ] }
+                },
+                "required": [ "indirect_args_buffer", "indirect_call_count" ]
               }
             },
             "required": [ "fragment" ]
@@ -155,8 +166,7 @@
       "items": {
         "properties": {
           "name": { "type": "string", "description": "Name of the buffer as defined in the root 'storage_buffers' field" },
-          "offset": { "type": "number", "description": "Offset in bytes from the start of the buffer" },
-          "size": { "type": "number", "description": "Size in bytes of the addressable region in the buffer (defaults to the whole buffer)" }
+          "offset": { "type": "number", "description": "Offset in bytes from the start of the buffer" }
         },
         "required": [ "name" ]
       }

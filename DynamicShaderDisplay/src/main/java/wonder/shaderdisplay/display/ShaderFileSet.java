@@ -1,13 +1,16 @@
 package wonder.shaderdisplay.display;
 
+import fr.wonder.commons.files.FilesUtils;
+import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.serial.Resources;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Objects;
 
 public class ShaderFileSet {
 
-	public static class ShaderSource {
+    public static class ShaderSource {
 		private final File fileSource;
 		private final String rawSource;
 
@@ -25,12 +28,18 @@ public class ShaderFileSet {
 			return rawSource != null;
 		}
 
+		public boolean isFileSource() {
+			return !isRawSource();
+		}
+
 		public String getRawSource() {
+			if (!isRawSource())
+				throw new IllegalStateException("Not a raw source");
 			return rawSource;
 		}
 
 		public File getFileSource() {
-			if (isRawSource())
+			if (!isFileSource())
 				throw new IllegalStateException("Not a file source");
 			return fileSource;
 		}
@@ -101,5 +110,21 @@ public class ShaderFileSet {
 		return fixedPrimarySourceName != null ? fixedPrimarySourceName
 			: isCompute() ? getSource(ShaderType.COMPUTE).getFileSource().getName()
 			: getSource(ShaderType.FRAGMENT).getFileSource().getName();
+	}
+
+	public ShaderFileSet createMissingFilesFromTemplate() {
+		for (ShaderType type : ShaderType.values()) {
+			ShaderSource source = sources[type.ordinal()];
+			if (source != null && source.isFileSource() && !source.getFileSource().exists()) {
+				File shaderFile = source.getFileSource();
+                try {
+                    FilesUtils.write(shaderFile, Resources.DEFAULT_SHADER_SOURCES[type.ordinal()]);
+					Main.logger.warn("Shader file " + shaderFile + " does not exist, created it from a template");
+                } catch (IOException e) {
+					Main.logger.err(e, "Could not create missing file " + shaderFile);
+                }
+            }
+		}
+		return this;
 	}
 }

@@ -13,6 +13,10 @@ public enum ShaderType {
         this.defaultSourcePath = defaultSourcePath;
     }
 
+    public String getShaderCompilerMacro() {
+        return "DSD_" + name();
+    }
+
     public static final int COUNT = ShaderType.values().length;
     public static final ShaderType[] TYPES = values();
     public static final ShaderType[] STANDARD_TYPES = { VERTEX, GEOMETRY, FRAGMENT };

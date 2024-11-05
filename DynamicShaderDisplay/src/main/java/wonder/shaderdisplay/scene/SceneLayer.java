@@ -2,7 +2,6 @@ package wonder.shaderdisplay.scene;
 
 import wonder.shaderdisplay.FileWatcher;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 public abstract class SceneLayer {

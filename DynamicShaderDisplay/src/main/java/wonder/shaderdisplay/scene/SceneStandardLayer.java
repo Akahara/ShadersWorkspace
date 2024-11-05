@@ -1,6 +1,7 @@
 package wonder.shaderdisplay.scene;
 
 import wonder.shaderdisplay.FileWatcher;
+import wonder.shaderdisplay.display.IndirectDrawDescription;
 import wonder.shaderdisplay.display.Mesh;
 import wonder.shaderdisplay.display.ShaderFileSet;
 import wonder.shaderdisplay.display.ShaderType;
@@ -18,13 +19,16 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
     public final UniformDefaultValue[] uniformDefaultValues;
     public final RenderState renderState;
     public final String[] outRenderTargets;
-    public final SceneSSBOBinding[] storageBuffers;
+    public final SSBOBinding[] storageBuffers;
+
+    // One of the two is not null
     public Mesh mesh;
+    public final IndirectDrawDescription indirectDraw;
 
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneStandardLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SceneSSBOBinding[] storageBuffers, Mesh mesh) {
+    public SceneStandardLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, Mesh mesh) {
         this.fileSet = fileSet;
         this.macros = macros;
         this.uniformDefaultValues = uniforms;
@@ -32,6 +36,17 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
         this.outRenderTargets = outRenderTargets;
         this.storageBuffers = storageBuffers;
         this.mesh = mesh;
+        this.indirectDraw = null;
+    }
+
+    public SceneStandardLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, IndirectDrawDescription indirectDraw) {
+        this.fileSet = fileSet;
+        this.macros = macros;
+        this.uniformDefaultValues = uniforms;
+        this.renderState = renderState;
+        this.outRenderTargets = outRenderTargets;
+        this.storageBuffers = storageBuffers;
+        this.indirectDraw = indirectDraw;
     }
 
     @Override
@@ -46,7 +61,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
 
     @Override
     public void dispose() {
-        mesh.dispose();
+        if (mesh != null) mesh.dispose();
         compiledShaders.disposeAll();
     }
 
@@ -59,7 +74,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
             for (File file : compiledShaders.shaderSourceFiles[type.ordinal()])
                 watches.add(new FileWatcher.WatchableShaderFiles(file, this));
         }
-        if (mesh.getSourceFile() != null)
+        if (mesh != null && mesh.getSourceFile() != null)
             watches.add(new FileWatcher.WatchableMeshFile(mesh.getSourceFile(), this));
         return watches.stream();
     }

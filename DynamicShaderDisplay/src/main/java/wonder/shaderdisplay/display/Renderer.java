@@ -7,11 +7,15 @@ import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL43.glDispatchCompute;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+import static org.lwjgl.opengl.GL40.*;
+import static org.lwjgl.opengl.GL43.*;
 
 public class Renderer {
 
 	private final FrameBuffer clearFBO = new FrameBuffer();
+	private final int indirectDrawCallVAO = glGenVertexArrays();
 
 	public void render(Scene scene, ShaderDebugTool debugTool) {
 		if (debugTool != null)
@@ -29,12 +33,17 @@ public class Renderer {
 				if (debugTool != null)
 					debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
 				standardLayer.shaderUniforms.apply(scene);
-				standardLayer.mesh.makeDrawCall();
+				if (standardLayer.mesh != null)
+					standardLayer.mesh.makeDrawCall();
+				if (standardLayer.indirectDraw != null)
+					makeIndirectDrawCall(scene, standardLayer.indirectDraw);
 				scene.swapChain.endPass();
 			} else if (layer instanceof SceneComputeLayer computeLayer) {
 				glUseProgram(computeLayer.compiledShaders.program);
 				setupBufferBindings(scene.storageBuffers, computeLayer.storageBuffers);
 				computeLayer.shaderUniforms.apply(scene);
+				if (debugTool != null)
+					debugTool.tryBindToProgram(computeLayer.compiledShaders.program);
 				glDispatchCompute(computeLayer.computeDispatch.x, computeLayer.computeDispatch.y, computeLayer.computeDispatch.z);
 			} else if (layer instanceof SceneClearLayer clearLayer) {
 				glClearColor(clearLayer.clearColor[0], clearLayer.clearColor[1], clearLayer.clearColor[2], clearLayer.clearColor[3]);
@@ -53,10 +62,32 @@ public class Renderer {
 		setupRenderState(RenderState.DEFAULT);
 	}
 
-	private void setupBufferBindings(Map<String, StorageBuffer> buffers, SceneSSBOBinding[] bindings) {
+	private void makeIndirectDrawCall(Scene scene, IndirectDrawDescription call) {
+		glBindVertexArray(indirectDrawCallVAO);
+		scene.storageBuffers.get(call.indirectArgsBuffer.name).bindToGLBindingPoint(GL_DRAW_INDIRECT_BUFFER);
+		if (call.vertexBufferName != null) {
+			scene.storageBuffers.get(call.vertexBufferName).bindToGLBindingPoint(GL_ARRAY_BUFFER);
+			int stride = 4+3+2;
+			glEnableVertexAttribArray(0);
+			glEnableVertexAttribArray(1);
+			glEnableVertexAttribArray(2);
+			glVertexAttribPointer(0, 4, GL_FLOAT, false, stride*4, 4*0);
+			glVertexAttribPointer(1, 3, GL_FLOAT, false, stride*4, 4*4);
+			glVertexAttribPointer(2, 2, GL_FLOAT, false, stride*4, 4*(4+3));
+		}
+		if (call.indexBufferName != null) {
+			scene.storageBuffers.get(call.indexBufferName).bindToGLBindingPoint(GL_ELEMENT_ARRAY_BUFFER);
+			glMultiDrawElementsIndirect(call.topology.glType, GL_UNSIGNED_INT, call.indirectArgsBuffer.offset, call.indirectCallsCount, 0);
+		} else {
+			glMultiDrawArraysIndirect(call.topology.glType, call.indirectArgsBuffer.offset, call.indirectCallsCount, 0);
+		}
+		glBindVertexArray(0);
+	}
+
+	private void setupBufferBindings(Map<String, StorageBuffer> buffers, SSBOBinding[] bindings) {
 		for (int i = 0; i < bindings.length; i++) {
-			SceneSSBOBinding binding = bindings[i];
-			buffers.get(binding.name).bind(i, binding.offset, binding.size);
+			SSBOBinding binding = bindings[i];
+			buffers.get(binding.name).bind(i, binding.offset, -1);
 		}
 	}
 

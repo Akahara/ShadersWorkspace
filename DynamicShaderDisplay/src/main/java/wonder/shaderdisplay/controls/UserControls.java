@@ -8,6 +8,7 @@ import java.lang.Math;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.regex.PatternSyntaxException;
 
@@ -103,8 +104,8 @@ public class UserControls {
 			try (Scanner sc = new Scanner(System.in)) {
 				while(true)
 					interpretCommand(sc.nextLine().trim());
-			} catch (IllegalStateException x) {}
-		}, "stdin-interpreter").start();
+			} catch (IllegalStateException | NoSuchElementException x) {}
+        }, "stdin-interpreter").start();
 	}
 
 	public void step(float delta) {

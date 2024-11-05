@@ -86,22 +86,52 @@ public class SceneParser {
     }
 
     private static SceneLayer parseStandardLayer(ErrorWrapper errors, ShaderCompiler compiler, File rootFile, Scene scene, JsonSceneStandardLayer serializedLayer) throws IOException, ErrorWrapper.WrappedException {
-        SceneStandardLayer layer = new SceneStandardLayer(
-            new ShaderFileSet()
-                .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
-                .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
-                .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
-                .completeWithDefaultSources(),
-            serializedLayer.macros,
-            serializedLayer.uniforms,
-            serializedLayer.makeRenderState(errors),
-            serializedLayer.targets,
-            serializedLayer.storageBuffers,
-            loadMesh(rootFile, serializedLayer.root, serializedLayer.model)
-        );
+        ShaderFileSet fileSet = new ShaderFileSet()
+            .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
+            .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
+            .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
+            .completeWithDefaultSources()
+            .createMissingFilesFromTemplate();
+
+        SceneStandardLayer layer;
+        if (serializedLayer.indirectDraw != null) {
+            if (serializedLayer.model != null)
+                errors.add("Cannot have both a model and an indirect draw call");
+            JsonIndirectDrawDescription draw = serializedLayer.indirectDraw;
+            IndirectDrawDescription indirectDraw = new IndirectDrawDescription(
+                new SSBOBinding(draw.indirectArgsBufferName, draw.indirectArgsOffset),
+                draw.vertexBufferName,
+                draw.indexBufferName,
+                draw.indirectCallCount,
+                draw.topology
+            );
+            validateLayerStorageBuffers(errors, scene.storageBuffers,
+                new SSBOBinding[] { indirectDraw.indirectArgsBuffer },
+                new String[] { draw.indexBufferName, draw.vertexBufferName });
+            layer = new SceneStandardLayer(
+                fileSet,
+                serializedLayer.macros,
+                serializedLayer.uniforms,
+                serializedLayer.makeRenderState(errors),
+                serializedLayer.targets,
+                serializedLayer.storageBuffers,
+                indirectDraw
+            );
+        } else {
+            Mesh mesh = loadMesh(rootFile, serializedLayer.root, serializedLayer.model);
+            layer = new SceneStandardLayer(
+                fileSet,
+                serializedLayer.macros,
+                serializedLayer.uniforms,
+                serializedLayer.makeRenderState(errors),
+                serializedLayer.targets,
+                serializedLayer.storageBuffers,
+                mesh
+            );
+        }
 
         validateLayerRenderTargets(errors, scene, serializedLayer.targets, layer.renderState);
-        validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers);
+        validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers, null);
         compiler.compileShaders(errors, layer);
         return layer;
     }
@@ -124,7 +154,8 @@ public class SceneParser {
             new ComputeDispatchCount(serializedLayer.dispatch)
         );
 
-        validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers);
+        layer.fileSet.createMissingFilesFromTemplate();
+        validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers, null);
         compiler.compileShaders(errors, layer);
         return layer;
     }
@@ -186,7 +217,7 @@ public class SceneParser {
             new UniformDefaultValue[] { new UniformDefaultValue("u_source", pass.source) },
             pass.makeRenderState(errors),
             renderTargets,
-            new SceneSSBOBinding[0],
+            new SSBOBinding[0],
             Mesh.makeFullscreenTriangleMesh()
         );
 
@@ -269,15 +300,26 @@ public class SceneParser {
             errors.add("Depth test/write enabled without a depth render target");
     }
 
-    private static void validateLayerStorageBuffers(ErrorWrapper errors, Map<String, StorageBuffer> availableStorageBuffers, SceneSSBOBinding[] usedStorageBuffers) {
-        for (SceneSSBOBinding buf : usedStorageBuffers) {
-            StorageBuffer ssbo = availableStorageBuffers.get(buf.name);
-            if (ssbo == null)
-                errors.add("Using unknown storage buffer '%s'".formatted(buf.name));
-            else if (buf.offset < 0 && buf.size >= 0)
-                errors.add("Storage buffer '%s' cannot have a binding size buf no offset".formatted(buf.name));
-            else if (buf.offset >= 0 && buf.size + buf.offset > ssbo.getSizeInBytes())
-                errors.add("Storage buffer '%s' is bound on region (%d:%d) but has size %d".formatted(buf.name, buf.offset, buf.offset+buf.size, ssbo.getSizeInBytes()));
+    private static void validateLayerStorageBuffers(ErrorWrapper errors, Map<String, StorageBuffer> availableStorageBuffers, SSBOBinding[] usedStorageBuffers, String[] usedUnmappedStorageBuffers) {
+        if (usedStorageBuffers != null) {
+            for (SSBOBinding buf : usedStorageBuffers) {
+                if (buf == null)
+                    continue;
+                StorageBuffer ssbo = availableStorageBuffers.get(buf.name);
+                if (ssbo == null)
+                    errors.add("Using unknown storage buffer '%s'".formatted(buf.name));
+                else if (buf.offset >= 0 && buf.offset > ssbo.getSizeInBytes())
+                    errors.add("Storage buffer '%s' is bound from offset %d but has size %d".formatted(buf.name, buf.offset, ssbo.getSizeInBytes()));
+            }
+        }
+        if (usedUnmappedStorageBuffers != null) {
+            for (String buf : usedUnmappedStorageBuffers) {
+                if (buf == null)
+                    continue;
+                StorageBuffer ssbo = availableStorageBuffers.get(buf);
+                if (ssbo == null)
+                    errors.add("Using unknown storage buffer '%s'".formatted(buf));
+            }
         }
     }
 
@@ -367,10 +409,26 @@ class JsonSceneStandardLayer extends JsonSceneLayer {
     @JsonProperty(required = true)
     public String fragment = null;
     public String model = null;
+    @JsonProperty(value = "indirect_draw")
+    public JsonIndirectDrawDescription indirectDraw = null;
     public Macro[] macros = new Macro[0];
     public UniformDefaultValue[] uniforms = new UniformDefaultValue[0];
     @JsonProperty(value = "storage_buffers")
-    public SceneSSBOBinding[] storageBuffers = new SceneSSBOBinding[0];
+    public SSBOBinding[] storageBuffers = new SSBOBinding[0];
+}
+
+class JsonIndirectDrawDescription {
+    @JsonProperty(required = true, value = "indirect_args_buffer")
+    public String indirectArgsBufferName;
+    @JsonProperty(value = "indirect_args_offset")
+    public int indirectArgsOffset = 0;
+    @JsonProperty(value = "vertex_buffer")
+    public String vertexBufferName = null;
+    @JsonProperty(value = "index_buffer")
+    public String indexBufferName = null;
+    @JsonProperty(required = true, value = "indirect_call_count")
+    public int indirectCallCount;
+    public Mesh.Topology topology = Mesh.Topology.TRIANGLE_LIST;
 }
 
 class JsonComputePass extends JsonSceneLayer {
@@ -381,7 +439,7 @@ class JsonComputePass extends JsonSceneLayer {
     public Macro[] macros = new Macro[0];
     public UniformDefaultValue[] uniforms = new UniformDefaultValue[0];
     @JsonProperty(value = "storage_buffers")
-    public SceneSSBOBinding[] storageBuffers = new SceneSSBOBinding[0];
+    public SSBOBinding[] storageBuffers = new SSBOBinding[0];
 }
 
 class JsonClearPass extends JsonSceneLayer {

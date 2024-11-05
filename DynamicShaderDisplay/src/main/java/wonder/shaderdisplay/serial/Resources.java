@@ -117,9 +117,12 @@ public class Resources {
 
 	public static void initializeSceneFiles(File sceneFile) throws IOException {
 		FilesUtils.write(sceneFile, readResource("/default_scene.json"));
-		File requiredFragmentShaderFile = new File(sceneFile.getParentFile(), "shader.fs"); // the file name must match that in the default scene file
-		if (!requiredFragmentShaderFile.exists())
-			FilesUtils.write(requiredFragmentShaderFile, DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()]);
+		String defaultFragmentName = FilesUtils.getFileName(sceneFile) + ".fs";
+		File requiredFragmentShaderFile = new File(sceneFile.getParentFile(), defaultFragmentName);
+		if (!requiredFragmentShaderFile.exists()) {
+			String defaultFragmentSource = DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()].replace("shader.fs", defaultFragmentName);
+			FilesUtils.write(requiredFragmentShaderFile, defaultFragmentSource);
+		}
 	}
 
 	public static class Snippet {
