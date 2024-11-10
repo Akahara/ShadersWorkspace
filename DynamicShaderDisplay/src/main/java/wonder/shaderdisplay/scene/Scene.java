@@ -20,7 +20,7 @@ public class Scene {
     public final List<Macro> macros = new ArrayList<>();
     public final List<SceneRenderTarget> renderTargets = new ArrayList<>();
     public String[] renderTargetNames;
-    public SharedUniforms sharedUniforms;
+    public SharedUniforms sharedUniforms = new SharedUniforms();
     public final Map<String, StorageBuffer> storageBuffers = new HashMap<>();
     public final File sourceFile;
 

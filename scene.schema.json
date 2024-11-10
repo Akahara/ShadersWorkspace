@@ -30,6 +30,11 @@
       },
       "description": "Define any number of data buffers that can be read from & written to from shaders using 'storage_buffers' in layers.\nThese are also named SSBOs and are accessible like so in shaders:\nlayout(std430, binding = 0/*index in storage_buffers*/) buffer anyname { int data_SSBO[]; /*or any data*/ };"
     },
+    "shared_uniforms": {
+      "type": "array",
+      "item": { "type": "string" },
+      "description": "The list of uniforms that have the same value in all shaders, there will be a single control for those"
+    },
     "layers": {
       "description": "Define here any number of layers that will be drawn on top of each other",
       "type": "array",
@@ -74,17 +79,18 @@
                   "properties": {
                     "name": { "type": "string", "description": "The name of the variable in your shader file, currently only sampler2D are supported" },
                     "value": { "type": "string", "description": "The valud of the uniform, currently only render target names are supported" }
-                  }
+                  },
+                  "required": [ "name", "value" ]
                 }
               },
               "indirect_draw": {
                 "properties": {
-                  "indirect_args_buffer": { "type": "string" },
-                  "indirect_args_offset": { "type": "number" },
-                  "indirect_call_count": { "type": "number" },
-                  "vertex_buffer": { "type": "string" },
-                  "index_buffer": { "type": "string" },
-                  "topology": { "enum": [ "triangle_list", "line_list" ] }
+                  "indirect_args_buffer": { "type": "string", "description": "The buffer in which to look for indirect arguments (see the structure in the compute shader template)" },
+                  "indirect_args_offset": { "type": "number", "description": "Offset in bytes in the indirect buffer at wich indirect arguments are located" },
+                  "indirect_call_count": { "type": "number", "description": "Number of indirect calls made" },
+                  "vertex_buffer": { "type": "string", "description": "Optional vertex buffer to be bound during the call" },
+                  "index_buffer": { "type": "string", "description": "Optional index buffer to be bound during the call" },
+                  "topology": { "enum": [ "triangle_list", "line_list" ], "description": "Topology of the drawn elements" }
                 },
                 "required": [ "indirect_args_buffer", "indirect_call_count" ]
               }

@@ -13,6 +13,8 @@ public class SharedUniforms {
 
     private final Map<String, SharedUniform> sharedUniformValues = new HashMap<>();
 
+    public SharedUniforms() {}
+
     public SharedUniforms(String[] names) {
         for (String n : names)
             sharedUniformValues.put(n, null);

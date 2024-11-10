@@ -215,7 +215,7 @@ public class SceneParser {
                 .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
                 .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
             macros.toArray(Macro[]::new),
-            new UniformDefaultValue[] { new UniformDefaultValue("u_source", pass.source) },
+            new UniformDefaultValue[] { UniformDefaultValue.withValue("u_source", pass.source) },
             pass.makeRenderState(errors),
             renderTargets,
             new SSBOBinding[0],
