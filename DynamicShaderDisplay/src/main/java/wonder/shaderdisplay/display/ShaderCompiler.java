@@ -213,7 +213,8 @@ public class ShaderCompiler {
         StringBuilder macroDefinitions = new StringBuilder();
         macroDefinitions.append('\n');
         macros.forEach(macro -> macroDefinitions.append(String.format("#define %s %s\n", macro.name, macro.value)));
-        macroDefinitions.append("#line 2\n");
+        if (!debugResolvedShaders)
+            macroDefinitions.append("#line 2\n");
         return source.replaceFirst("\n", macroDefinitions.toString());
     }
 
@@ -292,13 +293,19 @@ public class ShaderCompiler {
                 String includeLine = sb.substring(i, lineEnd);
                 Matcher m = Pattern.compile("#include \"(.*)\".*").matcher(includeLine.strip());
                 if (m.matches()) {
-                    String clauseStart = "#line 1 // start of " + m.group(1) + "\n";
-                    String clauseEnd = "#line " + (line+1) + " // end of " + m.group(1) + ", back in " + file.getName() + "\n";
-                    sb.insert(lineEnd + 1, clauseEnd);
-                    sb.insert(i, clauseStart);
+                    int replacementStart = i;
+                    int replacementEnd = lineEnd;
+                    int substitutionEnd = lineEnd;
+                    if (!debugResolvedShaders) {
+                        String clauseStart = "#line 1 // start of " + m.group(1) + "\n";
+                        String clauseEnd = "#line " + (line+1) + " // end of " + m.group(1) + ", back in " + file.getName() + "\n";
+                        sb.insert(lineEnd + 1, clauseEnd);
+                        sb.insert(i, clauseStart);
+                        replacementStart += clauseStart.length();
+                        replacementEnd += clauseStart.length();
+                        substitutionEnd += clauseEnd.length() + clauseStart.length();
+                    }
                     String includeFileName = m.group(1);
-                    int replacementStart = i + clauseStart.length();
-                    int replacementEnd = lineEnd + clauseStart.length();
                     switch (includeFileName) {
                         case "dsd_debug.glsl" -> {
                             String rawSource = Resources.readResource("/dsd_debug.glsl");
@@ -309,7 +316,7 @@ public class ShaderCompiler {
                             replacements.add(new IncludeReplacement(replacementStart, replacementEnd, includeFile));
                         }
                     }
-                    i = lineEnd + clauseStart.length() + clauseEnd.length();
+                    i = substitutionEnd;
                 }
             }
 

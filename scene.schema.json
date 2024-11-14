@@ -116,7 +116,15 @@
           {
             "$comment": "--- Builtin clear pass",
             "properties": {
-              "pass": { "const": "clear", "description": "Clear all render targets. Specify the clear color by setting the CLEAR_COLOR macro. Multiple render targets of different sizes are allowed." }
+              "pass": { "const": "clear", "description": "Clear all render targets. Multiple render targets of different sizes are allowed." },
+              "clear_color": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 3,
+                "maxItems": 4,
+                "description": "The clear color, defaults to [0,0,0,1]. Alpha defaults to 1 if not specified"
+              },
+              "clear_depth": { "type": "number", "description": "The clear depth for depth render targets, defaults to 1" }
             },
             "required": [ "pass" ]
           },
