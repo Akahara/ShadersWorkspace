@@ -19,7 +19,8 @@ public class SceneComputeLayer extends SceneLayer implements CompilableLayer, Re
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneComputeLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, SSBOBinding[] storageBuffers, ComputeDispatchCount computeDispatch) {
+    public SceneComputeLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, SSBOBinding[] storageBuffers, ComputeDispatchCount computeDispatch) {
+        super(displayName, executions);
         this.fileSet = fileSet;
         this.macros = macros;
         this.uniformDefaultValues = uniforms;
@@ -29,7 +30,7 @@ public class SceneComputeLayer extends SceneLayer implements CompilableLayer, Re
 
     @Override
     public String getDisplayName() {
-        return fileSet.getPrimaryFileName();
+        return displayName == null ? fileSet.getPrimaryFileName() : displayName;
     }
 
     @Override

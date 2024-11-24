@@ -41,6 +41,7 @@
       "items": {
         "properties": {
           "$comment": "--- Common layer properties",
+		  "display_name": "The name displayed in the 'uniforms' window, for your sake only",
           "targets": {
             "allOf": [
               { "$ref": "#/defs/stringorarray" },

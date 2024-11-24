@@ -74,15 +74,17 @@ public class EntryImage extends SetupUtils {
             int[] frameCpuBuffer = new int[outputWidth*outputHeight];
             ResolutionUniform.updateViewportSize(outputWidth, outputHeight);
 
+            boolean isInitialFrame = true;
             if(options.runFromFrame != Main.ImagePassOptions.NO_RUN_FROM_FRAME) {
                 for(int i = options.runFromFrame; i < options.screenshotFrame; i++) {
                     Time.setFrame(i);
-                    display.renderer.render(scene, null);
+                    display.renderer.render(scene, null, isInitialFrame);
+                    isInitialFrame = false;
                 }
             }
             Time.setFrame(options.screenshotFrame);
 
-            display.renderer.render(scene, null);
+            display.renderer.render(scene, null, isInitialFrame);
 
             scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, frameCpuBuffer, options.displayOptions.background);
             frameImage.setRGB(0, 0, outputWidth, outputHeight, frameCpuBuffer, outputWidth*(outputHeight-1), -outputWidth);

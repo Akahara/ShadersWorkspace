@@ -17,50 +17,66 @@ public class Renderer {
 	private final FrameBuffer clearFBO = new FrameBuffer();
 	private final int indirectDrawCallVAO = glGenVertexArrays();
 
-	public void render(Scene scene, ShaderDebugTool debugTool) {
+	public void render(Scene scene, ShaderDebugTool debugTool, boolean hasReset) {
 		if (debugTool != null)
 			debugTool.reset();
 		scene.sharedUniforms.reset();
+
+		ExecutionCondition.ExecutionContext executionContext = new ExecutionCondition.ExecutionContext();
+		executionContext.hasReset = hasReset;
 
 		for (SceneLayer layer : scene.layers) {
 			if (!layer.enabled)
 				continue;
 
-			if (layer instanceof SceneStandardLayer standardLayer) {
-				scene.swapChain.preparePass(standardLayer);
-				glUseProgram(standardLayer.compiledShaders.program);
-				setupRenderState(standardLayer.renderState);
-				setupBufferBindings(scene.storageBuffers, standardLayer.storageBuffers);
-				if (debugTool != null)
-					debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
-				standardLayer.shaderUniforms.apply(scene);
-				if (standardLayer.mesh != null)
-					standardLayer.mesh.makeDrawCall();
-				if (standardLayer.indirectDraw != null)
-					makeIndirectDrawCall(scene, standardLayer.indirectDraw);
-				scene.swapChain.endPass();
-			} else if (layer instanceof SceneComputeLayer computeLayer) {
-				glUseProgram(computeLayer.compiledShaders.program);
-				setupBufferBindings(scene.storageBuffers, computeLayer.storageBuffers);
-				computeLayer.shaderUniforms.apply(scene);
-				if (debugTool != null)
-					debugTool.tryBindToProgram(computeLayer.compiledShaders.program);
-				glDispatchCompute(computeLayer.computeDispatch.x, computeLayer.computeDispatch.y, computeLayer.computeDispatch.z);
-			} else if (layer instanceof SceneClearLayer clearLayer) {
-				glClearColor(clearLayer.clearColor[0], clearLayer.clearColor[1], clearLayer.clearColor[2], clearLayer.clearColor[3]);
-				glClearDepth(clearLayer.clearDepth);
-				for (String rt : clearLayer.outRenderTargets) {
-					Texture texture = scene.swapChain.getAttachment(rt);
-					clearFBO.addAttachment(texture);
-					clearFBO.bind();
-					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					clearFBO.unbind();
-					clearFBO.clearAttachments();
+			for (ExecutionCondition cond : layer.executions) {
+				if (!cond.isConditionPassing(executionContext))
+					continue;
+				for (int i = 0; i < cond.count; i++) {
+					renderLayer(scene, debugTool, layer);
 				}
 			}
 		}
 
+		// TODO find out why shared uniforms don't keep their values
+		// TODO add a button to reset render targets and trigger "on reset" layers
+
 		setupRenderState(RenderState.DEFAULT);
+	}
+
+	private void renderLayer(Scene scene, ShaderDebugTool debugTool, SceneLayer layer) {
+		if (layer instanceof SceneStandardLayer standardLayer) {
+			scene.swapChain.preparePass(standardLayer);
+			glUseProgram(standardLayer.compiledShaders.program);
+			setupRenderState(standardLayer.renderState);
+			setupBufferBindings(scene.storageBuffers, standardLayer.storageBuffers);
+			if (debugTool != null)
+				debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
+			standardLayer.shaderUniforms.apply(scene);
+			if (standardLayer.mesh != null)
+				standardLayer.mesh.makeDrawCall();
+			if (standardLayer.indirectDraw != null)
+				makeIndirectDrawCall(scene, standardLayer.indirectDraw);
+			scene.swapChain.endPass();
+		} else if (layer instanceof SceneComputeLayer computeLayer) {
+			glUseProgram(computeLayer.compiledShaders.program);
+			setupBufferBindings(scene.storageBuffers, computeLayer.storageBuffers);
+			computeLayer.shaderUniforms.apply(scene);
+			if (debugTool != null)
+				debugTool.tryBindToProgram(computeLayer.compiledShaders.program);
+			glDispatchCompute(computeLayer.computeDispatch.x, computeLayer.computeDispatch.y, computeLayer.computeDispatch.z);
+		} else if (layer instanceof SceneClearLayer clearLayer) {
+			glClearColor(clearLayer.clearColor[0], clearLayer.clearColor[1], clearLayer.clearColor[2], clearLayer.clearColor[3]);
+			glClearDepth(clearLayer.clearDepth);
+			for (String rt : clearLayer.outRenderTargets) {
+				Texture texture = scene.swapChain.getAttachment(rt);
+				clearFBO.addAttachment(texture);
+				clearFBO.bind();
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				clearFBO.unbind();
+				clearFBO.clearAttachments();
+			}
+		}
 	}
 
 	private void makeIndirectDrawCall(Scene scene, IndirectDrawDescription call) {

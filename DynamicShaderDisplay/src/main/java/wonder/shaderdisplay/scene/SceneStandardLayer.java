@@ -28,7 +28,8 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneStandardLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, Mesh mesh) {
+    public SceneStandardLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, Mesh mesh) {
+        super(displayName, executions);
         this.fileSet = fileSet;
         this.macros = macros;
         this.uniformDefaultValues = uniforms;
@@ -39,7 +40,8 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
         this.indirectDraw = null;
     }
 
-    public SceneStandardLayer(ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, IndirectDrawDescription indirectDraw) {
+    public SceneStandardLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, IndirectDrawDescription indirectDraw) {
+        super(displayName, executions);
         this.fileSet = fileSet;
         this.macros = macros;
         this.uniformDefaultValues = uniforms;
@@ -51,7 +53,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
 
     @Override
     public String getDisplayName() {
-        return fileSet.getPrimaryFileName();
+        return displayName == null ? fileSet.getPrimaryFileName() : displayName;
     }
 
     @Override

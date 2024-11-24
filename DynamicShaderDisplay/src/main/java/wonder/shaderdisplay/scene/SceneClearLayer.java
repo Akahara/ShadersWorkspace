@@ -11,7 +11,8 @@ public class SceneClearLayer extends SceneLayer {
     public final float[] clearColor;
     public final float clearDepth;
 
-    public SceneClearLayer(String[] outRenderTargets, float[] clearColor, float clearDepth) {
+    public SceneClearLayer(String displayName, ExecutionCondition[] executions, String[] outRenderTargets, float[] clearColor, float clearDepth) {
+        super(displayName, executions);
         this.outRenderTargets = outRenderTargets;
         this.clearColor = clearColor;
         this.clearDepth = clearDepth;
@@ -19,7 +20,7 @@ public class SceneClearLayer extends SceneLayer {
 
     @Override
     public String getDisplayName() {
-        return "clear" + Arrays.toString(outRenderTargets);
+        return displayName == null ? "clear" + Arrays.toString(outRenderTargets) : displayName;
     }
 
     @Override

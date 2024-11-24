@@ -7,6 +7,13 @@ import java.util.stream.Stream;
 public abstract class SceneLayer {
 
     public boolean enabled = true;
+    protected final String displayName;
+    public final ExecutionCondition[] executions;
+
+    public SceneLayer(String displayName, ExecutionCondition[] executions) {
+        this.displayName = displayName;
+        this.executions = executions;
+    }
 
     public abstract String getDisplayName();
     public abstract void renderControls(Scene scene);

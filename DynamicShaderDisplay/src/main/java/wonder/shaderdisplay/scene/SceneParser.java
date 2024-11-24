@@ -62,9 +62,9 @@ public class SceneParser {
                 } else if (serializedLayerBase instanceof JsonComputePass pass) {
                     scene.layers.add(parseComputeLayer(layerErrors, compiler, file, scene, pass));
                 } else if (serializedLayerBase instanceof JsonClearPass pass) {
-                    scene.layers.add(makeClearLayer(layerErrors, pass.targets, pass.clearColor, pass.clearDepth));
+                    scene.layers.add(makeClearLayer(layerErrors, pass.displayName, pass.executions, pass.targets, pass.clearColor, pass.clearDepth));
                 } else if (serializedLayerBase instanceof JsonBlitPass pass) {
-                    scene.layers.addAll(makeBlitLayers(layerErrors, scene, pass));
+                    scene.layers.addAll(makeBlitLayers(layerErrors, pass.displayName, pass.executions, scene, pass)); // TODO make a blit layer primitive
                 } else {
                     errors.add("Pass doesn't have a layer implementation? : " + serializedLayerBase.getClass().getName());
                 }
@@ -110,6 +110,8 @@ public class SceneParser {
                 new SSBOBinding[] { indirectDraw.indirectArgsBuffer },
                 new String[] { draw.indexBufferName, draw.vertexBufferName });
             layer = new SceneStandardLayer(
+                serializedLayer.displayName,
+                serializedLayer.executions,
                 fileSet,
                 serializedLayer.macros,
                 serializedLayer.uniforms,
@@ -121,6 +123,8 @@ public class SceneParser {
         } else {
             Mesh mesh = loadMesh(rootFile, serializedLayer.root, serializedLayer.model);
             layer = new SceneStandardLayer(
+                serializedLayer.displayName,
+                serializedLayer.executions,
                 fileSet,
                 serializedLayer.macros,
                 serializedLayer.uniforms,
@@ -146,6 +150,8 @@ public class SceneParser {
         }
 
         SceneComputeLayer layer = new SceneComputeLayer(
+            serializedLayer.displayName,
+            serializedLayer.executions,
             new ShaderFileSet()
                     .setFile(ShaderType.COMPUTE, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.compute))
                     .completeWithDefaultSources(),
@@ -182,7 +188,7 @@ public class SceneParser {
         return renderTargetSets;
     }
 
-    public static SceneClearLayer makeClearLayer(ErrorWrapper errors, String[] renderTargets, float[] clearColor, float clearDepth) {
+    public static SceneClearLayer makeClearLayer(ErrorWrapper errors, String displayName, ExecutionCondition[] executions, String[] renderTargets, float[] clearColor, float clearDepth) {
         if (clearColor.length == 3)
             clearColor = new float[] { clearColor[0], clearColor[1], clearColor[2], 1 };
         if (clearColor.length != 4) {
@@ -191,25 +197,28 @@ public class SceneParser {
         }
 
         return new SceneClearLayer(
-            //new ShaderFileSet().setFixedPrimarySourceName("clear_pass"),
+            displayName,
+            executions,
             renderTargets,
             clearColor,
             clearDepth
         );
     }
 
-    private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, Scene scene, JsonBlitPass pass) {
+    private static List<SceneLayer> makeBlitLayers(ErrorWrapper errors, String displayName, ExecutionCondition[] executions, Scene scene, JsonBlitPass pass) {
         return groupRenderTargetsBySize(scene.renderTargets, pass.targets).stream()
-                .map(set -> makeBlitLayer(errors, scene, set.stream().map(rt -> rt.name).toArray(String[]::new), pass))
+                .map(set -> makeBlitLayer(errors, displayName, executions, scene, set.stream().map(rt -> rt.name).toArray(String[]::new), pass))
                 .collect(Collectors.toList());
     }
 
-    private static SceneLayer makeBlitLayer(ErrorWrapper errors, Scene scene, String[] renderTargets, JsonBlitPass pass) {
+    private static SceneLayer makeBlitLayer(ErrorWrapper errors, String displayName, ExecutionCondition[] executions, Scene scene, String[] renderTargets, JsonBlitPass pass) {
         Stream<Macro> macros = IntStream.range(0, renderTargets.length).mapToObj(i -> new Macro("BLIT_TARGET_"+i));
 
         // TODO blit depth textures
 
         SceneStandardLayer layer = new SceneStandardLayer(
+            displayName,
+            executions,
             new ShaderFileSet()
                 .setFixedPrimarySourceName("blit_pass")
                 .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
@@ -360,6 +369,9 @@ class JsonSceneLayer {
     public RenderState.Culling culling = RenderState.Culling.NONE;
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
+    public ExecutionCondition[] executions = { ExecutionCondition.alwaysPassing() };
+    @JsonProperty(value = "display_name")
+    public String displayName = null;
 
     public RenderState makeRenderState(ErrorWrapper errors) {
         RenderState renderState = new RenderState();

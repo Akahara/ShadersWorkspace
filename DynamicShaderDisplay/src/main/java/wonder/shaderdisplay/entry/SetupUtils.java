@@ -109,11 +109,15 @@ public class SetupUtils {
 
         SceneClearLayer clearLayer = SceneParser.makeClearLayer(
             errors,
+            null, // display name deduced
+            new ExecutionCondition[] { ExecutionCondition.alwaysPassing() },
             new String[] { renderTarget.name },
             new float[] { 0,0,0,1 },
             1
         );
         SceneStandardLayer mainLayer = new SceneStandardLayer(
+            null, // display name deduced from shader file
+            new ExecutionCondition[] { ExecutionCondition.alwaysPassing() },
             new ShaderFileSet()
                 .setFile(ShaderType.VERTEX, options.vertexShaderFile)
                 .setFile(ShaderType.GEOMETRY, options.geometryShaderFile)

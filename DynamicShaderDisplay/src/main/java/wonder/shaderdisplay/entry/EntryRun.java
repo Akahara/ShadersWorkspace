@@ -79,6 +79,7 @@ public class EntryRun extends SetupUtils {
             WindowTitleSupplier windowTitleSupplier = new WindowTitleSupplier(sceneFile.getName());
 
             boolean forceRerender = true;
+            boolean sceneJustReset = true;
             while (!GLWindow.shouldDispose()) {
                 // reload shaders if necessary
                 boolean hasPendingFileChanges = fileWatcher.hasPendingChanges();
@@ -102,6 +103,7 @@ public class EntryRun extends SetupUtils {
                                 Time.jumpToTime(timeline.getLoopBegin());
                             if (options.resetRenderTargetsOnUpdate)
                                 scene.clearSwapChainTexturesAndBuffers();
+                            sceneJustReset = true;
                         }
                         if (imgui != null) imgui.setCurrentSceneValid(compilationResult.success);
                         fileWatcher.processDummyFilesRecompilation();
@@ -119,7 +121,8 @@ public class EntryRun extends SetupUtils {
                 forceRerender |= Time.justChanged() || !Time.isPaused();
                 forceRerender |= userControls.pollJustMoved();
                 if (forceRerender)
-                    display.renderer.render(scene, debugTool);
+                    display.renderer.render(scene, debugTool, sceneJustReset);
+                sceneJustReset = false;
                 //forceRerender = false; // FIXME do not render when using render targets that loop, might need a "pause rendering" instead of "pause time"
                 int primaryRTIndex = userControls.getPrimaryRenderTargetIndex();
                 WindowBlit.blitToScreen(

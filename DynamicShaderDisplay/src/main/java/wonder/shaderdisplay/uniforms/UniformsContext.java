@@ -21,8 +21,9 @@ import static org.lwjgl.opengl.GL20.*;
 public class UniformsContext {
 	
 	private static final List<RawBuiltinUniform> BUILTIN_UNIFORMS = List.of(
-			new RawBuiltinUniform(GLUniformType.FLOAT, "iTime",        TimeUniform::new),
-			new RawBuiltinUniform(GLUniformType.FLOAT, "u_time",       TimeUniform::new),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "iTime",        TimeUniforms.TimeUniform::new),
+			new RawBuiltinUniform(GLUniformType.FLOAT, "u_time",       TimeUniforms.TimeUniform::new),
+			new RawBuiltinUniform(GLUniformType.BOOL,  "u_paused",     TimeUniforms.TimePausedUniform::new),
 			new RawBuiltinUniform(GLUniformType.INT,   "iFrame",       (n,p) -> new FrameUniform(n,p,false)),
 			new RawBuiltinUniform(GLUniformType.INT,   "u_frame",      (n,p) -> new FrameUniform(n,p,false)),
 			new RawBuiltinUniform(GLUniformType.FLOAT, "iFrame",       (n,p) -> new FrameUniform(n,p,true)),
@@ -225,7 +226,8 @@ public class UniformsContext {
 		boolean[] values = new boolean[uniform.arrayLength];
 		int[] cache = new int[1];
 		for(int i = 0; i < uniform.arrayLength; i++) {
-			glGetUniformiv(program, glGetUniformLocation(program, uniform.name+'['+i+']'), cache);
+			int loc = glGetUniformLocation(program, i==0 ? uniform.name : uniform.name+'['+i+']');
+			glGetUniformiv(program, loc, cache);
 			values[i] = cache[0] != 0;
 		}
 		return values;

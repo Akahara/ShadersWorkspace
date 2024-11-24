@@ -165,7 +165,7 @@ public class FileWatcher {
 
 	public ShaderCompiler.ShaderCompilationResult processShaderRecompilation() {
 		if (pendingShaderRecompilations.isEmpty())
-			return ShaderCompiler.ShaderCompilationResult.error();
+			return ShaderCompiler.ShaderCompilationResult.success();
 
 		ShaderCompiler compiler = new ShaderCompiler(scene);
 		ShaderCompiler.ShaderCompilationResult result = new ShaderCompiler.ShaderCompilationResult();
