@@ -9,10 +9,7 @@ EOS
 
 BEGIN 2x2 Rotation matrix
 mat2 rot2D(float rad) {
-  return mat2(
-     cos(rad), sin(rad),
-    -sin(rad), cos(rad)
-  );
+  return mat2(cos(rad), sin(rad), -sin(rad), cos(rad));
 }
 EOS
 
@@ -71,13 +68,21 @@ mat4 rotationMatrix(float yaw, float pitch, float roll) {
 }
 EOS
 
-BEGIN Random function v2
+BEGIN Random function 2D
 float rand(vec2 u) {
   return fract(sin(dot(u, vec2(12.9898, 78.233))) * 43758.5453);
 }
 EOS
 
-BEGIN Random function f1
+BEGIN Random noise 2D
+float noise(vec2 u) {
+  vec4 f = vec4(floor(u), floor(u+1));
+  vec2 z = fract(u);
+  return mix(mix(rand(f.xy), rand(f.zy), z.x), mix(rand(f.xw), rand(f.zw), z.x), z.y);
+}
+EOS
+
+BEGIN Random function 1D
 float rand(float f) {
   return fract(sin(f * 6342.63175) * 43758.5453);
 }
@@ -192,6 +197,17 @@ EOS
 BEGIN SDF circle (2D)
 float circle(vec2 c, float r, vec2 p) {
   return max(0, length(p-c)-r);
+}
+EOS
+
+BEGIN Alpha compositing (blending, not premultiplied)
+void compose(inout vec4 color, vec3 applied, float alpha) {
+  color.rgb = mix(applied * alpha, color, color.a) / mix(alpha, 1, color.a);
+  color.a = mix(alpha, 1, color.a);
+}
+void compose(inout vec4 color, vec4 applied) {
+  color.rgb = mix(applied.rgb * applied.a, color.rgb, color.a) / mix(applied.a, 1, color.a);
+  color.a = mix(applied.a, 1, color.a);
 }
 EOS
 

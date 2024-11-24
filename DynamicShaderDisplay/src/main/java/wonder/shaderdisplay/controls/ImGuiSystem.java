@@ -7,6 +7,7 @@ import imgui.flag.ImGuiConfigFlags;
 import imgui.flag.ImGuiDockNodeFlags;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
+import imgui.type.ImBoolean;
 import wonder.shaderdisplay.display.GLWindow;
 import wonder.shaderdisplay.scene.Scene;
 import wonder.shaderdisplay.serial.AudioInputStream;
@@ -32,6 +33,8 @@ public class ImGuiSystem {
         timelineWindow,
         debugToolWindow,
     };
+
+    private boolean isSceneValid = true;
 
     public ImGuiSystem(File projectRootFile) {
         ImGui.createContext();
@@ -72,9 +75,14 @@ public class ImGuiSystem {
         return requestRerender;
     }
 
+    public void setCurrentSceneValid(boolean valid) {
+        isSceneValid = valid;
+    }
+
     private void renderMainMenuBar() {
-        if (!ImGui.beginMainMenuBar())
-            return;
+        if (!isSceneValid) ImGui.pushStyleColor(ImGuiCol.MenuBarBg, 113, 26, 26, 255);
+        ImGui.beginMainMenuBar();
+        if (!isSceneValid) ImGui.popStyleColor();
 
         UserConfig config = UserConfig.config;
         // Hide all windows
@@ -92,13 +100,13 @@ public class ImGuiSystem {
         if (ImGui.beginMenu("Windows")) {
             for (Window w : windows) {
                 boolean toggled = ImGui.menuItem(w.title, null, w.visible);
-                w.visible ^= toggled;
                 anyToggled |= toggled;
             }
             ImGui.endMenu();
         }
         if (anyToggled)
-            UserConfig.config.visibleImGuiWindows = Stream.of(windows).filter(w -> w.visible).map(w -> w.title).toList();
+            UserConfig.config.visibleImGuiWindows = Stream.of(windows).filter(w -> w.visible.get()).map(w -> w.title).toList();
+
 
         ImGui.endMainMenuBar();
     }
@@ -122,24 +130,24 @@ public class ImGuiSystem {
 
 class Window {
     public final String title;
-    public boolean visible;
+    public final ImBoolean visible;
 
     public Window(String title) {
         this.title = title;
-        this.visible = UserConfig.config.visibleImGuiWindows.contains(title);
+        this.visible = new ImBoolean(UserConfig.config.visibleImGuiWindows.contains(title));
     }
 
     public void render(Runnable renderFunc) {
-        if (!visible) return;
-        if (ImGui.begin(title))
+        if (!visible.get()) return;
+        if (ImGui.begin(title, visible))
             renderFunc.run();
         ImGui.end();
     }
 
     public <T> T render(Supplier<T> renderFunc) {
-        if (!visible) return null;
+        if (!visible.get()) return null;
         T result = null;
-        if (ImGui.begin(title))
+        if (ImGui.begin(title, visible))
             result = renderFunc.get();
         ImGui.end();
         return result;

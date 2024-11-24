@@ -103,6 +103,7 @@ public class EntryRun extends SetupUtils {
                             if (options.resetRenderTargetsOnUpdate)
                                 scene.clearSwapChainTexturesAndBuffers();
                         }
+                        if (imgui != null) imgui.setCurrentSceneValid(compilationResult.success);
                         fileWatcher.processDummyFilesRecompilation();
                         if (rewatchFiles) {
                             fileWatcher.stopWatching();
