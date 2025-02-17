@@ -20,6 +20,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
     public final RenderState renderState;
     public final String[] outRenderTargets;
     public final SSBOBinding[] storageBuffers;
+    public final VertexLayout vertexLayout;
 
     // One of the two is not null
     public Mesh mesh;
@@ -28,7 +29,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
     public final UniformsContext shaderUniforms = new UniformsContext(this);
     public ShaderSet compiledShaders = new ShaderSet();
 
-    public SceneStandardLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, Mesh mesh) {
+    public SceneStandardLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, VertexLayout vertexLayout, Mesh mesh) {
         super(displayName, executions);
         this.fileSet = fileSet;
         this.macros = macros;
@@ -36,11 +37,12 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
         this.renderState = renderState;
         this.outRenderTargets = outRenderTargets;
         this.storageBuffers = storageBuffers;
+        this.vertexLayout = vertexLayout;
         this.mesh = mesh;
         this.indirectDraw = null;
     }
 
-    public SceneStandardLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, IndirectDrawDescription indirectDraw) {
+    public SceneStandardLayer(String displayName, ExecutionCondition[] executions, ShaderFileSet fileSet, Macro[] macros, UniformDefaultValue[] uniforms, RenderState renderState, String[] outRenderTargets, SSBOBinding[] storageBuffers, VertexLayout vertexLayout, IndirectDrawDescription indirectDraw) {
         super(displayName, executions);
         this.fileSet = fileSet;
         this.macros = macros;
@@ -48,6 +50,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
         this.renderState = renderState;
         this.outRenderTargets = outRenderTargets;
         this.storageBuffers = storageBuffers;
+        this.vertexLayout = vertexLayout;
         this.indirectDraw = indirectDraw;
     }
 

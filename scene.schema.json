@@ -35,13 +35,29 @@
       "item": { "type": "string" },
       "description": "The list of uniforms that have the same value in all shaders, there will be a single control for those"
     },
+    "vertex_layouts": {
+      "type": "array",
+      "item": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "The unique name of the layout, used by layers" },
+          "type": {
+            "enum": [ "float" ],
+            "description": "Type of the item disregarding its size, eg. float for vec4"
+          },
+          "count": { "type": "number", "description": "Number of elements, eg. 4 for a vec4" },
+          "stride": { "type": "number", "description": "Stride in bytes, if unspecified defaults to the total size of the items (assume no padding)" },
+          "offset": { "type": "number", "description": "Offset in bytes, if unspecified defaults to the sum of the sizes of previous items (assume no padding)" }
+        }
+      }
+    },
     "layers": {
       "description": "Define here any number of layers that will be drawn on top of each other",
       "type": "array",
       "items": {
         "properties": {
           "$comment": "--- Common layer properties",
-		  "display_name": "The name displayed in the 'uniforms' window, for your sake only",
+          "display_name": { "type": "string", "description": "The name displayed in the 'uniforms' window, for your sake only" },
           "targets": {
             "allOf": [
               { "$ref": "#/defs/stringorarray" },

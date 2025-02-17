@@ -23,6 +23,7 @@ public class Scene {
     public SharedUniforms sharedUniforms = new SharedUniforms();
     public final Map<String, StorageBuffer> storageBuffers = new HashMap<>();
     public final File sourceFile;
+    public final Map<String, VertexLayout> vertexLayouts = new HashMap<>();
 
     public TexturesSwapChain swapChain;
     private GLWindow.ListenerHandle resizeHandle;

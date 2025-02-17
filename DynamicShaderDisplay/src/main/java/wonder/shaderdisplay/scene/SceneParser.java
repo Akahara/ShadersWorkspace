@@ -48,6 +48,13 @@ public class SceneParser {
         scene.sharedUniforms = new SharedUniforms(serialized.sharedUniforms);
         for (SceneSSBO ssbo : serialized.storageBuffers)
             scene.storageBuffers.put(ssbo.name, new StorageBuffer(ssbo.size));
+        scene.vertexLayouts.put(VertexLayout.EMPTY_LAYOUT.name, VertexLayout.EMPTY_LAYOUT);
+        scene.vertexLayouts.put(VertexLayout.DEFAULT_LAYOUT.name, VertexLayout.DEFAULT_LAYOUT);
+        for (VertexLayout layout : serialized.vertexLayouts) {
+            if (scene.vertexLayouts.containsKey(layout.name))
+                errors.add("Vertex layout already defined '" + layout.name + "'");
+            scene.vertexLayouts.put(layout.name, layout);
+        }
 
         ShaderCompiler compiler = new ShaderCompiler(scene);
 
@@ -93,6 +100,7 @@ public class SceneParser {
             .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
             .completeWithDefaultSources()
             .createMissingFilesFromTemplate();
+        VertexLayout vertexLayout = getVertexLayout(errors, scene, serializedLayer.vertexLayout);
 
         SceneStandardLayer layer;
         if (serializedLayer.indirectDraw != null) {
@@ -118,6 +126,7 @@ public class SceneParser {
                 serializedLayer.makeRenderState(errors),
                 serializedLayer.targets,
                 serializedLayer.storageBuffers,
+                vertexLayout,
                 indirectDraw
             );
         } else {
@@ -131,6 +140,7 @@ public class SceneParser {
                 serializedLayer.makeRenderState(errors),
                 serializedLayer.targets,
                 serializedLayer.storageBuffers,
+                vertexLayout,
                 mesh
             );
         }
@@ -228,6 +238,7 @@ public class SceneParser {
             pass.makeRenderState(errors),
             renderTargets,
             new SSBOBinding[0],
+            VertexLayout.DEFAULT_LAYOUT,
             Mesh.makeFullscreenTriangleMesh()
         );
 
@@ -333,6 +344,16 @@ public class SceneParser {
         }
     }
 
+    private static VertexLayout getVertexLayout(ErrorWrapper errors, Scene scene, String name) {
+        if (name == null)
+            return VertexLayout.DEFAULT_LAYOUT;
+        VertexLayout layout = scene.vertexLayouts.getOrDefault(name, null);
+        if (layout != null)
+            return layout;
+        errors.add("Undefined vertex layout '" + name + "'");
+        return VertexLayout.DEFAULT_LAYOUT;
+    }
+
 }
 
 @JsonIgnoreProperties({ "$schema" })
@@ -349,6 +370,8 @@ class JsonScene {
     public SceneRenderTarget[] renderTargets = new SceneRenderTarget[0];
     @JsonProperty(value = "shared_uniforms")
     public String[] sharedUniforms = new String[0];
+    @JsonProperty(value = "vertex_layouts")
+    public VertexLayout[] vertexLayouts = new VertexLayout[0];
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, defaultImpl = JsonSceneStandardLayer.class, property = "pass")
@@ -430,6 +453,8 @@ class JsonSceneStandardLayer extends JsonSceneLayer {
     public UniformDefaultValue[] uniforms = new UniformDefaultValue[0];
     @JsonProperty(value = "storage_buffers")
     public SSBOBinding[] storageBuffers = new SSBOBinding[0];
+    @JsonProperty(value = "vertex_layout")
+    public String vertexLayout = null;
 }
 
 class JsonIndirectDrawDescription {

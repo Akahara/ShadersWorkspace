@@ -129,6 +129,7 @@ public class SetupUtils {
             new RenderState(),
             new String[] { renderTarget.name },
             new SSBOBinding[0],
+            VertexLayout.DEFAULT_LAYOUT,
             Mesh.makeFullscreenTriangleMesh()
         );
 

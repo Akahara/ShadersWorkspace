@@ -74,7 +74,7 @@ public class ShaderCompiler {
                 buildShader(result.errors.subErrors("fragment shader"), layer, newShaders, ShaderType.FRAGMENT, GL_FRAGMENT_SHADER);
                 if (hasGeometry) {
                     buildShader(result.errors.subErrors("geometry shader"), layer, newShaders, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
-                    verifyGeometryShaderInputType(result.errors, fileSet.getSource(ShaderType.GEOMETRY).getRawSource(), GL_TRIANGLES);
+                    //verifyGeometryShaderInputType(result.errors, fileSet.getSource(ShaderType.GEOMETRY).getRawSource(), GL_TRIANGLES);
                 }
             } else {
                 buildShader(result.errors, layer, newShaders, ShaderType.COMPUTE, GL_COMPUTE_SHADER);

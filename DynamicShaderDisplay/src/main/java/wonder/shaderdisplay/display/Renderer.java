@@ -53,6 +53,7 @@ public class Renderer {
 			if (debugTool != null)
 				debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
 			standardLayer.shaderUniforms.apply(scene);
+			standardLayer.vertexLayout.bind();
 			if (standardLayer.mesh != null)
 				standardLayer.mesh.makeDrawCall();
 			if (standardLayer.indirectDraw != null)
@@ -82,16 +83,8 @@ public class Renderer {
 	private void makeIndirectDrawCall(Scene scene, IndirectDrawDescription call) {
 		glBindVertexArray(indirectDrawCallVAO);
 		scene.storageBuffers.get(call.indirectArgsBuffer.name).bindToGLBindingPoint(GL_DRAW_INDIRECT_BUFFER);
-		if (call.vertexBufferName != null) {
+		if (call.vertexBufferName != null)
 			scene.storageBuffers.get(call.vertexBufferName).bindToGLBindingPoint(GL_ARRAY_BUFFER);
-			int stride = 4+3+2;
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
-			glEnableVertexAttribArray(2);
-			glVertexAttribPointer(0, 4, GL_FLOAT, false, stride*4, 4*0);
-			glVertexAttribPointer(1, 3, GL_FLOAT, false, stride*4, 4*4);
-			glVertexAttribPointer(2, 2, GL_FLOAT, false, stride*4, 4*(4+3));
-		}
 		if (call.indexBufferName != null) {
 			scene.storageBuffers.get(call.indexBufferName).bindToGLBindingPoint(GL_ELEMENT_ARRAY_BUFFER);
 			glMultiDrawElementsIndirect(call.topology.glType, GL_UNSIGNED_INT, call.indirectArgsBuffer.offset, call.indirectCallsCount, 0);
