@@ -25,23 +25,22 @@ public class Resources {
 	private static final String SNIPPET_FILE_EXTENSION = "snippets";
 	private static final String SNIPPETS_FILE = "/snippets.snippets";
 
+	private static final String[] COMMON_FRAGMENT_EXTENSIONS = { ".fs", ".fragment", ".glsl" };
+	private static final String[] COMMON_SCENE_EXTENSIONS = { ".json", ".scene" };
+
 	public static final List<Snippet> snippets = new ArrayList<>();
+
+	private static TemplateSceneFiles TEMPLATE_STANDARD = new TemplateSceneFiles("/templates/template_standard", true, "scene.json")
+			.add("shader.fs");
+	private static TemplateSceneFiles TEMPLATE_COMPUTE = new TemplateSceneFiles("/templates/template_compute", false, "scene.json")
+			.add("compute.comp")
+			.add("shader.vsfs");
 
 	static {
 		DEFAULT_SHADER_SOURCES = new String[ShaderType.COUNT];
 		for (ShaderType type : ShaderType.TYPES) {
 			DEFAULT_SHADER_SOURCES[type.ordinal()] = readResource(type.defaultSourcePath);
 		}
-	}
-
-	public static void setDefaultFragmentTemplate(Main.RunOptions.FragmentTemplate template) {
-		String templatePath = switch (template) {
-            case FRAMEBUFFERS -> "/default_fragment_framebuffers.fs";
-            case RAYCASTING -> "/default_fragment_raycasting.fs";
-            case SHADERTOY -> "/default_fragment_shadertoy.fs";
-            case STANDARD -> "/default_fragment_standard.fs";
-        };
-        DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()] = readResource(templatePath);
 	}
 
 	public static String readResource(String path) {
@@ -115,15 +114,56 @@ public class Resources {
 		}
 	}
 
-	public static void initializeSceneFiles(File sceneFile) throws IOException {
-		String defaultFragmentName = FilesUtils.getFileName(sceneFile) + ".fs";
-		String defaultSceneContent = readResource("/default_scene.json").replace("shader.fs", defaultFragmentName);
-		FilesUtils.write(sceneFile, defaultSceneContent);
-		File requiredFragmentShaderFile = new File(sceneFile.getParentFile(), defaultFragmentName);
-		if (!requiredFragmentShaderFile.exists()) {
-			String defaultFragmentSource = DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()];
-			FilesUtils.write(requiredFragmentShaderFile, defaultFragmentSource);
+	private static boolean hasAnyExtension(File file, String[] extensions) {
+		return Stream.of(extensions).anyMatch(ext -> file.getName().endsWith(ext));
+	}
+
+	private static void setupMissingFragment(File fragment, String templateFilePath) throws IOException {
+		if (!hasAnyExtension(fragment, COMMON_FRAGMENT_EXTENSIONS))
+			Main.logger.warn("File " + fragment + " does not look like a fragment shader file, trying to run it as one anyway");
+
+		FilesUtils.write(fragment, readResource(templateFilePath));
+	}
+
+	private static void setupMissingSceneFiles(File sceneFile, TemplateSceneFiles templateSceneFiles) throws IOException {
+		if (!hasAnyExtension(sceneFile, COMMON_SCENE_EXTENSIONS))
+			Main.logger.warn("File " + sceneFile + " does not look like a fragment shader file, trying to run it as one anyway");
+
+		String sceneContent = readResource(templateSceneFiles.scenePath);
+		for (String sourcePath : templateSceneFiles.extraSourcePaths) {
+			String sourceOriginalName = new File(sourcePath).getName();
+			String extraSourceName = !templateSceneFiles.renameFiles ? sourceOriginalName : FilesUtils.getFileName(sceneFile) + '.' + FilesUtils.getFileExtension(sourcePath);
+			File extraSourceFile = new File(sceneFile.getParent(), extraSourceName);
+			if (extraSourceFile.isFile())
+				Main.logger.warn("File " + extraSourceFile + "' already exists, not replacing it");
+			else
+				FilesUtils.write(extraSourceFile, readResource(sourcePath));
+			sceneContent = sceneContent.replace(sourceOriginalName, extraSourceName);
 		}
+		FilesUtils.write(sceneFile, sceneContent);
+	}
+
+	public static void setupSceneFilesIfNotExist(File sceneFile, Main.DisplayOptions.FragmentTemplate sceneTemplate) throws IOException {
+		if (sceneFile.isFile())  {
+			if (sceneTemplate != Main.DisplayOptions.FragmentTemplate.DEFAULT)
+				Main.logger.warn("--template specified but the file already exists");
+			return;
+		}
+
+		switch (sceneTemplate)
+		{
+			case FRAMEBUFFERS -> setupMissingFragment(sceneFile, "/templates/default_fragment_framebuffers.fs");
+			case RAYCASTING -> setupMissingFragment(sceneFile, "/templates/default_fragment_raycasting.fs.fs");
+			case SHADERTOY -> setupMissingFragment(sceneFile, "/templates/default_fragment_shadertoy.fs");
+			case STANDARD -> {
+				if (hasAnyExtension(sceneFile, COMMON_SCENE_EXTENSIONS))
+					setupMissingSceneFiles(sceneFile, TEMPLATE_STANDARD);
+				else
+					setupMissingFragment(sceneFile, "/templates/default_fragment_standard.fs");
+			}
+            case COMPUTE -> setupMissingSceneFiles(sceneFile, TEMPLATE_COMPUTE);
+			default -> throw new IOException("Invalid template " + sceneTemplate);
+        }
 	}
 
 	public static class Snippet {
@@ -147,5 +187,24 @@ public class Resources {
 		}
 		
 	}
-	
+
+	private static class TemplateSceneFiles {
+
+		private final String rootPath;
+		public final boolean renameFiles;
+		public final String scenePath;
+		public final List<String> extraSourcePaths = new ArrayList<>();
+
+		public TemplateSceneFiles(String rootPath, boolean renameFiles, String sceneFile) {
+			this.rootPath = rootPath;
+			this.renameFiles = renameFiles;
+			this.scenePath = rootPath + '/' + sceneFile;
+		}
+
+		TemplateSceneFiles add(String path) {
+			this.extraSourcePaths.add(rootPath + '/' + path);
+			return this;
+		}
+	}
+
 }

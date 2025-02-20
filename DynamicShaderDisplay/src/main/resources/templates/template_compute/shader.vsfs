@@ -1,0 +1,26 @@
+#version 430 core
+
+#ifdef DSD_VERTEX
+
+layout(location=0) in vec3 i_pos;
+
+void main(void) {
+  gl_Position = vec4(i_pos, 1);
+}
+
+#endif // DSD_VERTEX
+
+#ifdef DSD_FRAGMENT
+
+uniform vec2 u_resolution;
+uniform float u_time;
+
+layout(location=0) out vec4 color;
+
+void main(void) {
+  vec2 uv = (gl_FragCoord.xy-.5*u_resolution.xy)/u_resolution.y;
+
+  color = vec4(.3, .6, 1., 1);
+}
+
+#endif // DSD_FRAGMENT

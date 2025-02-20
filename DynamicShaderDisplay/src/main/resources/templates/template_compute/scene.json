@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "storage_buffers": [
+    { "name": "indirect", "size": 40 },
+    { "name": "indirect_vertex", "size": 100000 },
+  ],
+  "vertex_layouts": [
+    {
+      "name": "standard_layout",
+      "items": [
+        { "type": "float", "count": 3, "stride": 16, "offset": 0 }
+      ]
+    }
+  ],
+  "layers": [
+    { "pass": "clear" },
+    {
+      "pass": "compute",
+      "compute": "compute.comp",
+      "storage_buffers": [
+        { "name": "indirect" },
+        { "name": "indirect_vertex" },
+      ]
+    },
+    {
+      "fragment": "shader.vsfs",
+      "vertex": "shader.vsfs",
+      "indirect_draw": {
+        "indirect_args_buffer": "indirect",
+        "indirect_call_count": 1,
+        "vertex_buffer": "indirect_vertex",
+      },
+      "vertex_layout": "standard_layout",
+    }
+  ]
+}

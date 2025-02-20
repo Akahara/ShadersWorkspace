@@ -37,18 +37,29 @@
     },
     "vertex_layouts": {
       "type": "array",
+      "description": "Define any number of vertex layouts, use with the 'vertex_layout' attribute of a standard scene layer, beware of padding!",
       "item": {
         "type": "object",
         "properties": {
           "name": { "type": "string", "description": "The unique name of the layout, used by layers" },
-          "type": {
-            "enum": [ "float" ],
-            "description": "Type of the item disregarding its size, eg. float for vec4"
-          },
-          "count": { "type": "number", "description": "Number of elements, eg. 4 for a vec4" },
-          "stride": { "type": "number", "description": "Stride in bytes, if unspecified defaults to the total size of the items (assume no padding)" },
-          "offset": { "type": "number", "description": "Offset in bytes, if unspecified defaults to the sum of the sizes of previous items (assume no padding)" }
-        }
+          "items": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "enum": [ "float" ],
+                  "description": "Type of the item disregarding its size, eg. float for vec4"
+                },
+                "count": { "type": "number", "description": "Number of elements, eg. 4 for a vec4" },
+                "stride": { "type": "number", "description": "Stride in bytes, if unspecified defaults to the total size of the items (assume no padding)" },
+                "offset": { "type": "number", "description": "Offset in bytes, if unspecified defaults to the sum of the sizes of previous items (assume no padding)" }
+              },
+              "required": [ "type", "count" ]
+            }
+          }
+        },
+        "required": [ "name", "items" ]
       }
     },
     "layers": {
@@ -90,6 +101,7 @@
               "geometry": { "type": "string", "description": "The geometry shader file to use for the pass" },
               "model": { "type": "string", "description": "An input model file (.obj or .fbx for example) to draw instead of a fullscreen quad, you will likely need a custom vertex shader" },
               "culling": { "enum": [ "back", "front", "none" ], "description": "Backface culling, defaults to none" },
+              "vertex_layout": { "type": "string", "description": "The name of a vertex layout defined at the scene root" },
               "uniforms": {
                 "type": "array",
                 "items": {

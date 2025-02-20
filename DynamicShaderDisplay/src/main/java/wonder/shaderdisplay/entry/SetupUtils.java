@@ -82,15 +82,10 @@ public class SetupUtils {
     protected static Scene createScene(Main.DisplayOptions options, File sceneFile) throws BadInitException {
         Scene scene;
 
-        if (!sceneFile.isFile()) {
-            try {
-                if (sceneFile.getName().endsWith(".fs"))
-                    FilesUtils.write(sceneFile, Resources.DEFAULT_SHADER_SOURCES[ShaderType.FRAGMENT.ordinal()]);
-                else if (sceneFile.getName().endsWith(".json") || sceneFile.getName().endsWith(".scene"))
-                    Resources.initializeSceneFiles(sceneFile);
-            } catch (IOException e) {
-                throw new BadInitException(sceneFile + " does not exist and could not be created");
-            }
+        try {
+            Resources.setupSceneFilesIfNotExist(sceneFile, options.sceneTemplate);
+        } catch (IOException e) {
+            throw new BadInitException(sceneFile + " does not exist and could not be created");
         }
 
         if (sceneFile.getName().endsWith(".fs"))

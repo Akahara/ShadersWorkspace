@@ -69,11 +69,28 @@ public class Main {
 		public boolean sizeToInput;
 		@Option(name = "--background", valueName = "format", desc = "When generating images/videos, set to 'no-alpha' to get an opaque image, set to 'black' to add an opaque black background")
 		public BackgroundType background = BackgroundType.NORMAL;
+		@Option(name = "--template", shorthand = "-m", desc = "If the fragment file does not exist, create it from a template")
+		public FragmentTemplate sceneTemplate = FragmentTemplate.DEFAULT;
 
 		public enum BackgroundType {
 			NORMAL,
 			NO_ALPHA,
 			BLACK,
+		}
+
+		public enum FragmentTemplate {
+			STANDARD,
+			SHADERTOY,
+			RAYCASTING,
+			FRAMEBUFFERS,
+			COMPUTE;
+
+			public static final FragmentTemplate DEFAULT = STANDARD;
+
+			@Override
+			public String toString() {
+				return super.toString().toLowerCase();
+			}
 		}
 		
 	}
@@ -99,15 +116,6 @@ public class Main {
 		public boolean resetRenderTargetsOnUpdate = false;
 		@Option(name = "--frame-exact", shorthand = "-e", desc = "Forces iFrame to advance by 1 each frame, if not set iFrame will try to catch up if frames take longer than 1/fps")
 		public boolean frameExact = false;
-		@Option(name = "--template", shorthand = "-m", desc = "If the fragment file does not exist, create it from a template")
-		public FragmentTemplate fragmentTemplate = FragmentTemplate.STANDARD;
-		
-		public enum FragmentTemplate {
-			STANDARD,
-			SHADERTOY,
-			RAYCASTING,
-			FRAMEBUFFERS,
-		}
 		
 	}
 	
