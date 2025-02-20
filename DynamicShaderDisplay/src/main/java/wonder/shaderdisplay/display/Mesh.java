@@ -3,6 +3,7 @@ package wonder.shaderdisplay.display;
 import com.fasterxml.jackson.annotation.JsonValue;
 import org.lwjgl.assimp.*;
 import wonder.shaderdisplay.Main;
+import wonder.shaderdisplay.scene.VertexLayout;
 
 import java.io.File;
 import java.io.IOException;
@@ -210,7 +211,8 @@ public class Mesh {
         glDeleteVertexArrays(vao);
     }
 
-    public void makeDrawCall() {
+    public void makeDrawCall(VertexLayout vertexLayout) {
+        vertexLayout.bind();
         glBindVertexArray(vao);
         if (triangleIbo != 0) {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangleIbo);

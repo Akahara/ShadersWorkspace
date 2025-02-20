@@ -53,11 +53,10 @@ public class Renderer {
 			if (debugTool != null)
 				debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
 			standardLayer.shaderUniforms.apply(scene);
-			standardLayer.vertexLayout.bind();
 			if (standardLayer.mesh != null)
-				standardLayer.mesh.makeDrawCall();
+				standardLayer.mesh.makeDrawCall(standardLayer.vertexLayout);
 			if (standardLayer.indirectDraw != null)
-				makeIndirectDrawCall(scene, standardLayer.indirectDraw);
+				makeIndirectDrawCall(scene, standardLayer.indirectDraw, standardLayer.vertexLayout);
 			scene.swapChain.endPass();
 		} else if (layer instanceof SceneComputeLayer computeLayer) {
 			glUseProgram(computeLayer.compiledShaders.program);
@@ -80,15 +79,17 @@ public class Renderer {
 		}
 	}
 
-	private void makeIndirectDrawCall(Scene scene, IndirectDrawDescription call) {
+	private void makeIndirectDrawCall(Scene scene, IndirectDrawDescription call, VertexLayout vertexLayout) {
 		glBindVertexArray(indirectDrawCallVAO);
 		scene.storageBuffers.get(call.indirectArgsBuffer.name).bindToGLBindingPoint(GL_DRAW_INDIRECT_BUFFER);
 		if (call.vertexBufferName != null)
 			scene.storageBuffers.get(call.vertexBufferName).bindToGLBindingPoint(GL_ARRAY_BUFFER);
 		if (call.indexBufferName != null) {
 			scene.storageBuffers.get(call.indexBufferName).bindToGLBindingPoint(GL_ELEMENT_ARRAY_BUFFER);
+			vertexLayout.bind();
 			glMultiDrawElementsIndirect(call.topology.glType, GL_UNSIGNED_INT, call.indirectArgsBuffer.offset, call.indirectCallsCount, 0);
 		} else {
+			vertexLayout.bind();
 			glMultiDrawArraysIndirect(call.topology.glType, call.indirectArgsBuffer.offset, call.indirectCallsCount, 0);
 		}
 		glBindVertexArray(0);
