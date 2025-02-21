@@ -27,6 +27,8 @@ import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL20.glDeleteProgram;
 import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
+import static org.lwjgl.opengl.GL40.GL_TESS_CONTROL_SHADER;
+import static org.lwjgl.opengl.GL40.GL_TESS_EVALUATION_SHADER;
 import static org.lwjgl.opengl.GL43.GL_COMPUTE_SHADER;
 
 public class ShaderCompiler {
@@ -65,8 +67,15 @@ public class ShaderCompiler {
 
         ShaderFileSet fileSet = layer.getCompilationFileset();
         boolean hasGeometry = fileSet.hasCustomShader(ShaderType.GEOMETRY);
+        boolean hasTessellationControl = fileSet.hasCustomShader(ShaderType.TESSELLATION_CONTROL);
+        boolean hasTessellationEvaluation = fileSet.hasCustomShader(ShaderType.TESSELLATION_EVALUATION);
         ShaderCompilationResult result = new ShaderCompilationResult();
         result.errors = errors;
+
+        if (hasTessellationControl && !hasTessellationEvaluation) {
+            errors.add("Shader program cannot have a tessellation control shader but no tessellation evaluation shader");
+            hasTessellationControl = false;
+        }
 
         try {
             if (!fileSet.isCompute()) {
@@ -76,6 +85,10 @@ public class ShaderCompiler {
                     buildShader(result.errors.subErrors("geometry shader"), layer, newShaders, ShaderType.GEOMETRY, GL_GEOMETRY_SHADER);
                     //verifyGeometryShaderInputType(result.errors, fileSet.getSource(ShaderType.GEOMETRY).getRawSource(), GL_TRIANGLES);
                 }
+                if (hasTessellationEvaluation)
+                    buildShader(result.errors.subErrors("tessellation evaluation shader"), layer, newShaders, ShaderType.TESSELLATION_EVALUATION, GL_TESS_EVALUATION_SHADER);
+                if (hasTessellationControl)
+                    buildShader(result.errors.subErrors("tessellation control shader"), layer, newShaders, ShaderType.TESSELLATION_CONTROL, GL_TESS_CONTROL_SHADER);
             } else {
                 buildShader(result.errors, layer, newShaders, ShaderType.COMPUTE, GL_COMPUTE_SHADER);
             }
@@ -88,6 +101,10 @@ public class ShaderCompiler {
                 glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.FRAGMENT.ordinal()]);
                 if (hasGeometry)
                     glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.GEOMETRY.ordinal()]);
+                if (hasTessellationControl)
+                    glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.TESSELLATION_CONTROL.ordinal()]);
+                if (hasTessellationEvaluation)
+                    glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.TESSELLATION_EVALUATION.ordinal()]);
             } else {
                 glAttachShader(newShaders.program, newShaders.shaderIds[ShaderType.COMPUTE.ordinal()]);
             }
@@ -110,7 +127,7 @@ public class ShaderCompiler {
         layer.replaceCompiledShaders(newShaders);
 
         StringBuilder pseudoTotalSource = new StringBuilder();
-        for (ShaderType type : ShaderType.STANDARD_TYPES) {
+        for (ShaderType type : ShaderType.TYPES) {
             String source = newShaders.resolvedSources[type.ordinal()];
             if (source != null)
                 pseudoTotalSource.append(source);

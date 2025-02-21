@@ -7,6 +7,7 @@ import wonder.shaderdisplay.serial.Resources;
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 public class ShaderFileSet {
 
@@ -88,7 +89,7 @@ public class ShaderFileSet {
 		if (rawSource == null)
 			return this;
 		if (type == ShaderType.COMPUTE
-				? (sources[ShaderType.VERTEX.ordinal()] != null || sources[ShaderType.FRAGMENT.ordinal()] != null || sources[ShaderType.GEOMETRY.ordinal()] != null)
+				? Stream.of(ShaderType.NON_COMPUTE_TYPES).anyMatch(t -> sources[t.ordinal()] != null)
 				: (sources[ShaderType.COMPUTE.ordinal()] != null))
 			throw new IllegalArgumentException("A compute shader cannot be specified with other types of shaders");
 

@@ -12,6 +12,8 @@ public class RenderState {
     public boolean isDepthTestEnabled = true;
     public boolean isDepthWriteEnabled = true;
     public Culling culling = Culling.BACK;
+    public Topology topology = Topology.TRIANGLES;
+    public int tessellationPatchSize = -1;
 
     public enum Culling {
         BACK, FRONT, NONE;
@@ -38,6 +40,16 @@ public class RenderState {
         BlendMode(int glBlendMode) {
             this.glBlendMode = glBlendMode;
         }
+
+        @JsonValue
+        public String serialName() {
+            return name().toLowerCase();
+        }
+    }
+
+    public enum Topology {
+        TRIANGLES,
+        LINES;
 
         @JsonValue
         public String serialName() {

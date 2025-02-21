@@ -51,6 +51,7 @@ public class SceneStandardLayer extends SceneLayer implements CompilableLayer, R
         this.outRenderTargets = outRenderTargets;
         this.storageBuffers = storageBuffers;
         this.vertexLayout = vertexLayout;
+        this.mesh = null;
         this.indirectDraw = indirectDraw;
     }
 

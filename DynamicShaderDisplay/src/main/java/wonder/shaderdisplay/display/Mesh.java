@@ -14,6 +14,7 @@ import static org.lwjgl.assimp.Assimp.aiProcess_JoinIdenticalVertices;
 import static org.lwjgl.assimp.Assimp.aiProcess_Triangulate;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.opengl.GL40.GL_PATCHES;
 
 public class Mesh {
 
@@ -87,7 +88,8 @@ public class Mesh {
 
     public enum Topology {
         TRIANGLE_LIST(3, GL_TRIANGLES),
-        LINE_LIST(2, GL_LINES);
+        LINE_LIST(2, GL_LINES),
+        PATCHES(0, GL_PATCHES);
 
         final int vertexCount;
         final int glType;
@@ -197,10 +199,6 @@ public class Mesh {
         return new Mesh(file, rawVertexData, rawTriangleIndexData, rawLineIndexData);
     }
 
-    public static Mesh emptyMesh() {
-        return new Mesh();
-    }
-
     public File getSourceFile() {
         return sourceFile;
     }
@@ -211,16 +209,16 @@ public class Mesh {
         glDeleteVertexArrays(vao);
     }
 
-    public void makeDrawCall(VertexLayout vertexLayout) {
+    public void makeDrawCall(VertexLayout vertexLayout, boolean hasTessellation) {
         vertexLayout.bind();
         glBindVertexArray(vao);
         if (triangleIbo != 0) {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangleIbo);
-            glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
+            glDrawElements(hasTessellation ? GL_PATCHES : GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
         }
         if (lineVertexCount != 0) {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lineIbo);
-            glDrawElements(GL_LINES, lineVertexCount, GL_UNSIGNED_INT, 0);
+            glDrawElements(hasTessellation ? GL_PATCHES : GL_LINES, lineVertexCount, GL_UNSIGNED_INT, 0);
         }
         glBindVertexArray(0);
     }

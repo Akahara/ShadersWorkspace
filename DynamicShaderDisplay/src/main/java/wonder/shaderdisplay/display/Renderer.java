@@ -54,7 +54,7 @@ public class Renderer {
 				debugTool.tryBindToProgram(standardLayer.compiledShaders.program);
 			standardLayer.shaderUniforms.apply(scene);
 			if (standardLayer.mesh != null)
-				standardLayer.mesh.makeDrawCall(standardLayer.vertexLayout);
+				standardLayer.mesh.makeDrawCall(standardLayer.vertexLayout, standardLayer.renderState.tessellationPatchSize > 0);
 			if (standardLayer.indirectDraw != null)
 				makeIndirectDrawCall(scene, standardLayer.indirectDraw, standardLayer.vertexLayout);
 			scene.swapChain.endPass();
@@ -125,6 +125,10 @@ public class Renderer {
 		} else {
 			glDisable(GL_CULL_FACE);
 		}
+
+		glPolygonMode(GL_FRONT_AND_BACK, rs.topology == RenderState.Topology.TRIANGLES ? GL_FILL : GL_LINE);
+		if (rs.tessellationPatchSize > 0)
+			glPatchParameteri(GL_PATCH_VERTICES, rs.tessellationPatchSize);
 	}
 	
 }

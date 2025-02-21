@@ -98,6 +98,8 @@ public class SceneParser {
             .setFile(ShaderType.VERTEX, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.vertex))
             .setFile(ShaderType.GEOMETRY, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.geometry))
             .setFile(ShaderType.FRAGMENT, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.fragment))
+            .setFile(ShaderType.TESSELLATION_CONTROL, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.tessellationControl))
+            .setFile(ShaderType.TESSELLATION_EVALUATION, asOptionalPath(rootFile, serializedLayer.root, serializedLayer.tessellationEvaluation))
             .completeWithDefaultSources()
             .createMissingFilesFromTemplate();
         VertexLayout vertexLayout = getVertexLayout(errors, scene, serializedLayer.vertexLayout);
@@ -145,6 +147,10 @@ public class SceneParser {
             );
         }
 
+        if (layer.renderState.tessellationPatchSize > 0 && !fileSet.hasCustomShader(ShaderType.TESSELLATION_EVALUATION))
+            errors.add("A tessellation patch size cannot be specified without a tessellation evaluation shader");
+        if (layer.renderState.tessellationPatchSize <= 0 && fileSet.hasCustomShader(ShaderType.TESSELLATION_EVALUATION))
+            errors.add("A tessellation evaluation shader cannot be specified without a tessellation patch size");
         validateLayerRenderTargets(errors, scene, serializedLayer.targets, layer.renderState);
         validateLayerStorageBuffers(errors, scene.storageBuffers, layer.storageBuffers, null);
         compiler.compileShaders(errors, layer);
@@ -390,6 +396,9 @@ class JsonSceneLayer {
     public BlendMode[] blendFactors = null;
     public BlendModeTemplate blending = null;
     public RenderState.Culling culling = RenderState.Culling.NONE;
+    public boolean wireframe = false;
+    @JsonProperty(value = "tessellation_patch_size")
+    public int tessellationPatchSize = -1;
     @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     public String[] targets = new String[] { SceneRenderTarget.DEFAULT_RT.name };
     public ExecutionCondition[] executions = { ExecutionCondition.alwaysPassing() };
@@ -401,6 +410,8 @@ class JsonSceneLayer {
         renderState.isDepthWriteEnabled = depthWrite;
         renderState.isDepthTestEnabled = depthTest;
         renderState.culling = culling;
+        renderState.topology = wireframe ? RenderState.Topology.LINES : RenderState.Topology.TRIANGLES;
+        renderState.tessellationPatchSize = tessellationPatchSize;
 
         if (blending != null && blendFactors != null)
             errors.add("The blend state cannot be specified by both 'blending' and 'blendFactors'");
@@ -446,6 +457,10 @@ class JsonSceneStandardLayer extends JsonSceneLayer {
     public String geometry = null;
     @JsonProperty(required = true)
     public String fragment = null;
+    @JsonProperty(value = "tessellation_control")
+    public String tessellationControl = null;
+    @JsonProperty(value = "tessellation_evaluation")
+    public String tessellationEvaluation = null;
     public String model = null;
     @JsonProperty(value = "indirect_draw")
     public JsonIndirectDrawDescription indirectDraw = null;
