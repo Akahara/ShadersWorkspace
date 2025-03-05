@@ -11,6 +11,7 @@ public class RenderState {
     public BlendMode blendSrcRGB, blendSrcA, blendDstRGB, blendDstA;
     public boolean isDepthTestEnabled = true;
     public boolean isDepthWriteEnabled = true;
+    public ComparisonMode depthCompare = ComparisonMode.LEQUAL;
     public Culling culling = Culling.BACK;
     public Topology topology = Topology.TRIANGLES;
     public int tessellationPatchSize = -1;
@@ -24,7 +25,6 @@ public class RenderState {
         }
     }
 
-    @SuppressWarnings("unused")
     public enum BlendMode {
         ZERO(GL_ZERO),
         ONE(GL_ONE),
@@ -38,6 +38,28 @@ public class RenderState {
         public final int glBlendMode;
 
         BlendMode(int glBlendMode) {
+            this.glBlendMode = glBlendMode;
+        }
+
+        @JsonValue
+        public String serialName() {
+            return name().toLowerCase();
+        }
+    }
+
+    public enum ComparisonMode {
+        NEVER(GL_NEVER),
+        LESS(GL_LESS),
+        EQUAL(GL_EQUAL),
+        LEQUAL(GL_LEQUAL),
+        GREATER(GL_GREATER),
+        NOTEQUAL(GL_NOTEQUAL),
+        GEQUAL(GL_GEQUAL),
+        ALWAYS(GL_ALWAYS);
+
+        public final int glBlendMode;
+
+        ComparisonMode(int glBlendMode) {
             this.glBlendMode = glBlendMode;
         }
 

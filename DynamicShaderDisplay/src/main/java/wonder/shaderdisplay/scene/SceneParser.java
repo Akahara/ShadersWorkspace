@@ -392,6 +392,8 @@ class JsonSceneLayer {
     public boolean depthTest = false;
     @JsonProperty(value = "depth_write")
     public boolean depthWrite = false;
+    @JsonProperty(value = "depth_compare")
+    public RenderState.ComparisonMode depthCompare = RenderState.ComparisonMode.LEQUAL;
     @JsonProperty(value = "blend_factors")
     public BlendMode[] blendFactors = null;
     public BlendModeTemplate blending = null;
@@ -409,6 +411,7 @@ class JsonSceneLayer {
         RenderState renderState = new RenderState();
         renderState.isDepthWriteEnabled = depthWrite;
         renderState.isDepthTestEnabled = depthTest;
+        renderState.depthCompare = depthCompare;
         renderState.culling = culling;
         renderState.topology = wireframe ? RenderState.Topology.LINES : RenderState.Topology.TRIANGLES;
         renderState.tessellationPatchSize = tessellationPatchSize;
