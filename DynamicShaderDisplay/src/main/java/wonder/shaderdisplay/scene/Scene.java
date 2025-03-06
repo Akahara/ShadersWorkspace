@@ -58,8 +58,10 @@ public class Scene {
         boolean requestRerender = false;
         sharedUniforms.render();
         for (int i = 0; i < layers.size(); i++) {
-            ImGui.pushID(i);
             SceneLayer layer = layers.get(i);
+            if (layer.isBuiltinHiddenLayer)
+                continue;
+            ImGui.pushID(i);
             int activationColor = layer.enabled ? 0xff0ec029 : 0xffc0220e;
             ImGui.pushStyleColor(ImGuiCol.Button, activationColor);
             ImGui.pushStyleColor(ImGuiCol.ButtonActive, activationColor);

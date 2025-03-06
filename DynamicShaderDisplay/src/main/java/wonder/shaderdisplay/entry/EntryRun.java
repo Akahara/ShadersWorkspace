@@ -54,7 +54,7 @@ public class EntryRun extends SetupUtils {
             scene.applyUserConfig();
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
-            Main.exit();
+            Main.exitWithError();
             throw new UnreachableException();
         }
 

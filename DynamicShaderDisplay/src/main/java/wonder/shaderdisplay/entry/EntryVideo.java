@@ -63,7 +63,7 @@ public class EntryVideo extends SetupUtils {
             scene.prepareSwapChain(videoWidth, videoHeight);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
-            Main.exit();
+            Main.exitWithError();
             throw new UnreachableException();
         }
 

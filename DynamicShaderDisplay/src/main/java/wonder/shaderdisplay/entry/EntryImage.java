@@ -2,6 +2,8 @@ package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.UnreachableException;
 import fr.wonder.commons.files.FilesUtils;
+import wonder.shaderdisplay.display.GLWindow;
+import wonder.shaderdisplay.display.WindowBlit;
 import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.Time;
@@ -20,7 +22,81 @@ public class EntryImage extends SetupUtils {
         loadCommonOptions(options.displayOptions, null);
     }
 
-    public static void run(Main.ImagePassOptions options, File fragment, File[] inputFiles) {
+    public static void run(Main.ImagePassOptions options, File fragment, File[] rawInputFiles) {
+        Main.logger.info("-- Running image shader pass --");
+
+        Display display;
+        Scene scene;
+        fragment = getMainSceneFile(fragment);
+
+        int outputWidth = options.displayOptions.winWidth;
+        int outputHeight = options.displayOptions.winHeight;
+        File outputFile = options.noOutput ? null : new File(options.outputPath);
+
+        try {
+            if(outputFile != null && outputFile.exists() && !options.overwriteExistingFiles)
+                throw new BadInitException(outputFile + " already exists, use -r to overwrite or choose another destination with -o");
+
+            InputFiles.singleton = new InputFiles(rawInputFiles, false);
+            InputFiles.singleton.startReadingFiles();
+            if (options.displayOptions.sizeToInput) {
+                int[] resolution = InputFiles.singleton.getFirstInputFileResolution();
+                outputWidth = resolution[0];
+                outputHeight = resolution[1];
+            }
+
+            loadCommonOptions(options.displayOptions, InputFiles.singleton);
+            Time.setFps(options.framerate);
+
+            display = createDisplay(options.displayOptions, options.openViewer, false);
+            scene = createScene(options.displayOptions, fragment);
+        } catch (BadInitException e) {
+            Main.logger.err(e.getMessage());
+            Main.exitWithError();
+            throw new UnreachableException();
+        }
+
+        scene.prepareSwapChain(outputWidth, outputHeight);
+        BufferedImage frameImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
+        int[] frameCpuBuffer = new int[outputWidth*outputHeight];
+        ResolutionUniform.updateViewportSize(outputWidth, outputHeight);
+
+        boolean isInitialFrame = true;
+        if(options.runFromFrame != Main.ImagePassOptions.NO_RUN_FROM_FRAME) {
+            for(int i = options.runFromFrame; i < options.screenshotFrame; i++) {
+                Time.setFrame(i);
+                display.renderer.render(scene, null, isInitialFrame);
+                isInitialFrame = false;
+            }
+        }
+        Time.setFrame(options.screenshotFrame);
+
+        display.renderer.render(scene, null, isInitialFrame);
+
+        scene.swapChain.readColorAttachment(SceneRenderTarget.DEFAULT_RT.name, frameCpuBuffer, options.displayOptions.background);
+        frameImage.setRGB(0, 0, outputWidth, outputHeight, frameCpuBuffer, outputWidth*(outputHeight-1), -outputWidth);
+
+        if (options.noOutput) {
+            Main.logger.info("Image generated but not save because --no-output is specified");
+        } else {
+            try {
+                String imageFormat = FilesUtils.getFileExtension(outputFile).toUpperCase();
+                ImageIO.write(frameImage, imageFormat, outputFile);
+                Main.logger.info("Wrote '" + outputFile.getPath() + "'");
+            } catch (IOException e) {
+                Main.logger.err("Could not write file '" + outputFile.getPath() + "': " + e.getMessage());
+            }
+        }
+
+        if (options.openViewer) {
+            while (!GLWindow.shouldDispose()) {
+                WindowBlit.blitToScreen(scene.swapChain.getAttachment(SceneRenderTarget.DEFAULT_RT.name), false);
+                GLWindow.endFrame();
+            }
+        }
+    }
+
+    public static void runOnEach(Main.ImagePassOptions options, File fragment, File[] inputFiles) {
         Main.logger.info("-- Running image shader pass --");
 
         Display display;
@@ -37,7 +113,7 @@ public class EntryImage extends SetupUtils {
             scene = createScene(options.displayOptions, fragment);
         } catch (BadInitException e) {
             Main.logger.err(e.getMessage());
-            Main.exit();
+            Main.exitWithError();
             throw new UnreachableException();
         }
 

@@ -155,8 +155,13 @@ public class Main {
 		@Option(name = "--run-from", valueName = "frame", desc = "Run the shader from <frame> up to the screenshot frame, useful when the shader uses rendertargets")
 		public int runFromFrame = NO_RUN_FROM_FRAME;
 		@Option(name = "--screenshot-frame", shorthand = "-f", valueName = "frame", desc = "Take the screenshot at frame <frame>, previous frames are not simulated if --run-from is not specified")
-		public int screenshotFrame;
-
+		public int screenshotFrame = 0;
+		@Option(name = "--framerate", desc = "Framerate, useful when --run-from or --screenshot-frame are used")
+		public int framerate = 60;
+		@Option(name = "--viewer", desc = "Open the viewer on the generated image")
+		public boolean openViewer = false;
+		@Option(name = "--no-output", desc = "Do not write the output file, use with --viewer or as a sanity check")
+		public boolean noOutput = false;
 	}
 	
 	@EntryPoint(path = "snippets", help = "Prints a set of useful glsl snippets, filter with -f and print code with -c")
@@ -187,8 +192,15 @@ public class Main {
 	
 	@Argument(name = "fragment", desc = "The fragment shader file")
 	@Argument(name = "file", desc = "One or more image files to apply the shader to")
-	@EntryPoint(path = "image", help = "Applies a shader to an image and saves the output")
+	@EntryPoint(path = "image", help = "Applies a shader on each input image and saves the output")
 	public static void applyShaderToImages(ImagePassOptions options, File fragment, File... inputFiles) {
+		EntryImage.runOnEach(options, fragment, inputFiles);
+	}
+
+	@Argument(name = "fragment", desc = "The fragment shader file")
+	@Argument(name = "input files", desc = "Any number of input image/videos that can be used with sampler2D", defaultValue = Argument.DEFAULT_EMPTY)
+	@EntryPoint(path = "screenshot", help = "Runs a shader a single time and saves the output")
+	public static void generateScreenshot(ImagePassOptions options, File fragment, File... inputFiles) {
 		EntryImage.run(options, fragment, inputFiles);
 	}
 	
@@ -198,6 +210,10 @@ public class Main {
 	 */
 	public static void exit() {
 		System.exit(0);
+	}
+
+	public static void exitWithError() {
+		System.exit(1);
 	}
 	
 }

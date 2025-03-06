@@ -1,7 +1,6 @@
 package wonder.shaderdisplay.entry;
 
 import fr.wonder.commons.exceptions.ErrorWrapper;
-import fr.wonder.commons.files.FilesUtils;
 import fr.wonder.commons.loggers.Logger;
 import wonder.shaderdisplay.serial.InputFiles;
 import wonder.shaderdisplay.Main;
@@ -99,20 +98,24 @@ public class SetupUtils {
     }
 
     private static Scene createSimpleScene(Main.DisplayOptions options, File fragmentFile) throws BadInitException {
-        SceneRenderTarget renderTarget = SceneRenderTarget.DEFAULT_RT;
+        SceneRenderTarget mainRenderTarget = SceneRenderTarget.DEFAULT_RT;
+        SceneRenderTarget mainRenderTargetCopy = SceneRenderTarget.DEFAULT_RT_COPY;
         ErrorWrapper errors = new ErrorWrapper("Could not build a simple scene");
+        Scene scene = new Scene();
+        scene.renderTargets.add(mainRenderTarget);
+        scene.renderTargets.add(mainRenderTargetCopy);
 
         SceneClearLayer clearLayer = SceneParser.makeClearLayer(
             errors,
             null, // display name deduced
-            new ExecutionCondition[] { ExecutionCondition.alwaysPassing() },
-            new String[] { renderTarget.name },
+            ExecutionCondition.alwaysPassOnce(),
+            new String[] { mainRenderTarget.name },
             new float[] { 0,0,0,1 },
             1
         );
         SceneStandardLayer mainLayer = new SceneStandardLayer(
             null, // display name deduced from shader file
-            new ExecutionCondition[] { ExecutionCondition.alwaysPassing() },
+            ExecutionCondition.alwaysPassOnce(),
             new ShaderFileSet()
                 .setFile(ShaderType.VERTEX, options.vertexShaderFile)
                 .setFile(ShaderType.GEOMETRY, options.geometryShaderFile)
@@ -121,17 +124,24 @@ public class SetupUtils {
                 .completeWithDefaultSources(),
             new Macro[0],
             new UniformDefaultValue[0],
-            new RenderState(),
-            new String[] { renderTarget.name },
+            RenderState.makeSimpleBlitRenderState(),
+            new String[] { mainRenderTarget.name },
             new SSBOBinding[0],
             VertexLayout.DEFAULT_LAYOUT,
             Mesh.makeFullscreenTriangleMesh()
         );
+        SceneLayer copyMainRTLayer = SceneParser.makeBlitLayer(
+            errors,
+            "copy-screen",
+            scene,
+            new String[] { mainRenderTargetCopy.name },
+            mainRenderTarget.name
+        );
+        copyMainRTLayer.isBuiltinHiddenLayer = true;
 
-        Scene scene = new Scene();
-        scene.renderTargets.add(renderTarget);
         scene.layers.add(clearLayer);
         scene.layers.add(mainLayer);
+        scene.layers.add(copyMainRTLayer);
 
         ShaderCompiler compiler = new ShaderCompiler(scene);
         compiler.compileShaders(errors, mainLayer);

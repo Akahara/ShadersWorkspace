@@ -19,6 +19,7 @@ public class TextureUniform extends NonEditableUniform {
 	private final int inputTextureSlot;
 	private final Texture fixedInputTexture;
 	private final String fixedTextureName;
+	private final String fixedRenderTargetName;
 
 	private String currentlyBoundTextureName;
 	
@@ -31,6 +32,16 @@ public class TextureUniform extends NonEditableUniform {
 		this.fixedInputTexture = texture;
 		this.inputTextureSlot = -1;
 		this.fixedTextureName = textureName;
+		this.fixedRenderTargetName = null;
+	}
+
+	public TextureUniform(int program, String name, String renderTargetName) {
+		super(name);
+		this.location = new ValueLocationCache(program, name).getLocation(0);
+		this.fixedInputTexture = null;
+		this.inputTextureSlot = -1;
+		this.fixedTextureName = null;
+		this.fixedRenderTargetName = renderTargetName;
 	}
 
 	public TextureUniform(int program, String name, int inputTextureSlot) {
@@ -39,6 +50,7 @@ public class TextureUniform extends NonEditableUniform {
 		this.fixedInputTexture = null;
 		this.inputTextureSlot = inputTextureSlot;
 		this.fixedTextureName = null;
+		this.fixedRenderTargetName = null;
 	}
 
 	public TextureUniform(int program, String name) {
@@ -52,6 +64,10 @@ public class TextureUniform extends NonEditableUniform {
 		Texture boundTexture = null;
 		UniformDefaultValue defaultUniformValue = context.getDefaultUniform(name);
 
+		if (boundTexture == null && fixedRenderTargetName != null) {
+			boundTexture = context.getRenderTargetReadableTexture(name, fixedRenderTargetName);
+			currentlyBoundTextureName = "render target '" + fixedRenderTargetName + "'";
+		}
 		if (boundTexture == null && defaultUniformValue != null) {
 			boundTexture = context.getRenderTargetReadableTexture(name, defaultUniformValue.value);
 			currentlyBoundTextureName = "render target '" + defaultUniformValue.value + "'";
@@ -82,6 +98,9 @@ public class TextureUniform extends NonEditableUniform {
 				  uniform sampler2D u_texture; // texturepath.png
 				Or use one of the built-in textures by giving its id:
 				  uniform sampler2D u_texture; // builtin 0
+				Or to get the previous frame render target:
+				  uniform sampler2D u_texture; // target 0
+				  Only available when not using a scene file!
 				Or use render targets using a scene file:
 				  {
 				    "rendertargets": [ { "name": "somerendertarget" } ],

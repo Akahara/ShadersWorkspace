@@ -14,6 +14,7 @@ public class SceneRenderTarget {
     public RenderTargetType type = RenderTargetType.TEXTURE;
 
     public static SceneRenderTarget DEFAULT_RT = new SceneRenderTarget();
+    public static SceneRenderTarget DEFAULT_RT_COPY = new SceneRenderTarget();
 
     public boolean sizeMatch(SceneRenderTarget other) {
         return width == other.width && height == other.height && screenRelative == other.screenRelative;
@@ -21,6 +22,7 @@ public class SceneRenderTarget {
 
     static {
         DEFAULT_RT.name = "screen";
+        DEFAULT_RT_COPY.name = "screen-copy";
     }
 
     public enum RenderTargetType {

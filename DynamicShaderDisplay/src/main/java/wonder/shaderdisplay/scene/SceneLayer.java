@@ -7,6 +7,7 @@ import java.util.stream.Stream;
 public abstract class SceneLayer {
 
     public boolean enabled = true;
+    public boolean isBuiltinHiddenLayer = false;
     protected final String displayName;
     public final ExecutionCondition[] executions;
 

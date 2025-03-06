@@ -254,6 +254,33 @@ public class SceneParser {
         return layer;
     }
 
+    public static SceneLayer makeBlitLayer(ErrorWrapper errors, String displayName, Scene scene, String[] renderTargets, String source) {
+        Stream<Macro> macros = IntStream.range(0, renderTargets.length).mapToObj(i -> new Macro("BLIT_TARGET_"+i));
+
+        // TODO blit depth textures
+
+        SceneStandardLayer layer = new SceneStandardLayer(
+            displayName,
+            ExecutionCondition.alwaysPassOnce(),
+            new ShaderFileSet()
+                    .setFixedPrimarySourceName("blit_pass")
+                    .setRawSource(ShaderType.FRAGMENT, Resources.readResource("/passes/blit.fs"))
+                    .setRawSource(ShaderType.VERTEX, Resources.readResource("/passes/passthrough.vs")),
+            macros.toArray(Macro[]::new),
+            new UniformDefaultValue[] { UniformDefaultValue.withValue("u_source", source) },
+            RenderState.makeSimpleBlitRenderState(),
+            renderTargets,
+            new SSBOBinding[0],
+            VertexLayout.DEFAULT_LAYOUT,
+            Mesh.makeFullscreenTriangleMesh()
+        );
+
+        new ShaderCompiler(null).compileShaders(errors, layer);
+        validateLayerRenderTargets(errors, scene, renderTargets, layer.renderState);
+
+        return layer;
+    }
+
     private static File asOptionalPath(File sceneFile, String optRoot, String optPath) {
         if (optPath == null)
             return null;

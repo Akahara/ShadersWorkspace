@@ -23,6 +23,10 @@ public abstract class ExecutionCondition {
         return new OnPresetCondition(OnPresetCondition.Type.ALWAYS);
     }
 
+    public static ExecutionCondition[] alwaysPassOnce() {
+        return new ExecutionCondition[] { alwaysPassing() };
+    }
+
     public static class TimeBasedCondition extends ExecutionCondition {
 
         public int afterFrame = -1, beforeFrame = -1;
@@ -50,6 +54,7 @@ public abstract class ExecutionCondition {
         @JsonProperty(required = true)
         public Type type;
 
+        @SuppressWarnings("unused")
         public OnPresetCondition() {}
         public OnPresetCondition(Type type) { this.type = type; }
 

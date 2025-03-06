@@ -5,6 +5,7 @@ import wonder.shaderdisplay.Main;
 import wonder.shaderdisplay.display.Texture;
 import wonder.shaderdisplay.scene.RenderableLayer;
 import wonder.shaderdisplay.scene.Scene;
+import wonder.shaderdisplay.scene.SceneRenderTarget;
 import wonder.shaderdisplay.uniforms.GLUniformType.FloatUniformControl;
 import wonder.shaderdisplay.uniforms.GLUniformType.IntUniformControl;
 import wonder.shaderdisplay.uniforms.arbitrary.*;
@@ -160,6 +161,8 @@ public class UniformsContext {
 			return new TextureUniform(program, u.name, texture, path);
 		} else if (path.matches("input \\d+")) {
 			return new TextureUniform(program, u.name, Integer.parseInt(path.substring("input ".length())));
+		} else if (path.matches("target 0")) {
+			return new TextureUniform(program, u.name, SceneRenderTarget.DEFAULT_RT_COPY.name);
 		} else if (!path.isEmpty()) { // normal texture, loaded from user files
 			Texture texture = Texture.loadTexture(Paths.get(path).toFile());
 			return new TextureUniform(program, u.name, texture, path);

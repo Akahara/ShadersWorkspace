@@ -16,6 +16,14 @@ public class RenderState {
     public Topology topology = Topology.TRIANGLES;
     public int tessellationPatchSize = -1;
 
+    public static RenderState makeSimpleBlitRenderState() {
+        RenderState rs = new RenderState();
+        rs.isDepthTestEnabled = false;
+        rs.isDepthWriteEnabled = false;
+        rs.culling = Culling.NONE;
+        return rs;
+    }
+
     public enum Culling {
         BACK, FRONT, NONE;
 
