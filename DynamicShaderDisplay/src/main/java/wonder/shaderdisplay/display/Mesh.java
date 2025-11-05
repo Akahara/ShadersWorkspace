@@ -9,9 +9,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-import static org.lwjgl.assimp.Assimp.aiProcess_JoinIdenticalVertices;
-import static org.lwjgl.assimp.Assimp.aiProcess_Triangulate;
+import static org.lwjgl.assimp.Assimp.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL40.GL_PATCHES;
@@ -76,16 +76,6 @@ public class Mesh {
         this(sourceFile, vertexData, topology == Topology.TRIANGLE_LIST ? indices : null, topology == Topology.LINE_LIST ? indices : null);
     }
 
-    private Mesh() {
-        this.sourceFile = null;
-        this.triangleIbo = 0;
-        this.lineIbo = 0;
-        this.vao = 0;
-        this.vbo = 0;
-        this.triangleIndexCount = 0;
-        this.lineVertexCount = 0;
-    }
-
     public enum Topology {
         TRIANGLE_LIST(3, GL_TRIANGLES),
         LINE_LIST(2, GL_LINES),
@@ -134,14 +124,15 @@ public class Mesh {
         List<Integer> lineIndexData = new ArrayList<>();
 
         int meshIndexOffset = 0;
-        try (AIScene scene = Assimp.aiImportFile(file.getAbsolutePath(), aiProcess_JoinIdenticalVertices | aiProcess_Triangulate)) {
+        int flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_PreTransformVertices;
+        try (AIScene scene = Assimp.aiImportFile(file.getAbsolutePath(), flags)) {
             if (scene == null)
                 throw new IOException("Could not load mesh file");
             int numMeshes = scene.mNumMeshes();
             if (numMeshes == 0)
                 Main.logger.warn("File '" + file + "' contains 0 meshes");
             for (int i = 0; i < numMeshes; i++) {
-                try (AIMesh mesh = AIMesh.create(scene.mMeshes().get(i))) {
+                try (AIMesh mesh = AIMesh.create(Objects.requireNonNull(scene.mMeshes()).get(i))) {
                     AIVector3D.Buffer vertices = mesh.mVertices();
                     AIVector3D.Buffer uvs = mesh.mTextureCoords(0);
                     AIVector3D.Buffer normals = mesh.mNormals();

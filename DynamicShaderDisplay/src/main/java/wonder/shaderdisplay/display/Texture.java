@@ -101,17 +101,6 @@ public class Texture {
 	public static void setUseCache(boolean useCache) {
 		Texture.useCache = useCache;
 	}
-	
-	public static boolean isUsingCache() {
-		return useCache;
-	}
-	
-	public static void unloadTextures() {
-		for(Texture texture : cachedTextures.values())
-			texture.dispose();
-		cachedTextures.clear();
-		Main.logger.debug("Unloaded textures");
-	}
 
 	public Texture(int width, int height, int[] data) {
 		this.width = width;
@@ -181,23 +170,17 @@ public class Texture {
 		else
 			image.getRGB(0, 0, width, height, data, width*(height-1), -width);
 		
-		int[] pixelsData = new int[width*height];
-		for(int i = 0; i < height; i++) {
-			for(int j = 0; j < width; j++) {
-				int pos = i*width+j;
-				int a = (data[pos] & 0xff000000) >> 24;
-				int r = (data[pos] & 0x00ff0000) >> 16;
-				int g = (data[pos] & 0x0000ff00) >> 8;
-				int b = (data[pos] & 0x000000ff);
-				pixelsData[i*width+j] =
-						a << 24 |
-						b << 16 |
-						g << 8 |
-						r;
-			}
+		return data;
+	}
+
+	public static void transposeRGBAToBGRA(int[] pixels) {
+		for(int i = 0; i < pixels.length; i++) {
+			int a = (pixels[i] & 0xff000000) >> 24;
+			int r = (pixels[i] & 0x00ff0000) >> 16;
+			int g = (pixels[i] & 0x0000ff00) >> 8;
+			int b = (pixels[i] & 0x000000ff);
+			pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
 		}
-		
-		return pixelsData;
 	}
 
 	public void dispose() {

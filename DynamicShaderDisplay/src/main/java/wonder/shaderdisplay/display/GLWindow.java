@@ -185,7 +185,8 @@ public class GLWindow {
 		return glfwWindowShouldClose(window);
 	}
 	
-	public static void dispose() {
+	@SuppressWarnings("DataFlowIssue")
+    public static void dispose() {
 		Callbacks.glfwFreeCallbacks(window);
 		glfwSetErrorCallback(null).free();
 		for(Callback callback : closeableCallbacks)
@@ -225,6 +226,7 @@ public class GLWindow {
 		}
 		int w = iconImage.getWidth(), h = iconImage.getHeight();
 		int[] rgbArray = Texture.loadTextureData(iconImage, true);
+		Texture.transposeRGBAToBGRA(rgbArray);
 		ByteBuffer iconBytes = ByteBuffer.allocateDirect(w*h*4).order(ByteOrder.LITTLE_ENDIAN);
 		iconBytes.asIntBuffer().put(rgbArray);
 		icon.set(w, h, iconBytes);

@@ -8,6 +8,7 @@ import wonder.shaderdisplay.display.ShaderType;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,9 +31,9 @@ public class Resources {
 
 	public static final List<Snippet> snippets = new ArrayList<>();
 
-	private static TemplateSceneFiles TEMPLATE_STANDARD = new TemplateSceneFiles("/templates/template_standard", true, "scene.json")
+	private static final TemplateSceneFiles TEMPLATE_STANDARD = new TemplateSceneFiles("/templates/template_standard", true, "scene.json")
 			.add("shader.fs");
-	private static TemplateSceneFiles TEMPLATE_COMPUTE = new TemplateSceneFiles("/templates/template_compute", false, "scene.json")
+	private static final TemplateSceneFiles TEMPLATE_COMPUTE = new TemplateSceneFiles("/templates/template_compute", false, "scene.json")
 			.add("compute.comp")
 			.add("shader.vsfs");
 
@@ -107,7 +108,7 @@ public class Resources {
 			}
 
 			Main.logger.debug("Loaded " + snippets.size() + " snippets");
-		} catch (IOException e) {
+		} catch (IOException | UncheckedIOException e) {
 			Main.logger.err(e, "Could not load all snippets");
 		} finally {
 			snippets.sort(Comparator.comparing(s -> s.name));
@@ -153,7 +154,7 @@ public class Resources {
 		switch (sceneTemplate)
 		{
 			case FRAMEBUFFERS -> setupMissingFragment(sceneFile, "/templates/default_fragment_framebuffers.fs");
-			case RAYCASTING -> setupMissingFragment(sceneFile, "/templates/default_fragment_raycasting.fs.fs");
+			case RAYCASTING -> setupMissingFragment(sceneFile, "/templates/default_fragment_raycasting.fs");
 			case SHADERTOY -> setupMissingFragment(sceneFile, "/templates/default_fragment_shadertoy.fs");
 			case STANDARD -> {
 				if (hasAnyExtension(sceneFile, COMMON_SCENE_EXTENSIONS))
